@@ -27,14 +27,10 @@ export function scoreMember(pred = {}, result = {}, scoring = SCORING) {
   for (const k of Object.keys(grRes)) {
     const mine = gr[k] || [];
     const act = grRes[k] || [];
-    let streak = true;
     for (let i = 0; i < 3; i++) {
-      if (!streak) break;
       if (mine[i] && act[i] && mine[i] === act[i]) {
         rankPts += scoring.rankHit;
         rankHits += 1;
-      } else {
-        streak = false;
       }
     }
   }
