@@ -82,7 +82,7 @@ export const DEFAULT_CONFIG = {
       sf:    ['ARG', 'FRA'],
       final: ['ARG'],
     },
+    knockout: { r32: [], r16: [], qf: [], sf: [] },
   },
   schedule: [],
-  r16Teams: [],
 };

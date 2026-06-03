@@ -25,21 +25,6 @@ export function validateConfig(input) {
   }
   const known = (c) => codes.has(c);
 
-  // r16Teams（0 または 16、空文字スロット許容、非空は既知コード）
-  let r16Teams = [];
-  if (input.r16Teams != null) {
-    if (!Array.isArray(input.r16Teams)) return { ok: false, error: 'r16Teams は配列が必要です' };
-    if (input.r16Teams.length !== 0 && input.r16Teams.length !== 16) {
-      return { ok: false, error: 'r16Teams は16要素（または空）が必要です' };
-    }
-    for (const c of input.r16Teams) {
-      if (c !== '' && !(isStr(c) && known(c.toUpperCase()))) {
-        return { ok: false, error: `r16Teams に未登録コード: ${c}` };
-      }
-    }
-    r16Teams = input.r16Teams.map((c) => (c ? c.toUpperCase() : ''));
-  }
-
   // scorerSuggest
   let scorerSuggest = [];
   if (input.scorerSuggest != null) {
@@ -64,8 +49,20 @@ export function validateConfig(input) {
     }
     bracket[r] = arr.map((c) => c.toUpperCase());
   }
+  // knockout（採点用の到達チーム集合。各ラウンドは既知コードのみ。空可）
+  const ki = isObj(ri.knockout) ? ri.knockout : {};
+  const knockout = {};
+  for (const r of ['r32', 'r16', 'qf', 'sf']) {
+    const arr = Array.isArray(ki[r]) ? ki[r] : [];
+    for (const c of arr) {
+      if (!(isStr(c) && known(c.toUpperCase()))) {
+        return { ok: false, error: `result.knockout.${r} に未登録コード: ${c}` };
+      }
+    }
+    knockout[r] = arr.map((c) => c.toUpperCase());
+  }
   const topScorer = isStr(ri.topScorer) ? ri.topScorer.trim() : '';
-  const result = { champion, runnerUp, topScorer, bracket };
+  const result = { champion, runnerUp, topScorer, bracket, knockout };
 
   // schedule（緩め）
   let schedule = [];
@@ -129,5 +126,5 @@ export function validateConfig(input) {
     }
   }
 
-  return { ok: true, value: { version: 1, updatedAt: null, teams, r16Teams, scorerSuggest, result, schedule, groups, groupResult } };
+  return { ok: true, value: { version: 1, updatedAt: null, teams, scorerSuggest, result, schedule, groups, groupResult } };
 }

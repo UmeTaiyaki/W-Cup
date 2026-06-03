@@ -7,7 +7,7 @@ test('デフォルト設定は妥当', () => {
   const r = validateConfig(DEFAULT_CONFIG);
   assert.equal(r.ok, true);
   assert.equal(r.value.teams.length, 48);
-  assert.equal(r.value.r16Teams.length, 0);
+  assert.ok(r.value.result.knockout);
 });
 
 test('teams が無いと失敗', () => {
@@ -33,14 +33,6 @@ test('result.champion が teams に無いと失敗', () => {
   assert.match(r.error, /champion/);
 });
 
-test('r16Teams は 0 か 16 以外の長さで失敗', () => {
-  const r = validateConfig({
-    teams: [{ code: 'AAA', ja: 'A' }],
-    r16Teams: ['AAA', 'AAA'],
-  });
-  assert.equal(r.ok, false);
-  assert.match(r.error, /r16Teams/);
-});
 
 test('欠損フィールドは正規化で補完される', () => {
   const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }] });
@@ -126,4 +118,23 @@ test('groupResult: 同一チームを複数順位は失敗', () => {
 test('groups: 空文字スロットの重複は許容', () => {
   const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }], groups: { A: ['AAA', '', '', ''] } });
   assert.equal(r.ok, true);
+});
+
+test('result.knockout は既知コードのみ許容し正規化', () => {
+  const r = validateConfig({
+    teams: [{ code: 'ARG', ja: 'A' }, { code: 'FRA', ja: 'F' }],
+    result: { knockout: { r32: ['arg', 'fra'], r16: ['ARG'], qf: [], sf: [] } },
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.result.knockout.r32, ['ARG', 'FRA']);
+  assert.deepEqual(r.value.result.knockout.sf, []);
+});
+
+test('result.knockout に未登録コードは失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'ARG', ja: 'A' }],
+    result: { knockout: { r32: ['ZZZ'] } },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /knockout/);
 });
