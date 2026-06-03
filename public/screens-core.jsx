@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false }) {
+function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, dashboard = false }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
   const done = (pred.champion ? 1 : 0) + (pred.runnerUp ? 1 : 0) + (pred.topScorer ? 1 : 0);
@@ -126,6 +126,61 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
     </div>
   );
 
+  // みんなのオプション予想（タップで読み取り専用ビューアへ）
+  const OptionsRoster = ({ flush = false }) => {
+    const GK = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+    const SLOTS = window.WC.WILDCARD_SLOTS || [];
+    const Pill = ({ emoji, text, on }) => (
+      <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700,
+        color: on ? T.text : T.faint, background: on ? `${T.accent}1A` : T.panel2,
+        borderRadius: 7, padding: '3px 7px', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 12 }}>{emoji}</span>{text}</span>
+    );
+    return (
+      <div style={{ marginTop: flush ? 0 : 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: 10 }}>
+          <span style={{ fontWeight: 800, fontSize: 16, color: T.text }}>みんなのオプション予想</span>
+          <span style={{ fontFamily: 'Archivo', fontWeight: 700, fontSize: 10, letterSpacing: 1.2,
+            color: T.faint }}>タップで詳細</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {M.map(m => {
+            const p = state.preds[m.id] || {};
+            const gr = p.groupRank || {}, ta = p.thirdAssign || {};
+            const grDone = GK.filter(k => (gr[k] || []).length >= 3).length;
+            const taDone = SLOTS.filter(s => ta[s]).length;
+            const der = window.WC.deriveKnockout(gr, ta, p.knockout || {});
+            const koAny = ['r32', 'r16', 'qf', 'sf'].some(r => (der.winners[r] || []).some(Boolean));
+            const none = grDone === 0 && taDone === 0 && !koAny;
+            return (
+              <button key={m.id} onClick={() => goView && goView(m.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+                border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: T.card,
+                borderRadius: 16, padding: '10px 13px', boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+                <Avatar m={m} size={32} T={T} />
+                <span style={{ fontWeight: 700, color: T.text, fontSize: 14.5, flexShrink: 0 }}>{m.name}</span>
+                <div style={{ display: 'flex', gap: 5, flex: 1, justifyContent: 'flex-end',
+                  flexWrap: 'wrap', minWidth: 0 }}>
+                  {none ? (
+                    <span style={{ fontSize: 12, color: T.faint, fontWeight: 600 }}>未予想</span>
+                  ) : (
+                    <>
+                      <Pill emoji="📊" text={`${grDone}/12`} on={grDone > 0} />
+                      <Pill emoji="🎯" text={`${taDone}/${SLOTS.length}`} on={taDone > 0} />
+                      <Pill emoji="🏟" text={koAny ? '✓' : '—'} on={koAny} />
+                    </>
+                  )}
+                </div>
+                <Icon name="chevron" size={17} color={T.faint} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // 優勝予想の分布（ダッシュボード用）
   const ChampDist = () => {
     const counts = {};
@@ -175,6 +230,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Panel><Everyone flush /></Panel>
+            <Panel><OptionsRoster flush /></Panel>
             <Panel><ChampDist /></Panel>
           </div>
         </div>
@@ -193,7 +249,10 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
             <Picks />
             <EditBtn />
           </div>
-          <Panel><Everyone flush /></Panel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Panel><Everyone flush /></Panel>
+            <Panel><OptionsRoster flush /></Panel>
+          </div>
         </div>
       </div>
     );
@@ -207,6 +266,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
       <Picks />
       <EditBtn />
       <Everyone />
+      <OptionsRoster />
     </div>
   );
 }

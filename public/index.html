@@ -55,6 +55,7 @@
   <script type="text/babel" src="screens-group.jsx"></script>
   <script type="text/babel" src="screens-grouprank.jsx"></script>
   <script type="text/babel" src="screens-thirdwild.jsx"></script>
+  <script type="text/babel" src="screens-optview.jsx"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -78,6 +79,7 @@
       const [state, setState] = useState(() => window.WC.load());
       const [tab, setTab] = useState('summary');
       const [optScreen, setOptScreen] = useState(null); // 'grouprank' | 'thirdwild' | 'knockout' | null
+      const [viewOpt, setViewOpt] = useState(null); // 閲覧中メンバーID（オプション予想ビューア）| null
       const [adding, setAdding] = useState(false);
       const [newName, setNewName] = useState('');
       const [, setCfgLoaded] = useState(0);
@@ -102,7 +104,7 @@
       const pred = state.preds[state.current];
 
       function persist(next) { setState(next); window.WC.save(next); }
-      function setCurrent(id) { setOptScreen(null); persist({ ...state, current: id }); }
+      function setCurrent(id) { setOptScreen(null); setViewOpt(null); persist({ ...state, current: id }); }
       function commitAdd() {
         const next = window.WC.addMember(state, newName);
         setState(next); setNewName(''); setAdding(false); goTab('input');
@@ -125,8 +127,8 @@
       function setKnockout(winners) {
         persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, knockout: winners } } });
       }
-      function goTab(id) { setOptScreen(null); setTab(id); }
-      function doReset() { setOptScreen(null); persist(window.WC.reset()); setTab('summary'); }
+      function goTab(id) { setOptScreen(null); setViewOpt(null); setTab(id); }
+      function doReset() { setOptScreen(null); setViewOpt(null); persist(window.WC.reset()); setTab('summary'); }
 
       // ---- レスポンシブ判定（コンテナ幅基準）----
       const appRef = useRef(null);
@@ -153,14 +155,16 @@
 
       // 右レールの表示可否＆ブラケットの利用可能幅
       const railShown = isDesktop && t.dtLayout === 'split' && contW >= 1180
-        && (tab === 'summary' || tab === 'input');
+        && !viewOpt && (tab === 'summary' || tab === 'input');
       const contentAvail = Math.max(360, contW - 256 - (railShown ? 300 : 0) - 72);
       const narrowTab = tab === 'input';
       const wrapMax = narrowTab ? 700 : 1120;
 
       function renderScreen(wide) {
+        if (viewOpt) return <OptionViewScreen T={T} state={state} viewId={viewOpt}
+          setViewId={setViewOpt} goBack={() => setViewOpt(null)} wide={wide} availWidth={contentAvail} />;
         if (tab === 'summary') return <SummaryScreen T={T} state={state} member={member} pred={pred}
-          goTab={goTab} wide={wide} dashboard={wide && t.dtLayout === 'dashboard'} />;
+          goTab={goTab} goView={(id) => setViewOpt(id)} wide={wide} dashboard={wide && t.dtLayout === 'dashboard'} />;
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
@@ -177,7 +181,7 @@
         return null;
       }
 
-      const showSwitcher = tab === 'summary' || tab === 'input';
+      const showSwitcher = !viewOpt && (tab === 'summary' || tab === 'input');
 
       // ================= デスクトップ shell =================
       const desktopShell = (
@@ -190,7 +194,7 @@
             showWordmark={t.showWordmark} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-              <div key={tab + (optScreen || '')} style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
+              <div key={tab + (optScreen || '') + (viewOpt || '')} style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
                 {renderScreen(true)}
               </div>
             </div>
@@ -262,7 +266,7 @@
           </div>
 
           {/* 画面 */}
-          <div key={tab + (optScreen || '')} style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1,
+          <div key={tab + (optScreen || '') + (viewOpt || '')} style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1,
             paddingTop: showSwitcher ? 4 : 12 }}>
             <div style={{ maxWidth: 620, margin: '0 auto' }}>{renderScreen(false)}</div>
           </div>
