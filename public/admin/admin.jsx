@@ -1,10 +1,11 @@
 const { useState, useEffect } = React;
 
-const ROUNDS = [
-  { key: 'r16', label: 'ベスト16進出（8）' },
-  { key: 'qf', label: 'ベスト8進出（4）' },
-  { key: 'sf', label: 'ベスト4進出（2）' },
-  { key: 'final', label: '決勝進出/優勝（1）' },
+// ノックアウト実結果（採点の正解）。各ラウンド＝その段階に「到達」したチームの集合。
+const KNOCKOUT_ROUNDS = [
+  { key: 'r32', label: 'ベスト16進出（16）', cap: 16 },
+  { key: 'r16', label: 'ベスト8進出（8）', cap: 8 },
+  { key: 'qf', label: 'ベスト4進出（4）', cap: 4 },
+  { key: 'sf', label: '決勝進出（2）', cap: 2 },
 ];
 
 function api(path, opts) {
@@ -82,17 +83,17 @@ function Editor({ password, initial }) {
     });
   }
   function upResult(patch) { setCfg((c) => ({ ...c, result: { ...c.result, ...patch } })); }
-  function upBracket(round, arr) { setCfg((c) => ({ ...c, result: { ...c.result, bracket: { ...c.result.bracket, [round]: arr } } })); }
+  function upKnockout(round, arr) { setCfg((c) => ({ ...c, result: { ...c.result, knockout: { ...c.result.knockout, [round]: arr } } })); }
 
   // 出場国
   function setTeam(i, patch) { up({ teams: teams.map((t, j) => (j === i ? { ...t, ...patch } : t)) }); }
   function addTeam() { up({ teams: [...teams, { code: '', ja: '', flag: '', c: '#888888' }] }); }
   function delTeam(i) { up({ teams: teams.filter((_, j) => j !== i) }); }
 
-  // bracket toggle
-  function toggleBracket(round, code) {
-    const cur = cfg.result.bracket[round] || [];
-    upBracket(round, cur.includes(code) ? cur.filter((c) => c !== code) : [...cur, code]);
+  // knockout toggle（到達チームの集合をトグル）
+  function toggleKnockout(round, code) {
+    const cur = cfg.result.knockout[round] || [];
+    upKnockout(round, cur.includes(code) ? cur.filter((c) => c !== code) : [...cur, code]);
   }
 
   // scorerSuggest chips
@@ -171,19 +172,26 @@ function Editor({ password, initial }) {
             <datalist id="scorers">{cfg.scorerSuggest.map((s) => <option key={s} value={s} />)}</datalist>
           </label>
         </div>
-        {ROUNDS.map((r) => (
-          <div key={r.key} style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 13, color: '#9aa', marginBottom: 4 }}>{r.label}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {teams.map((t) => {
-                const on = (cfg.result.bracket[r.key] || []).includes(t.code);
-                return (
-                  <button key={t.code} onClick={() => toggleBracket(r.key, t.code)} style={{ ...inputStyle, cursor: 'pointer', background: on ? '#B6FF3C' : '#0f1a15', color: on ? '#0A1410' : '#ccc', fontWeight: on ? 800 : 400 }}>{t.flag} {t.code}</button>
-                );
-              })}
+        <p style={{ fontSize: 12, color: '#9aa', margin: '4px 0 10px' }}>各ラウンドに「到達」したチームを選択（採点はこの集合との一致で加点）。</p>
+        {KNOCKOUT_ROUNDS.map((r) => {
+          const sel = cfg.result.knockout[r.key] || [];
+          const over = sel.length > r.cap;
+          return (
+            <div key={r.key} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 13, color: over ? '#FF6B6B' : '#9aa', marginBottom: 4 }}>
+                {r.label} <span style={{ fontWeight: 800 }}>{sel.length}/{r.cap}</span>{over ? ' ⚠ 多すぎます' : ''}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {teams.map((t) => {
+                  const on = sel.includes(t.code);
+                  return (
+                    <button key={t.code} onClick={() => toggleKnockout(r.key, t.code)} style={{ ...inputStyle, cursor: 'pointer', background: on ? '#B6FF3C' : '#0f1a15', color: on ? '#0A1410' : '#ccc', fontWeight: on ? 800 : 400 }}>{t.flag} {t.code}</button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </Section>
 
       <Section title="得点王候補（将来の選手名簿の足場）">
@@ -232,11 +240,11 @@ function Admin() {
       const raw = await r.json();
       // 正規化（欠損フィールド補完・イミュータブル）
       const baseResult = raw.result && typeof raw.result === 'object' ? raw.result : {};
-      const rawBracket = baseResult.bracket && typeof baseResult.bracket === 'object' ? baseResult.bracket : {};
-      const bracket = { r16: rawBracket.r16 || [], qf: rawBracket.qf || [], sf: rawBracket.sf || [], final: rawBracket.final || [] };
+      const rawKo = baseResult.knockout && typeof baseResult.knockout === 'object' ? baseResult.knockout : {};
+      const knockout = { r32: rawKo.r32 || [], r16: rawKo.r16 || [], qf: rawKo.qf || [], sf: rawKo.sf || [] };
       const cfg = {
         ...raw,
-        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', bracket },
+        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', knockout },
         scorerSuggest: Array.isArray(raw.scorerSuggest) ? raw.scorerSuggest : [],
         schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
         groups: raw.groups && typeof raw.groups === 'object' ? raw.groups : {},
