@@ -187,7 +187,7 @@
             showWordmark={t.showWordmark} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-              <div key={tab} style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
+              <div key={tab + (optScreen || '')} style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
                 {renderScreen(true)}
               </div>
             </div>
@@ -259,7 +259,7 @@
           </div>
 
           {/* 画面 */}
-          <div key={tab} style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1,
+          <div key={tab + (optScreen || '')} style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1,
             paddingTop: showSwitcher ? 4 : 12 }}>
             <div style={{ maxWidth: 620, margin: '0 auto' }}>{renderScreen(false)}</div>
           </div>

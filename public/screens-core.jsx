@@ -216,8 +216,9 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
   const gr = pred.groupRank || {};
   const ta = pred.thirdAssign || {};
   const grDone = ['A','B','C','D','E','F','G','H','I','J','K','L'].filter((k) => (gr[k] || []).length >= 3).length;
+  const wcCount = (window.WC.WILDCARD_SLOTS || []).length || 8;
   const taDone = (window.WC.WILDCARD_SLOTS || []).filter((s) => ta[s]).length;
-  const koReady = grDone === 12 && taDone === 8;
+  const koReady = grDone === 12 && taDone === wcCount;
   const [sheet, setSheet] = React.useState(null); // 'champ' | 'runner' | 'scorer'
   const [confirm, setConfirm] = React.useState(false);
   React.useEffect(() => { setConfirm(false); }, [member.id]);
@@ -276,7 +277,7 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <OptionCard T={T} emoji="📊" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
             onClick={() => goOption('grouprank')} />
-          <OptionCard T={T} emoji="🎯" title="3位ワイルドカード" sub={`8枠に3位を割当 · ${taDone}/8枠`}
+          <OptionCard T={T} emoji="🎯" title="3位ワイルドカード" sub={`${wcCount}枠に3位を割当 · ${taDone}/${wcCount}枠`}
             onClick={() => goOption('thirdwild')} />
           <OptionCard T={T} emoji="🏟" title="ノックアウト予想" sub={koReady ? 'ベスト32→決勝' : '先にグループ順位予想を'}
             onClick={() => koReady && goOption('knockout')} disabled={!koReady} />
