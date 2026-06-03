@@ -3,41 +3,57 @@
    window.WC に集約。Babel前に普通の<script>で読み込む。
    ============================================================ */
 (function () {
-  // ---- 出場国プール（32）------------------------------------
+  // ---- 出場国プール（48）------------------------------------
   // code / 日本語名 / 国旗 / チームカラー
   const TEAMS = [
-    { code: 'BRA', ja: 'ブラジル',       flag: '🇧🇷', c: '#FBE14B' },
-    { code: 'ARG', ja: 'アルゼンチン',   flag: '🇦🇷', c: '#75AADB' },
-    { code: 'FRA', ja: 'フランス',       flag: '🇫🇷', c: '#2D5BC4' },
-    { code: 'ENG', ja: 'イングランド',   flag: '🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', c: '#E64A4A' },
-    { code: 'ESP', ja: 'スペイン',       flag: '🇪🇸', c: '#E03A3A' },
-    { code: 'GER', ja: 'ドイツ',         flag: '🇩🇪', c: '#3A3A3A' },
-    { code: 'POR', ja: 'ポルトガル',     flag: '🇵🇹', c: '#1E8A4C' },
-    { code: 'NED', ja: 'オランダ',       flag: '🇳🇱', c: '#F5821F' },
-    { code: 'ITA', ja: 'イタリア',       flag: '🇮🇹', c: '#2C7DB5' },
-    { code: 'BEL', ja: 'ベルギー',       flag: '🇧🇪', c: '#D62B30' },
-    { code: 'CRO', ja: 'クロアチア',     flag: '🇭🇷', c: '#D1334A' },
-    { code: 'URU', ja: 'ウルグアイ',     flag: '🇺🇾', c: '#4FA0DA' },
-    { code: 'COL', ja: 'コロンビア',     flag: '🇨🇴', c: '#F4C430' },
-    { code: 'USA', ja: 'アメリカ',       flag: '🇺🇸', c: '#3B4C99' },
-    { code: 'MEX', ja: 'メキシコ',       flag: '🇲🇽', c: '#1E7C45' },
-    { code: 'CAN', ja: 'カナダ',         flag: '🇨🇦', c: '#D9322E' },
-    { code: 'JPN', ja: '日本',           flag: '🇯🇵', c: '#1B2A6B' },
-    { code: 'KOR', ja: '韓国',           flag: '🇰🇷', c: '#C8334A' },
-    { code: 'MAR', ja: 'モロッコ',       flag: '🇲🇦', c: '#16704A' },
-    { code: 'SEN', ja: 'セネガル',       flag: '🇸🇳', c: '#1E8A4C' },
-    { code: 'SUI', ja: 'スイス',         flag: '🇨🇭', c: '#D62B30' },
-    { code: 'DEN', ja: 'デンマーク',     flag: '🇩🇰', c: '#C63A3A' },
-    { code: 'ECU', ja: 'エクアドル',     flag: '🇪🇨', c: '#F4C430' },
-    { code: 'NGA', ja: 'ナイジェリア',   flag: '🇳🇬', c: '#1E8A4C' },
-    { code: 'AUS', ja: 'オーストラリア', flag: '🇦🇺', c: '#E0A100' },
-    { code: 'SRB', ja: 'セルビア',       flag: '🇷🇸', c: '#B23A48' },
-    { code: 'POL', ja: 'ポーランド',     flag: '🇵🇱', c: '#D6334C' },
-    { code: 'GHA', ja: 'ガーナ',         flag: '🇬🇭', c: '#D6334C' },
-    { code: 'EGY', ja: 'エジプト',       flag: '🇪🇬', c: '#C8334A' },
-    { code: 'IRN', ja: 'イラン',         flag: '🇮🇷', c: '#1E8A4C' },
-    { code: 'KSA', ja: 'サウジアラビア', flag: '🇸🇦', c: '#127A4A' },
-    { code: 'NOR', ja: 'ノルウェー',     flag: '🇳🇴', c: '#C63A4A' },
+    { code: 'MEX', ja: 'メキシコ',             flag: '🇲🇽', c: '#1E7C45' },
+    { code: 'KOR', ja: '韓国',                 flag: '🇰🇷', c: '#C8334A' },
+    { code: 'RSA', ja: '南アフリカ',           flag: '🇿🇦', c: '#007A4D' },
+    { code: 'CZE', ja: 'チェコ',               flag: '🇨🇿', c: '#2C5BB5' },
+    { code: 'CAN', ja: 'カナダ',               flag: '🇨🇦', c: '#D9322E' },
+    { code: 'SUI', ja: 'スイス',               flag: '🇨🇭', c: '#D62B30' },
+    { code: 'QAT', ja: 'カタール',             flag: '🇶🇦', c: '#8A1538' },
+    { code: 'BIH', ja: 'ボスニア・ヘルツェゴビナ', flag: '🇧🇦', c: '#2E4A9E' },
+    { code: 'BRA', ja: 'ブラジル',             flag: '🇧🇷', c: '#FBE14B' },
+    { code: 'MAR', ja: 'モロッコ',             flag: '🇲🇦', c: '#16704A' },
+    { code: 'SCO', ja: 'スコットランド',       flag: '🏴\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}', c: '#2A5BA8' },
+    { code: 'HAI', ja: 'ハイチ',               flag: '🇭🇹', c: '#1E50E6' },
+    { code: 'USA', ja: 'アメリカ',             flag: '🇺🇸', c: '#3B4C99' },
+    { code: 'AUS', ja: 'オーストラリア',       flag: '🇦🇺', c: '#E0A100' },
+    { code: 'PAR', ja: 'パラグアイ',           flag: '🇵🇾', c: '#C8334A' },
+    { code: 'TUR', ja: 'トルコ',               flag: '🇹🇷', c: '#E03A3A' },
+    { code: 'GER', ja: 'ドイツ',               flag: '🇩🇪', c: '#3A3A3A' },
+    { code: 'ECU', ja: 'エクアドル',           flag: '🇪🇨', c: '#F4C430' },
+    { code: 'CIV', ja: 'コートジボワール',     flag: '🇨🇮', c: '#F5821F' },
+    { code: 'CUW', ja: 'キュラソー',           flag: '🇨🇼', c: '#1B2A6B' },
+    { code: 'NED', ja: 'オランダ',             flag: '🇳🇱', c: '#F5821F' },
+    { code: 'JPN', ja: '日本',                 flag: '🇯🇵', c: '#1B2A6B' },
+    { code: 'TUN', ja: 'チュニジア',           flag: '🇹🇳', c: '#C8334A' },
+    { code: 'SWE', ja: 'スウェーデン',         flag: '🇸🇪', c: '#2C7DB5' },
+    { code: 'BEL', ja: 'ベルギー',             flag: '🇧🇪', c: '#D62B30' },
+    { code: 'IRN', ja: 'イラン',               flag: '🇮🇷', c: '#1E8A4C' },
+    { code: 'EGY', ja: 'エジプト',             flag: '🇪🇬', c: '#C8334A' },
+    { code: 'NZL', ja: 'ニュージーランド',     flag: '🇳🇿', c: '#1B2A6B' },
+    { code: 'ESP', ja: 'スペイン',             flag: '🇪🇸', c: '#E03A3A' },
+    { code: 'URU', ja: 'ウルグアイ',           flag: '🇺🇾', c: '#4FA0DA' },
+    { code: 'KSA', ja: 'サウジアラビア',       flag: '🇸🇦', c: '#127A4A' },
+    { code: 'CPV', ja: 'カーボベルデ',         flag: '🇨🇻', c: '#2D5BC4' },
+    { code: 'FRA', ja: 'フランス',             flag: '🇫🇷', c: '#2D5BC4' },
+    { code: 'SEN', ja: 'セネガル',             flag: '🇸🇳', c: '#1E8A4C' },
+    { code: 'NOR', ja: 'ノルウェー',           flag: '🇳🇴', c: '#C63A4A' },
+    { code: 'IRQ', ja: 'イラク',               flag: '🇮🇶', c: '#C8334A' },
+    { code: 'ARG', ja: 'アルゼンチン',         flag: '🇦🇷', c: '#75AADB' },
+    { code: 'AUT', ja: 'オーストリア',         flag: '🇦🇹', c: '#E64A4A' },
+    { code: 'ALG', ja: 'アルジェリア',         flag: '🇩🇿', c: '#16704A' },
+    { code: 'JOR', ja: 'ヨルダン',             flag: '🇯🇴', c: '#C8334A' },
+    { code: 'POR', ja: 'ポルトガル',           flag: '🇵🇹', c: '#1E8A4C' },
+    { code: 'COL', ja: 'コロンビア',           flag: '🇨🇴', c: '#F4C430' },
+    { code: 'UZB', ja: 'ウズベキスタン',       flag: '🇺🇿', c: '#2C7DB5' },
+    { code: 'COD', ja: 'DRコンゴ',             flag: '🇨🇩', c: '#2C9A4A' },
+    { code: 'ENG', ja: 'イングランド',         flag: '🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}', c: '#E64A4A' },
+    { code: 'CRO', ja: 'クロアチア',           flag: '🇭🇷', c: '#D1334A' },
+    { code: 'PAN', ja: 'パナマ',               flag: '🇵🇦', c: '#C8334A' },
+    { code: 'GHA', ja: 'ガーナ',               flag: '🇬🇭', c: '#D6334C' },
   ];
   const TEAM = {};
   TEAMS.forEach(t => { TEAM[t.code] = t; });
@@ -58,17 +74,23 @@
   ];
 
   // ---- 決勝トーナメント（ベスト16）の組み合わせ --------------
-  // 8試合ぶんのチーム（左→右、上から）
-  const R16_TEAMS = [
-    'BRA', 'MAR',   // M0
-    'POR', 'USA',   // M1
-    'ARG', 'JPN',   // M2
-    'NED', 'MEX',   // M3
-    'FRA', 'URU',   // M4
-    'ESP', 'CRO',   // M5
-    'ENG', 'BEL',   // M6
-    'GER', 'COL',   // M7
-  ];
+  const R16_TEAMS = []; // Phase A では未使用（Phase B で再設計）
+
+  // ---- グループ（A〜L 各4チーム。所属の単一の真実）----------
+  const GROUPS = {
+    A: ['MEX', 'KOR', 'RSA', 'CZE'],
+    B: ['CAN', 'SUI', 'QAT', 'BIH'],
+    C: ['BRA', 'MAR', 'SCO', 'HAI'],
+    D: ['USA', 'AUS', 'PAR', 'TUR'],
+    E: ['GER', 'ECU', 'CIV', 'CUW'],
+    F: ['NED', 'JPN', 'TUN', 'SWE'],
+    G: ['BEL', 'IRN', 'EGY', 'NZL'],
+    H: ['ESP', 'URU', 'KSA', 'CPV'],
+    I: ['FRA', 'SEN', 'NOR', 'IRQ'],
+    J: ['ARG', 'AUT', 'ALG', 'JOR'],
+    K: ['POR', 'COL', 'UZB', 'COD'],
+    L: ['ENG', 'CRO', 'PAN', 'GHA'],
+  };
 
   // ---- 配点 ---------------------------------------------------
   const SCORING = {
@@ -264,7 +286,8 @@
   }
 
   window.WC = {
-    TEAMS, TEAM, MEMBERS, MEMBER_COLORS, R16_TEAMS, SCORING, RESULT, SEED, SCORER_SUGGEST, THEMES,
+    TEAMS, TEAM, MEMBERS, MEMBER_COLORS, R16_TEAMS, GROUPS, GROUP_RESULT: {},
+    SCORING, RESULT, SEED, SCORER_SUGGEST, THEMES,
     load, save, reset, scoreMember, emptyPred, addMember, removeMember,
   };
 
@@ -288,6 +311,8 @@
       if (Array.isArray(cfg.scorerSuggest)) window.WC.SCORER_SUGGEST = cfg.scorerSuggest;
       if (cfg.result && typeof cfg.result === 'object') window.WC.RESULT = cfg.result;
       if (Array.isArray(cfg.schedule)) window.WC.SCHEDULE = cfg.schedule;
+      if (cfg.groups && typeof cfg.groups === 'object') window.WC.GROUPS = cfg.groups;
+      if (cfg.groupResult && typeof cfg.groupResult === 'object') window.WC.GROUP_RESULT = cfg.groupResult;
       return true;
     } catch (e) {
       return false;
