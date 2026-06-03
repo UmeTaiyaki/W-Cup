@@ -91,6 +91,50 @@ function Editor({ password, initial }) {
     upKnockout(round, cur.includes(code) ? cur.filter((c) => c !== code) : [...cur, code]);
   }
 
+  // ---- グループ試合スコア ----
+  // 現メンバーから6試合のフィクスチャを生成し、既存スコアを {a,b} ペアで引き継ぐ
+  function fixturesForCfg(c, k) {
+    const members = (c.groups[k] || []).filter(Boolean);
+    const gen = window.WC?.generateFixtures ? window.WC.generateFixtures(members) : [];
+    const existing = c.groupMatches?.[k] || [];
+    const find = (a, b) => existing.find((m) => (m.a === a && m.b === b) || (m.a === b && m.b === a));
+    return gen.map(({ a, b }) => {
+      const e = find(a, b);
+      return { a, b, ga: e ? (e.a === a ? e.ga : e.gb) : null, gb: e ? (e.a === a ? e.gb : e.ga) : null };
+    });
+  }
+  function fixturesFor(k) { return fixturesForCfg(cfg, k); }
+  function setMatchScore(k, idx, side, val) {
+    setCfg((c) => {
+      const list = fixturesForCfg(c, k);
+      const v = val === '' ? null : Math.max(0, Math.min(99, parseInt(val, 10) || 0));
+      list[idx] = { ...list[idx], [side]: v };
+      return { ...c, groupMatches: { ...c.groupMatches, [k]: list } };
+    });
+  }
+  function applyStandingsToRank(k) {
+    setCfg((c) => {
+      const members = (c.groups[k] || []).filter(Boolean);
+      const rows = window.WC?.computeStandings ? window.WC.computeStandings(members, fixturesForCfg(c, k)) : [];
+      const top = rows.map((r) => r.code).slice(0, 4);
+      return { ...c, groupResult: { ...c.groupResult, [k]: top } };
+    });
+  }
+
+  // ---- 実際の3位枠割当 ----
+  function setThird(slot, code) {
+    setCfg((c) => {
+      const ta = { ...c.result.thirdAssign };
+      if (code) ta[slot] = code; else delete ta[slot];
+      return { ...c, result: { ...c.result, thirdAssign: ta } };
+    });
+  }
+
+  // ---- 得点ランキング ----
+  function addScorer() { setCfg((c) => ({ ...c, scorers: [...c.scorers, { name: '', goals: 0 }] })); }
+  function setScorer(i, patch) { setCfg((c) => ({ ...c, scorers: c.scorers.map((s, j) => (j === i ? { ...s, ...patch } : s)) })); }
+  function delScorer(i) { setCfg((c) => ({ ...c, scorers: c.scorers.filter((_, j) => j !== i) })); }
+
   // scorerSuggest chips
   const [chip, setChip] = useState('');
   function addChip() { const v = chip.trim(); if (v && !cfg.scorerSuggest.includes(v)) up({ scorerSuggest: [...cfg.scorerSuggest, v] }); setChip(''); }
@@ -120,11 +164,12 @@ function Editor({ password, initial }) {
         <a href="/">予想アプリ →</a>
       </div>
 
-      <Section title="グループ（所属＋最終順位）">
+      <Section title="グループ（所属・試合スコア・最終順位）">
         {GROUP_KEYS.map((k) => {
           const members = cfg.groups[k] || ['', '', '', ''];
           const memberTeams = teams.filter((t) => (cfg.groups[k] || []).includes(t.code));
           const ranks = cfg.groupResult[k] || [];
+          const nameOf = (code) => { const t = teams.find((x) => x.code === code); return t ? `${t.flag} ${t.ja}` : code; };
           return (
             <div key={k} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #222' }}>
               <div style={{ fontWeight: 800, marginBottom: 6 }}>グループ {k}</div>
@@ -133,7 +178,20 @@ function Editor({ password, initial }) {
                   <TeamSelect key={i} teams={teams} value={members[i]} onChange={(c) => setGroupMember(k, i, c)} />
                 ))}
               </div>
-              <div style={{ fontSize: 12, color: '#9aa', marginBottom: 4 }}>最終順位</div>
+              <div style={{ fontSize: 12, color: '#9aa', margin: '6px 0 4px' }}>試合スコア</div>
+              {fixturesFor(k).map((m, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, fontSize: 13 }}>
+                  <span style={{ width: 150, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameOf(m.a)}</span>
+                  <input type="number" min="0" max="99" value={m.ga ?? ''} onChange={(e) => setMatchScore(k, idx, 'ga', e.target.value)} style={{ ...inputStyle, width: 48, textAlign: 'center' }} />
+                  <span>-</span>
+                  <input type="number" min="0" max="99" value={m.gb ?? ''} onChange={(e) => setMatchScore(k, idx, 'gb', e.target.value)} style={{ ...inputStyle, width: 48, textAlign: 'center' }} />
+                  <span style={{ width: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameOf(m.b)}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 4px' }}>
+                <span style={{ fontSize: 12, color: '#9aa' }}>最終順位</span>
+                <button onClick={() => applyStandingsToRank(k)} style={{ ...inputStyle, cursor: 'pointer', fontSize: 12, padding: '5px 10px' }}>順位表から反映</button>
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {[0, 1, 2, 3].map((i) => (
                   <label key={i} style={{ fontSize: 13 }}>{i + 1}位{' '}
@@ -174,6 +232,37 @@ function Editor({ password, initial }) {
             </div>
           );
         })}
+        <div style={{ fontSize: 13, color: '#9aa', margin: '14px 0 6px', fontWeight: 800 }}>実際の3位枠割当（ノックアウト表の対戦カード用）</div>
+        <p style={{ fontSize: 12, color: '#6a7', margin: '0 0 8px' }}>各スロットに、許可グループの実際の3位チームを割り当てます（未割当可）。</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          {(window.WC?.WILDCARD_SLOTS || []).map((slot) => {
+            const permitted = (window.WC?.PERMITTED || {})[slot] || [];
+            const opts = teams.filter((t) => {
+              const g = Object.keys(cfg.groups).find((gk) => (cfg.groups[gk] || []).includes(t.code));
+              return g && permitted.includes(g);
+            });
+            return (
+              <label key={slot} style={{ fontSize: 12 }}>{slot} <span style={{ color: '#6a7' }}>({permitted.join('/')})</span><br />
+                <select value={cfg.result.thirdAssign[slot] || ''} onChange={(e) => setThird(slot, e.target.value)} style={inputStyle}>
+                  <option value="">—</option>
+                  {opts.map((t) => <option key={t.code} value={t.code}>{t.flag} {t.ja}</option>)}
+                </select>
+              </label>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section title="得点ランキング（実際の得点数）">
+        {cfg.scorers.map((s, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+            <input value={s.name} placeholder="選手名" onChange={(e) => setScorer(i, { name: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
+            <input type="number" min="0" value={s.goals} onChange={(e) => setScorer(i, { goals: Math.max(0, parseInt(e.target.value, 10) || 0) })} style={{ ...inputStyle, width: 70, textAlign: 'center' }} />
+            <span style={{ fontSize: 12, color: '#9aa' }}>点</span>
+            <button onClick={() => delScorer(i)} style={{ ...inputStyle, cursor: 'pointer', color: '#FF6B6B' }}>削除</button>
+          </div>
+        ))}
+        <button onClick={addScorer} style={{ ...inputStyle, cursor: 'pointer', marginTop: 6 }}>＋ 得点者を追加</button>
       </Section>
 
       <Section title="得点王候補（将来の選手名簿の足場）">
@@ -224,13 +313,16 @@ function Admin() {
       const baseResult = raw.result && typeof raw.result === 'object' ? raw.result : {};
       const rawKo = baseResult.knockout && typeof baseResult.knockout === 'object' ? baseResult.knockout : {};
       const knockout = { r32: rawKo.r32 || [], r16: rawKo.r16 || [], qf: rawKo.qf || [], sf: rawKo.sf || [] };
+      const thirdAssign = baseResult.thirdAssign && typeof baseResult.thirdAssign === 'object' ? baseResult.thirdAssign : {};
       const cfg = {
         ...raw,
-        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', knockout },
+        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', knockout, thirdAssign },
         scorerSuggest: Array.isArray(raw.scorerSuggest) ? raw.scorerSuggest : [],
         schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
         groups: raw.groups && typeof raw.groups === 'object' ? raw.groups : {},
         groupResult: raw.groupResult && typeof raw.groupResult === 'object' ? raw.groupResult : {},
+        groupMatches: raw.groupMatches && typeof raw.groupMatches === 'object' ? raw.groupMatches : {},
+        scorers: Array.isArray(raw.scorers) ? raw.scorers : [],
       };
       setCfg(cfg);
     } catch (e) { setLoadError('設定の取得に失敗しました。もう一度お試しください'); }
