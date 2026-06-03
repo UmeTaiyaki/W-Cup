@@ -125,8 +125,8 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
 function RightRail({ T, state, member, pred, goTab }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
-  const scored = state.members.map(m => ({ m, s: window.WC.scoreMember(state.preds[m.id]) }))
-    .sort((a, b) => b.s.total - a.s.total);
+  const scored = state.members.map((m) => ({ m, s: window.WC.scoreMember(state.preds[m.id]) }))
+    .sort((a, b) => b.s.grandTotal - a.s.grandTotal);
   const rankColor = i => i === 0 ? T.gold : i === 1 ? T.silver : i === 2 ? T.boot : T.faint;
 
   const PickLine = ({ icon, color, label, code, scorer }) => (
@@ -188,7 +188,7 @@ function RightRail({ T, state, member, pred, goTab }) {
               <span style={{ fontWeight: 700, color: T.sub, fontSize: 13.5, flex: 1,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.m.name}</span>
               <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 16,
-                color: T.text }}>{x.s.total}</span>
+                color: T.text }}>{x.s.grandTotal}</span>
               <span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}>pt</span>
             </div>
           ))}
