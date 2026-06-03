@@ -85,15 +85,22 @@ export function validateConfig(input) {
   const groups = {};
   if (input.groups != null) {
     if (!isObj(input.groups)) return { ok: false, error: 'groups はオブジェクトが必要です' };
+    const seenMembers = new Set();
     for (const k of Object.keys(input.groups)) {
       if (!GROUP_KEYS.includes(k)) return { ok: false, error: `groups に不正なキー: ${k}` };
       const arr = input.groups[k];
       if (!Array.isArray(arr)) return { ok: false, error: `groups.${k} は配列が必要です` };
       const norm = [];
+      const localSeen = new Set();
       for (const c of arr) {
         if (c === '') { norm.push(''); continue; }
         if (!(isStr(c) && known(c.toUpperCase()))) return { ok: false, error: `groups.${k} に未登録コード: ${c}` };
-        norm.push(c.toUpperCase());
+        const up = c.toUpperCase();
+        if (localSeen.has(up)) return { ok: false, error: `groups.${k} にチームの重複: ${up}` };
+        if (seenMembers.has(up)) return { ok: false, error: `チームが複数グループに所属: ${up}` };
+        localSeen.add(up);
+        seenMembers.add(up);
+        norm.push(up);
       }
       groups[k] = norm;
     }
@@ -109,10 +116,13 @@ export function validateConfig(input) {
       if (!Array.isArray(arr)) return { ok: false, error: `groupResult.${k} は配列が必要です` };
       const members = new Set((groups[k] || []).filter(Boolean));
       const norm = [];
+      const localSeen = new Set();
       for (const c of arr) {
         if (c === '') { norm.push(''); continue; }
         const up = isStr(c) ? c.toUpperCase() : '';
         if (!up || !members.has(up)) return { ok: false, error: `groupResult.${k} に所属外コード: ${c}` };
+        if (localSeen.has(up)) return { ok: false, error: `groupResult.${k} にチームの重複: ${up}` };
+        localSeen.add(up);
         norm.push(up);
       }
       groupResult[k] = norm;

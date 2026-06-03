@@ -104,3 +104,26 @@ test('groups/groupResult 省略時は空オブジェクト', () => {
   assert.deepEqual(r.value.groups, {});
   assert.deepEqual(r.value.groupResult, {});
 });
+
+test('groups: 同一グループ内の重複は失敗', () => {
+  const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }], groups: { A: ['AAA', 'AAA'] } });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /重複/);
+});
+
+test('groups: 複数グループへの所属は失敗', () => {
+  const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }], groups: { A: ['AAA'], B: ['AAA'] } });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /複数グループ/);
+});
+
+test('groupResult: 同一チームを複数順位は失敗', () => {
+  const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }, { code: 'BBB', ja: 'B' }], groups: { A: ['AAA', 'BBB'] }, groupResult: { A: ['AAA', 'AAA'] } });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /重複/);
+});
+
+test('groups: 空文字スロットの重複は許容', () => {
+  const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }], groups: { A: ['AAA', '', '', ''] } });
+  assert.equal(r.ok, true);
+});
