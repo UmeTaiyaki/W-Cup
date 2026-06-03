@@ -97,6 +97,7 @@
     topScorer: 'ムバッペ',
     groupResult: {},
     knockout: { r32: [], r16: [], qf: [], sf: [] },
+    thirdAssign: {},
   };
 
   // ---- 各メンバーの初期予想（シード） ------------------------
@@ -271,6 +272,7 @@
   window.WC = {
     TEAMS, TEAM, MEMBERS, MEMBER_COLORS, GROUPS, GROUP_RESULT: {},
     RESULT, SEED, SCORER_SUGGEST, THEMES,
+    GROUP_MATCHES: {}, SCORERS: [],
     load, save, reset, emptyPred, addMember, removeMember,
   };
 
@@ -298,6 +300,10 @@
         window.WC.GROUP_RESULT = cfg.groupResult;
         window.WC.RESULT = { ...window.WC.RESULT, groupResult: cfg.groupResult };
       }
+      if (cfg.groupMatches && typeof cfg.groupMatches === 'object') {
+        window.WC.GROUP_MATCHES = cfg.groupMatches;
+      }
+      if (Array.isArray(cfg.scorers)) window.WC.SCORERS = cfg.scorers;
       return true;
     } catch (e) {
       return false;
