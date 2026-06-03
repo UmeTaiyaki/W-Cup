@@ -37,6 +37,14 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script src="data.js"></script>
+  <script type="module">
+    import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout } from './lib/bracket.js';
+    import { SCORING, scoreMember } from './lib/scoring.js';
+    window.WC = window.WC || {};
+    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, SCORING });
+    // 採点は RESULT を結果として渡す薄いラッパに統一（既存呼び出し scoreMember(pred) を維持）
+    window.WC.scoreMember = (pred) => scoreMember(pred, window.WC.RESULT, SCORING);
+  </script>
   <script type="text/babel" src="tweaks-panel.jsx"></script>
   <script type="text/babel" src="ios-frame.jsx"></script>
   <script type="text/babel" src="ui.jsx"></script>

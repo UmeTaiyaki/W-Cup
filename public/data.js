@@ -73,9 +73,6 @@
     '#4ADE80', '#F87171', '#818CF8', '#2DD4BF',
   ];
 
-  // ---- 決勝トーナメント（ベスト16）の組み合わせ --------------
-  const R16_TEAMS = []; // Phase A では未使用（Phase B で再設計）
-
   // ---- グループ（A〜L 各4チーム。所属の単一の真実）----------
   const GROUPS = {
     A: ['MEX', 'KOR', 'RSA', 'CZE'],
@@ -92,26 +89,14 @@
     L: ['ENG', 'CRO', 'PAN', 'GHA'],
   };
 
-  // ---- 配点 ---------------------------------------------------
-  const SCORING = {
-    champion: 25,
-    runnerUp: 15,
-    topScorer: 20,
-    bracket: { r16: 2, qf: 4, sf: 6, final: 10 }, // 的中1つあたり
-  };
-
   // ---- 結果（デモ用サンプル） --------------------------------
   // 実際の大会はこれから。順位を見せるためのサンプル結果。
   const RESULT = {
     champion: 'ARG',
     runnerUp: 'FRA',
     topScorer: 'ムバッペ',
-    bracket: {
-      r16:   ['BRA', 'POR', 'ARG', 'NED', 'FRA', 'ESP', 'ENG', 'GER'],
-      qf:    ['BRA', 'ARG', 'FRA', 'ENG'],
-      sf:    ['ARG', 'FRA'],
-      final: ['ARG'],
-    },
+    groupResult: {},
+    knockout: { r32: [], r16: [], qf: [], sf: [] },
   };
 
   // ---- 各メンバーの初期予想（シード） ------------------------
@@ -198,7 +183,9 @@
   function emptyPred() {
     return {
       champion: null, runnerUp: null, topScorer: '',
-      bracket: { r16: [], qf: [], sf: [], final: [] },
+      groupRank: { A: [], B: [], C: [], D: [], E: [], F: [], G: [], H: [], I: [], J: [], K: [], L: [] },
+      thirdAssign: { M1: null, M2: null, M7: null, M8: null, M11: null, M12: null, M15: null, M16: null },
+      knockout: { r32: [], r16: [], qf: [], sf: [] },
     };
   }
 
@@ -211,6 +198,19 @@
         if (!Array.isArray(s.members) || !s.members.length) {
           s.members = JSON.parse(JSON.stringify(MEMBERS));
         }
+        // Phase B: 旧予想にオプションフィールドを補完
+        const blank = emptyPred();
+        Object.keys(s.preds || {}).forEach((id) => {
+          const p = s.preds[id] || {};
+          s.preds[id] = {
+            champion: p.champion ?? null,
+            runnerUp: p.runnerUp ?? null,
+            topScorer: p.topScorer ?? '',
+            groupRank: p.groupRank || JSON.parse(JSON.stringify(blank.groupRank)),
+            thirdAssign: p.thirdAssign || { ...blank.thirdAssign },
+            knockout: p.knockout || JSON.parse(JSON.stringify(blank.knockout)),
+          };
+        });
         // current が消えていたら先頭に
         if (!s.preds[s.current]) s.current = s.members[0].id;
         return s;
@@ -260,35 +260,10 @@
     return next;
   }
 
-  // ---- 採点ロジック ------------------------------------------
-  function scoreMember(pred) {
-    const s = { champion: 0, runnerUp: 0, topScorer: 0, bracket: 0, total: 0, hits: [] };
-    if (pred.champion === window.WC.RESULT.champion) { s.champion = SCORING.champion; }
-    if (pred.runnerUp === window.WC.RESULT.runnerUp) { s.runnerUp = SCORING.runnerUp; }
-    if (pred.topScorer && window.WC.RESULT.topScorer &&
-        pred.topScorer.trim() === window.WC.RESULT.topScorer.trim()) { s.topScorer = SCORING.topScorer; }
-    // bracket
-    const b = pred.bracket || {};
-    const rb = window.WC.RESULT.bracket || {};
-    let bp = 0, r16h = 0, qfh = 0, sfh = 0, fh = 0;
-    ['r16', 'qf', 'sf', 'final'].forEach(r => {
-      const mine = b[r] || [], act = rb[r] || [];
-      mine.forEach(code => { if (act.includes(code)) {
-        bp += SCORING.bracket[r];
-        if (r === 'r16') r16h++; if (r === 'qf') qfh++;
-        if (r === 'sf') sfh++; if (r === 'final') fh++;
-      }});
-    });
-    s.bracket = bp;
-    s.bracketHits = { r16: r16h, qf: qfh, sf: sfh, final: fh };
-    s.total = s.champion + s.runnerUp + s.topScorer + s.bracket;
-    return s;
-  }
-
   window.WC = {
-    TEAMS, TEAM, MEMBERS, MEMBER_COLORS, R16_TEAMS, GROUPS, GROUP_RESULT: {},
-    SCORING, RESULT, SEED, SCORER_SUGGEST, THEMES,
-    load, save, reset, scoreMember, emptyPred, addMember, removeMember,
+    TEAMS, TEAM, MEMBERS, MEMBER_COLORS, GROUPS, GROUP_RESULT: {},
+    RESULT, SEED, SCORER_SUGGEST, THEMES,
+    load, save, reset, emptyPred, addMember, removeMember,
   };
 
   // ---- 共有設定の取得（KVバックエンド）----------------------
@@ -305,14 +280,16 @@
         cfg.teams.forEach((t) => { map[t.code] = t; });
         window.WC.TEAM = map;
       }
-      if (Array.isArray(cfg.r16Teams) && cfg.r16Teams.length === 16) {
-        window.WC.R16_TEAMS = cfg.r16Teams;
-      }
       if (Array.isArray(cfg.scorerSuggest)) window.WC.SCORER_SUGGEST = cfg.scorerSuggest;
-      if (cfg.result && typeof cfg.result === 'object') window.WC.RESULT = cfg.result;
+      if (cfg.result && typeof cfg.result === 'object') {
+        window.WC.RESULT = { ...window.WC.RESULT, ...cfg.result };
+      }
       if (Array.isArray(cfg.schedule)) window.WC.SCHEDULE = cfg.schedule;
       if (cfg.groups && typeof cfg.groups === 'object') window.WC.GROUPS = cfg.groups;
-      if (cfg.groupResult && typeof cfg.groupResult === 'object') window.WC.GROUP_RESULT = cfg.groupResult;
+      if (cfg.groupResult && typeof cfg.groupResult === 'object') {
+        window.WC.GROUP_RESULT = cfg.groupResult;
+        window.WC.RESULT = { ...window.WC.RESULT, groupResult: cfg.groupResult };
+      }
       return true;
     } catch (e) {
       return false;

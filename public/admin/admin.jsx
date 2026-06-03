@@ -237,7 +237,6 @@ function Admin() {
       const cfg = {
         ...raw,
         result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', bracket },
-        r16Teams: Array.isArray(raw.r16Teams) && raw.r16Teams.length === 16 ? raw.r16Teams : Array(16).fill(''),
         scorerSuggest: Array.isArray(raw.scorerSuggest) ? raw.scorerSuggest : [],
         schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
         groups: raw.groups && typeof raw.groups === 'object' ? raw.groups : {},
