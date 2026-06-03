@@ -1,0 +1,7 @@
+name = "wcup2026-yosou"
+pages_build_output_dir = "public"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "CONFIG"
+id = "8c9c431e2ee146a5a8ebafed58758a45"
