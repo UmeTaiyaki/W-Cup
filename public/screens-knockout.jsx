@@ -137,7 +137,11 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
       });
     }
   });
-  connectors.push(`M ${colX(3) + colW} ${centerY(3, 0)} H ${champX}`);
+  const champCenterY = (centerY(3, 0) + centerY(3, 1)) / 2;
+  const midChampX = colX(3) + colW + (stepX - colW) / 2;
+  [0, 1].forEach((i) => {
+    connectors.push(`M ${colX(3) + colW} ${centerY(3, i)} H ${midChampX} V ${champCenterY} H ${champX}`);
+  });
 
   const MatchCard = ({ round, r, idx }) => {
     const teams = der.matches[round][idx];
@@ -176,7 +180,7 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
               {ROUNDS.map((round, r) => der.matches[round].map((_, idx) => (
                 <MatchCard key={round + idx} round={round} r={r} idx={idx} />
               )))}
-              <div style={{ position: 'absolute', left: champX, top: centerY(3, 0) - 40, width: colW, height: 80,
+              <div style={{ position: 'absolute', left: champX, top: champCenterY - 40, width: colW, height: 80,
                 borderRadius: 14, background: champ ? `linear-gradient(160deg, ${T.gold}33, ${T.card})` : T.card,
                 boxShadow: `inset 0 0 0 1.5px ${champ ? T.gold : T.line}`, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', gap: 3 }}>
