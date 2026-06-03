@@ -1,5 +1,6 @@
 // 大会設定JSONの検証＋正規化。純関数。
 // 返り値: { ok: true, value } | { ok: false, error }
+import { WILDCARD_SLOTS } from '../../public/lib/bracket.js';
 const CODE_RE = /^[A-Za-z]{2,4}$/;
 const isStr = (v) => typeof v === 'string';
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
@@ -61,8 +62,22 @@ export function validateConfig(input) {
     }
     knockout[r] = arr.map((c) => c.toUpperCase());
   }
+  // thirdAssign（実際の3位枠割当。キーは WILDCARD_SLOTS、値は既知コード。空可）
+  const tai = isObj(ri.thirdAssign) ? ri.thirdAssign : {};
+  const thirdAssign = {};
+  for (const k of Object.keys(tai)) {
+    if (!WILDCARD_SLOTS.includes(k)) {
+      return { ok: false, error: `result.thirdAssign に不正なスロット: ${k}` };
+    }
+    const v = tai[k];
+    if (v == null || v === '') continue;
+    if (!(isStr(v) && known(v.toUpperCase()))) {
+      return { ok: false, error: `result.thirdAssign.${k} に未登録コード: ${v}` };
+    }
+    thirdAssign[k] = v.toUpperCase();
+  }
   const topScorer = isStr(ri.topScorer) ? ri.topScorer.trim() : '';
-  const result = { champion, runnerUp, topScorer, bracket, knockout };
+  const result = { champion, runnerUp, topScorer, bracket, knockout, thirdAssign };
 
   // schedule（緩め）
   let schedule = [];
@@ -126,5 +141,45 @@ export function validateConfig(input) {
     }
   }
 
-  return { ok: true, value: { version: 1, updatedAt: null, teams, scorerSuggest, result, schedule, groups, groupResult } };
+  // groupMatches（各組の試合スコア。a/b は既知コード、ga/gb は null か 0〜99 整数）
+  const groupMatches = {};
+  if (input.groupMatches != null) {
+    if (!isObj(input.groupMatches)) return { ok: false, error: 'groupMatches はオブジェクトが必要です' };
+    for (const k of Object.keys(input.groupMatches)) {
+      if (!GROUP_KEYS.includes(k)) return { ok: false, error: `groupMatches に不正なキー: ${k}` };
+      const arr = input.groupMatches[k];
+      if (!Array.isArray(arr)) return { ok: false, error: `groupMatches.${k} は配列が必要です` };
+      const norm = [];
+      for (const m of arr) {
+        if (!isObj(m)) return { ok: false, error: `groupMatches.${k} の要素が不正です` };
+        const a = isStr(m.a) ? m.a.toUpperCase() : '';
+        const b = isStr(m.b) ? m.b.toUpperCase() : '';
+        if (!known(a) || !known(b)) return { ok: false, error: `groupMatches.${k} に未登録コード` };
+        const sc = (v) => (v == null || v === '' ? null : v);
+        const ga = sc(m.ga), gb = sc(m.gb);
+        const okScore = (v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 99);
+        if (!okScore(ga) || !okScore(gb)) return { ok: false, error: `groupMatches.${k} のスコアが不正です` };
+        norm.push({ a, b, ga, gb });
+      }
+      groupMatches[k] = norm;
+    }
+  }
+
+  // scorers（得点ランキング。name 非空、goals 非負整数）
+  const scorers = [];
+  if (input.scorers != null) {
+    if (!Array.isArray(input.scorers)) return { ok: false, error: 'scorers は配列が必要です' };
+    for (const s of input.scorers) {
+      if (!isObj(s) || !isStr(s.name) || !s.name.trim()) {
+        return { ok: false, error: 'scorers の name が必要です' };
+      }
+      const goals = s.goals;
+      if (!Number.isInteger(goals) || goals < 0) {
+        return { ok: false, error: `scorers の goals が不正です: ${s.name}` };
+      }
+      scorers.push({ name: s.name.trim(), goals });
+    }
+  }
+
+  return { ok: true, value: { version: 1, updatedAt: null, teams, scorerSuggest, result, schedule, groups, groupResult, groupMatches, scorers } };
 }

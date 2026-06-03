@@ -83,6 +83,9 @@ export const DEFAULT_CONFIG = {
       final: ['ARG'],
     },
     knockout: { r32: [], r16: [], qf: [], sf: [] },
+    thirdAssign: {},
   },
+  groupMatches: {},
+  scorers: [],
   schedule: [],
 };

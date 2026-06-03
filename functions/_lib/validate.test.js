@@ -138,3 +138,60 @@ test('result.knockout に未登録コードは失敗', () => {
   assert.equal(r.ok, false);
   assert.match(r.error, /knockout/);
 });
+
+test('groupMatches: 既知コード・整数スコアは妥当', () => {
+  const r = validateConfig({
+    ...DEFAULT_CONFIG,
+    groupMatches: { A: [{ a: 'MEX', b: 'KOR', ga: 2, gb: 1 }] },
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.value.groupMatches.A[0].ga, 2);
+});
+
+test('groupMatches: 未登録コードは失敗', () => {
+  const r = validateConfig({
+    ...DEFAULT_CONFIG,
+    groupMatches: { A: [{ a: 'ZZZ', b: 'KOR', ga: 1, gb: 0 }] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /groupMatches/);
+});
+
+test('groupMatches: null スコアは未消化として許容', () => {
+  const r = validateConfig({
+    ...DEFAULT_CONFIG,
+    groupMatches: { A: [{ a: 'MEX', b: 'KOR', ga: null, gb: null }] },
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.value.groupMatches.A[0].ga, null);
+});
+
+test('scorers: name+goals は妥当', () => {
+  const r = validateConfig({ ...DEFAULT_CONFIG, scorers: [{ name: 'X', goals: 3 }] });
+  assert.equal(r.ok, true);
+  assert.equal(r.value.scorers[0].goals, 3);
+});
+
+test('scorers: 負の得点は失敗', () => {
+  const r = validateConfig({ ...DEFAULT_CONFIG, scorers: [{ name: 'X', goals: -1 }] });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /scorers/);
+});
+
+test('result.thirdAssign: 既知コード・正しいスロットは妥当', () => {
+  const r = validateConfig({
+    ...DEFAULT_CONFIG,
+    result: { ...DEFAULT_CONFIG.result, thirdAssign: { M1: 'BRA' } },
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.value.result.thirdAssign.M1, 'BRA');
+});
+
+test('result.thirdAssign: 不正スロットキーは失敗', () => {
+  const r = validateConfig({
+    ...DEFAULT_CONFIG,
+    result: { ...DEFAULT_CONFIG.result, thirdAssign: { ZZ: 'BRA' } },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /thirdAssign/);
+});
