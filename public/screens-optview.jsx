@@ -178,8 +178,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           <div style={{ marginTop: 18 }}>
             <SectionTitle emoji="📊" title="グループ順位予想" right={`${grDone}/12組`} />
             <div style={{ display: 'grid',
-              gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(220px, 1fr))' : 'repeat(2, 1fr)',
-              gap: 10 }}>
+              gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
               {GK.map((k) => <GroupCard key={k} k={k} />)}
             </div>
           </div>
@@ -190,7 +189,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           <div style={{ marginTop: 22 }}>
             <SectionTitle emoji="🎯" title="3位ワイルドカード" right={`${taDone}/${SLOTS.length}枠`} />
             <div style={{ display: 'grid',
-              gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(240px, 1fr))' : '1fr', gap: 9 }}>
+              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
               {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
             </div>
           </div>
@@ -200,8 +199,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         {koAny && (
           <div style={{ marginTop: 22 }}>
             <SectionTitle emoji="🏟" title="ノックアウト予想" />
-            <KnockoutView T={T} der={der} champ={champ} wide={wide} availWidth={availWidth}
-              ROUNDS={ROUNDS} LABELS={LABELS} />
+            <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
           </div>
         )}
       </div>
@@ -209,10 +207,12 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   );
 }
 
-/* ノックアウトの読み取り専用表示
-   モバイル=ラウンドごとの試合リスト / デスクトップ=フルブラケット */
-function KnockoutView({ T, der, champ, wide, availWidth, ROUNDS, LABELS }) {
+/* ノックアウトの読み取り専用表示（トーナメント表ビュー・レスポンシブ）
+   コンテナ幅を実測し、収まる時は中央寄せ・収まらない時は横スクロール */
+function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
   const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
+  const wrapRef = React.useRef(null);
+  const avail = window.useContainerWidth(wrapRef);
 
   const TeamRow = ({ team, isWinner, dimmed, half }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', height: half,
@@ -227,55 +227,15 @@ function KnockoutView({ T, der, champ, wide, availWidth, ROUNDS, LABELS }) {
     </div>
   );
 
-  // ===== モバイル：ラウンドごとのリスト =====
-  if (!wide) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {ROUNDS.map((round) => {
-          const matches = der.matches[round];
-          const winners = der.winners[round];
-          if (!matches.some((t) => t[0] || t[1])) return null;
-          return (
-            <div key={round}>
-              <div style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 12, color: T.accent,
-                letterSpacing: 1, marginBottom: 8 }}>{LABELS[round]}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-                {matches.map((teams, idx) => {
-                  const w = winners[idx];
-                  return (
-                    <div key={idx} style={{ background: T.card, borderRadius: 11, padding: 4,
-                      boxShadow: `inset 0 0 0 1px ${w ? T.accent + '55' : T.line}` }}>
-                      <TeamRow team={teams[0]} isWinner={w && w === teams[0]} dimmed={w && w !== teams[0]} half={34} />
-                      <div style={{ height: 1, background: T.line, margin: '0 8px' }} />
-                      <TeamRow team={teams[1]} isWinner={w && w === teams[1]} dimmed={w && w !== teams[1]} half={34} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-        {/* 優勝 */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-          background: champ ? `linear-gradient(160deg, ${T.gold}22, ${T.card})` : T.card,
-          borderRadius: 14, padding: '14px', boxShadow: `inset 0 0 0 1.5px ${champ ? T.gold + '88' : T.line}` }}>
-          <Icon name="trophy" size={18} color={T.gold} />
-          <span style={{ fontSize: 22 }}>{champ ? champ.flag : '🏆'}</span>
-          <span style={{ fontWeight: 800, fontSize: 15, color: champ ? T.text : T.faint }}>
-            優勝予想：{champ ? champ.ja : '未選択'}</span>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== デスクトップ：フルブラケット =====
-  const rowH = 42, cardH = 38, colW = 148, stepX = 184, LABEL_H = 26;
+  const rowH = 42, cardH = 38, colW = 150, stepX = 186, LABEL_H = 26;
   const canvasH = 16 * rowH;
   const centerY = (r, idx) => (Math.pow(2, r) * (2 * idx + 1)) / 2 * rowH;
   const colX = (r) => r * stepX;
   const champX = 4 * stepX;
   const contentW = champX + colW;
-  const fitScale = availWidth ? Math.max(0.5, Math.min(1.2, (availWidth - 8) / contentW)) : 1;
+  const fitScale = avail ? Math.max(0.6, Math.min(1.15, (avail - 2) / contentW)) : 1;
+  const scaledW = contentW * fitScale;
+  const needsScroll = avail > 0 && scaledW > avail + 1;
 
   const connectors = [];
   [1, 2, 3].forEach((r) => {
@@ -311,8 +271,18 @@ function KnockoutView({ T, der, champ, wide, availWidth, ROUNDS, LABELS }) {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', overflowX: 'auto' }}>
-      <div style={{ position: 'relative', width: contentW * fitScale, height: (canvasH + LABEL_H) * fitScale }}>
+    <div>
+      {needsScroll && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          fontSize: 11.5, color: T.faint, fontWeight: 700, marginBottom: 8 }}>
+          <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
+            <Icon name="chevron" size={13} color={T.faint} /></span>
+          横スクロールで全体表示
+          <Icon name="chevron" size={13} color={T.faint} />
+        </div>
+      )}
+      <div ref={wrapRef} style={{ overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ position: 'relative', width: scaledW, height: (canvasH + LABEL_H) * fitScale, margin: '0 auto' }}>
         <div style={{ position: 'relative', width: contentW, height: canvasH + LABEL_H,
           transform: `scale(${fitScale})`, transformOrigin: 'top left' }}>
           {ROUNDS.map((r, i) => (
@@ -340,6 +310,7 @@ function KnockoutView({ T, der, champ, wide, availWidth, ROUNDS, LABELS }) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

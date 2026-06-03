@@ -85,13 +85,13 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
     </div>
   );
 
-  const EditBtn = () => (
-    <button onClick={() => goTab('input')} style={{
+  const ViewOptionsBtn = () => (
+    <button onClick={() => goView && goView(member.id)} style={{
       border: 'none', borderRadius: 16, padding: '15px', cursor: 'pointer',
       background: T.accent, color: T.accentInk, fontSize: 16, fontWeight: 800,
       fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
     }}>
-      <Icon name="edit" size={19} color={T.accentInk} />予想を編集する
+      <Icon name="bracket" size={19} color={T.accentInk} />オプションの予想を見る
     </button>
   );
 
@@ -226,7 +226,7 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <PodiumHero />
             <Picks />
-            <EditBtn />
+            <ViewOptionsBtn />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Panel><Everyone flush /></Panel>
@@ -247,7 +247,7 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <PodiumHero />
             <Picks />
-            <EditBtn />
+            <ViewOptionsBtn />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Panel><Everyone flush /></Panel>
@@ -264,7 +264,7 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
       <Header />
       <PodiumHero />
       <Picks />
-      <EditBtn />
+      <ViewOptionsBtn />
       <Everyone />
       <OptionsRoster />
     </div>
