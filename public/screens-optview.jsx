@@ -24,6 +24,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const koAny = ROUNDS.some((r) => (der.winners[r] || []).some(Boolean));
   const champ = pred.champion ? TEAM[pred.champion] : null;
   const hasAny = grDone > 0 || taDone > 0 || koAny;
+  const [section, setSection] = React.useState('group'); // 'group' | 'wild' | 'ko'
 
   const posMeta = (i) =>
     i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver }
@@ -62,35 +63,48 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     </div>
   );
 
-  // ---- サマリーの統計バー ----
-  const Stats = () => {
-    const Item = ({ label, value, sub }) => (
-      <div style={{ flex: 1, background: T.card, borderRadius: 14, padding: '11px 12px',
-        boxShadow: `inset 0 0 0 1px ${T.line}`, minWidth: 0 }}>
-        <div style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 1.2,
-          color: T.faint }}>{label}</div>
-        <div style={{ marginTop: 5, display: 'flex', alignItems: 'baseline', gap: 3 }}>
-          <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 19, color: T.text }}>{value}</span>
-          {sub && <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}>{sub}</span>}
-        </div>
-      </div>
-    );
-    return (
-      <div style={{ display: 'flex', gap: 8, margin: '14px 0 6px' }}>
-        <Item label="グループ順位" value={grDone} sub="/12組" />
-        <Item label="3位WC" value={taDone} sub={`/${SLOTS.length}枠`} />
-        <Item label="ノックアウト" value={koAny ? '予想あり' : '—'} />
-      </div>
-    );
-  };
+  // ---- セクション切替タブ（旧・統計バーをタップ可能化）----
+  const TABS = [
+    { id: 'group', emoji: '📊', label: 'グループ順位', value: grDone, sub: '/12組' },
+    { id: 'wild', emoji: '🎯', label: '3位WC', value: taDone, sub: `/${SLOTS.length}枠` },
+    { id: 'ko', emoji: '🏟', label: 'ノックアウト', value: koAny ? 'あり' : '—', sub: '' },
+  ];
+  const Tabs = () => (
+    <div style={{ display: 'flex', gap: 8, margin: '14px 0 0' }}>
+      {TABS.map((tb) => {
+        const active = section === tb.id;
+        return (
+          <button key={tb.id} onClick={() => setSection(tb.id)} style={{
+            flex: 1, minWidth: 0, textAlign: 'left', border: 'none', cursor: 'pointer',
+            fontFamily: 'inherit', borderRadius: 14, padding: '11px 12px',
+            background: active ? `${T.accent}1A` : T.card,
+            boxShadow: active ? `inset 0 0 0 1.5px ${T.accent}` : `inset 0 0 0 1px ${T.line}`,
+            transition: '.15s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ fontSize: 13 }}>{tb.emoji}</span>
+              <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 1,
+                color: active ? T.accent : T.faint, whiteSpace: 'nowrap', overflow: 'hidden',
+                textOverflow: 'ellipsis' }}>{tb.label}</span>
+            </div>
+            <div style={{ marginTop: 5, display: 'flex', alignItems: 'baseline', gap: 3 }}>
+              <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 19,
+                color: active ? T.text : T.sub }}>{tb.value}</span>
+              {tb.sub && <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}>{tb.sub}</span>}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
 
-  // ---- セクション見出し ----
-  const SectionTitle = ({ emoji, title, right }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 2px 10px' }}>
-      <span style={{ fontSize: 18 }}>{emoji}</span>
-      <span style={{ fontWeight: 800, fontSize: 16, color: T.text }}>{title}</span>
-      {right && <span style={{ marginLeft: 'auto', fontFamily: 'Archivo', fontWeight: 800,
-        fontSize: 11, color: T.faint }}>{right}</span>}
+  // ---- 空状態ヒント ----
+  const EmptyHint = ({ text }) => (
+    <div style={{ background: T.card, borderRadius: 16, padding: '22px 18px',
+      boxShadow: `inset 0 0 0 1px ${T.line}`, textAlign: 'center' }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>🗒️</div>
+      <div style={{ fontWeight: 800, color: T.text, fontSize: 14.5 }}>{text}</div>
+      <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '6px 0 0' }}>
+        {viewed ? viewed.name : 'この人'}は「予想」タブでまだ入力していないようです。</p>
     </div>
   );
 
@@ -161,47 +175,36 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     <div style={{ paddingBottom: 24 }}>
       <Header />
       <div style={{ padding: wide ? '0' : '0 16px' }}>
-        <Stats />
+        <Tabs />
 
-        {!hasAny && (
-          <div style={{ marginTop: 14, background: T.card, borderRadius: 16, padding: '20px 18px',
-            boxShadow: `inset 0 0 0 1px ${T.line}`, textAlign: 'center' }}>
-            <div style={{ fontSize: 30, marginBottom: 8 }}>🗒️</div>
-            <div style={{ fontWeight: 800, color: T.text, fontSize: 15 }}>まだオプション予想がありません</div>
-            <p style={{ color: T.faint, fontSize: 12.5, lineHeight: 1.6, margin: '6px 0 0' }}>
-              {viewed ? viewed.name : 'この人'}は「予想」タブのオプション予想をまだ入力していないようです。</p>
-          </div>
-        )}
+        <div style={{ marginTop: 16 }}>
+          {/* グループ順位 */}
+          {section === 'group' && (
+            grDone > 0 ? (
+              <div style={{ display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
+                {GK.map((k) => <GroupCard key={k} k={k} />)}
+              </div>
+            ) : <EmptyHint text="グループ順位予想はまだありません" />
+          )}
 
-        {/* グループ順位 */}
-        {grDone > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <SectionTitle emoji="📊" title="グループ順位予想" right={`${grDone}/12組`} />
-            <div style={{ display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
-              {GK.map((k) => <GroupCard key={k} k={k} />)}
-            </div>
-          </div>
-        )}
+          {/* 3位ワイルドカード */}
+          {section === 'wild' && (
+            taDone > 0 ? (
+              <div style={{ display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
+                {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
+              </div>
+            ) : <EmptyHint text="3位ワイルドカードはまだ割り当てられていません" />
+          )}
 
-        {/* 3位ワイルドカード */}
-        {taDone > 0 && (
-          <div style={{ marginTop: 22 }}>
-            <SectionTitle emoji="🎯" title="3位ワイルドカード" right={`${taDone}/${SLOTS.length}枠`} />
-            <div style={{ display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
-              {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
-            </div>
-          </div>
-        )}
-
-        {/* ノックアウト */}
-        {koAny && (
-          <div style={{ marginTop: 22 }}>
-            <SectionTitle emoji="🏟" title="ノックアウト予想" />
-            <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
-          </div>
-        )}
+          {/* ノックアウト */}
+          {section === 'ko' && (
+            koAny ? (
+              <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
+            ) : <EmptyHint text="ノックアウト予想はまだありません" />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -215,25 +218,25 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
   const avail = window.useContainerWidth(wrapRef);
 
   const TeamRow = ({ team, isWinner, dimmed, half }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', height: half,
-      background: isWinner ? T.accent : 'transparent', padding: '0 9px',
-      borderRadius: isWinner ? 9 : 0, opacity: dimmed ? 0.4 : 1, minWidth: 0 }}>
-      <span style={{ fontSize: 16, flexShrink: 0 }}>{team ? window.WC.TEAM[team]?.flag : '⚪️'}</span>
-      <span style={{ fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden',
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: half,
+      background: isWinner ? T.accent : 'transparent', padding: '0 10px',
+      borderRadius: isWinner ? 10 : 0, opacity: dimmed ? 0.4 : 1, minWidth: 0 }}>
+      <span style={{ fontSize: 18, flexShrink: 0 }}>{team ? window.WC.TEAM[team]?.flag : '⚪️'}</span>
+      <span style={{ fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden',
         textOverflow: 'ellipsis', flex: 1,
         color: isWinner ? T.accentInk : (team ? T.text : T.faint) }}>
         {team ? window.WC.TEAM[team]?.ja : '未定'}</span>
-      {isWinner && <Icon name="check" size={12} color={T.accentInk} sw={2.6} />}
+      {isWinner && <Icon name="check" size={14} color={T.accentInk} sw={2.6} />}
     </div>
   );
 
-  const rowH = 42, cardH = 38, colW = 150, stepX = 186, LABEL_H = 26;
+  const rowH = 50, cardH = 46, colW = 172, stepX = 210, LABEL_H = 30;
   const canvasH = 16 * rowH;
   const centerY = (r, idx) => (Math.pow(2, r) * (2 * idx + 1)) / 2 * rowH;
   const colX = (r) => r * stepX;
   const champX = 4 * stepX;
   const contentW = champX + colW;
-  const fitScale = avail ? Math.max(0.6, Math.min(1.15, (avail - 2) / contentW)) : 1;
+  const fitScale = avail ? Math.max(0.72, Math.min(1.3, (avail - 2) / contentW)) : 1;
   const scaledW = contentW * fitScale;
   const needsScroll = avail > 0 && scaledW > avail + 1;
 
@@ -287,10 +290,10 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
           transform: `scale(${fitScale})`, transformOrigin: 'top left' }}>
           {ROUNDS.map((r, i) => (
             <div key={r} style={{ position: 'absolute', top: 4, left: colX(i), width: colW, textAlign: 'center',
-              fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 1.2, color: T.sub }}>{LABELS[r]}</div>
+              fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1.2, color: T.sub }}>{LABELS[r]}</div>
           ))}
           <div style={{ position: 'absolute', top: 4, left: champX, width: colW, textAlign: 'center',
-            fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 1.2, color: T.gold }}>優勝</div>
+            fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1.2, color: T.gold }}>優勝</div>
           <div style={{ position: 'absolute', top: LABEL_H, left: 0, width: contentW, height: canvasH }}>
             <svg width={contentW} height={canvasH} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
               {connectors.map((d, i) => <path key={i} d={d} fill="none" stroke={T.line} strokeWidth="1.5" />)}
@@ -298,13 +301,13 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
             {ROUNDS.map((round, r) => der.matches[round].map((_, idx) => (
               <MatchCard key={round + idx} round={round} r={r} idx={idx} />
             )))}
-            <div style={{ position: 'absolute', left: champX, top: champCenterY - 40, width: colW, height: 80,
-              borderRadius: 14, background: champ ? `linear-gradient(160deg, ${T.gold}33, ${T.card})` : T.card,
+            <div style={{ position: 'absolute', left: champX, top: champCenterY - 48, width: colW, height: 96,
+              borderRadius: 16, background: champ ? `linear-gradient(160deg, ${T.gold}33, ${T.card})` : T.card,
               boxShadow: `inset 0 0 0 1.5px ${champ ? T.gold : T.line}`, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-              <Icon name="trophy" size={20} color={T.gold} />
-              <div style={{ fontSize: 22 }}>{champ ? champ.flag : '🏆'}</div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: champ ? T.text : T.faint }}>
+              alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <Icon name="trophy" size={24} color={T.gold} />
+              <div style={{ fontSize: 28 }}>{champ ? champ.flag : '🏆'}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: champ ? T.text : T.faint }}>
                 {champ ? champ.ja : '優勝予想'}</div>
             </div>
           </div>
