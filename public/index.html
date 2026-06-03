@@ -116,7 +116,10 @@
         persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, groupRank } } });
       }
       function setThirdAssign(slotId, code) {
-        const thirdAssign = { ...(pred.thirdAssign || {}), [slotId]: code };
+        const thirdAssign = { ...(pred.thirdAssign || {}) };
+        // 一意性を保証：同じ3位チームが他枠にあれば空けてから割当
+        if (code) Object.keys(thirdAssign).forEach((s) => { if (s !== slotId && thirdAssign[s] === code) thirdAssign[s] = null; });
+        thirdAssign[slotId] = code;
         persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, thirdAssign } } });
       }
       function setKnockout(winners) {

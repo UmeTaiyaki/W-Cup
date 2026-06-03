@@ -275,9 +275,9 @@ test('オプション未着手なら grandTotal === coreTotal', () => {
 });
 
 test('グループ順位は位置ピタリで +1（1〜3位のみ）', () => {
-  const pred = { groupRank: { A: ['MEX', 'KOR', 'XXX'], F: ['NED', 'SWE', 'TUN'] } };
+  const pred = { groupRank: { A: ['MEX', 'KOR', 'XXX'], F: ['NED', 'SWE', 'XXX'] } };
   const s = scoreMember(pred, RESULT);
-  // A: 1位MEX○ 2位KOR○ 3位XXX× = 2点 / F: 1位NED○ 2位SWE× 3位TUN× = 1点
+  // A: 1位MEX○ 2位KOR○ 3位XXX× = 2点 / F: 1位NED○ 2位SWE× 3位XXX× = 1点
   assert.equal(s.option.groupRank, 3);
   assert.equal(s.option.rankHits, 3);
 });
