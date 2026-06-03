@@ -79,3 +79,17 @@ export function deriveKnockout(groupRank = {}, thirdAssign = {}, knockout = {}) 
     finalists: sfw,
   };
 }
+
+// admin の「到達チーム集合」(順不同) を deriveKnockout の対戦カードに整列しつつ
+// 実結果ブラケットを構築する。既存 deriveKnockout は不変。
+export function deriveKnockoutFromSets(groupRank = {}, thirdAssign = {}, sets = {}) {
+  const rounds = ['r32', 'r16', 'qf', 'sf'];
+  const knockout = {};
+  let der = deriveKnockout(groupRank, thirdAssign, knockout);
+  for (const r of rounds) {
+    const set = new Set(sets[r] || []);
+    knockout[r] = der.matches[r].map((m) => m.find((t) => t && set.has(t)) || null);
+    der = deriveKnockout(groupRank, thirdAssign, knockout);
+  }
+  return der;
+}
