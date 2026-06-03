@@ -23,13 +23,14 @@ export const BRACKET_STRUCTURE = {
 };
 
 export const WILDCARD_SLOTS = BRACKET_STRUCTURE.r32
-  .filter((m) => typeof m.bottom === 'object')
+  .filter((m) => Array.isArray(m.bottom?.wc))
   .map((m) => m.id);
 
-export const PERMITTED = BRACKET_STRUCTURE.r32.reduce((acc, m) => {
-  if (typeof m.bottom === 'object') acc[m.id] = m.bottom.wc;
-  return acc;
-}, {});
+export const PERMITTED = Object.fromEntries(
+  BRACKET_STRUCTURE.r32
+    .filter((m) => Array.isArray(m.bottom?.wc))
+    .map((m) => [m.id, m.bottom.wc])
+);
 
 // seed トークン → チームコード
 function seedTeam(seed, groupRank, thirdAssign, slotId) {
