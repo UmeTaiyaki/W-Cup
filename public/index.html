@@ -38,10 +38,11 @@
 
   <script src="data.js"></script>
   <script type="module">
-    import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout } from './lib/bracket.js';
+    import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets } from './lib/bracket.js';
     import { SCORING, scoreMember } from './lib/scoring.js';
+    import { generateFixtures, computeStandings } from './lib/standings.js';
     window.WC = window.WC || {};
-    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, SCORING });
+    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, SCORING, generateFixtures, computeStandings });
     // 採点は RESULT を結果として渡す薄いラッパに統一（既存呼び出し scoreMember(pred) を維持）
     window.WC.scoreMember = (pred) => scoreMember(pred, window.WC.RESULT, SCORING);
   </script>
@@ -142,13 +143,13 @@
       const MOBILE_TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
         { id: 'input', label: '予想', icon: 'edit' },
-        { id: 'group', label: 'グループ', icon: 'grid' },
+        { id: 'group', label: '結果', icon: 'grid' },
         { id: 'rank', label: 'ランキング', icon: 'medal' },
       ];
       const DESKTOP_TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
         { id: 'input', label: '予想を入力', icon: 'edit' },
-        { id: 'group', label: 'グループ', icon: 'grid' },
+        { id: 'group', label: '結果', icon: 'grid' },
         { id: 'compare', label: '見比べ', icon: 'people' },
         { id: 'rank', label: 'ランキング', icon: 'medal' },
       ];
