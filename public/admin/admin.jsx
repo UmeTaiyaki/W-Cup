@@ -63,6 +63,21 @@ function Editor({ password, initial }) {
   const teams = cfg.teams;
 
   function up(patch) { setCfg((c) => ({ ...c, ...patch })); }
+  const GROUP_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  function setGroupMember(k, i, code) {
+    setCfg((c) => {
+      const g = { ...c.groups, [k]: [...(c.groups[k] || ['', '', '', ''])] };
+      g[k][i] = code || '';
+      return { ...c, groups: g };
+    });
+  }
+  function setGroupRank(k, i, code) {
+    setCfg((c) => {
+      const gr = { ...c.groupResult, [k]: [...(c.groupResult[k] || ['', '', '', ''])] };
+      gr[k][i] = code || '';
+      return { ...c, groupResult: gr };
+    });
+  }
   function upResult(patch) { setCfg((c) => ({ ...c, result: { ...c.result, ...patch } })); }
   function upBracket(round, arr) { setCfg((c) => ({ ...c, result: { ...c.result, bracket: { ...c.result.bracket, [round]: arr } } })); }
 
@@ -70,10 +85,6 @@ function Editor({ password, initial }) {
   function setTeam(i, patch) { up({ teams: teams.map((t, j) => (j === i ? { ...t, ...patch } : t)) }); }
   function addTeam() { up({ teams: [...teams, { code: '', ja: '', flag: '', c: '#888888' }] }); }
   function delTeam(i) { up({ teams: teams.filter((_, j) => j !== i) }); }
-
-  // R16
-  const r16 = cfg.r16Teams.length === 16 ? cfg.r16Teams : Array(16).fill('');
-  function setR16(i, code) { const next = [...r16]; next[i] = code || ''; up({ r16Teams: next }); }
 
   // bracket toggle
   function toggleBracket(round, code) {
@@ -110,6 +121,32 @@ function Editor({ password, initial }) {
         <a href="/">予想アプリ →</a>
       </div>
 
+      <Section title="グループ（所属＋最終順位）">
+        {GROUP_KEYS.map((k) => {
+          const members = cfg.groups[k] || ['', '', '', ''];
+          const memberTeams = teams.filter((t) => (cfg.groups[k] || []).includes(t.code));
+          const ranks = cfg.groupResult[k] || [];
+          return (
+            <div key={k} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid #222' }}>
+              <div style={{ fontWeight: 800, marginBottom: 6 }}>グループ {k}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <TeamSelect key={i} teams={teams} value={members[i]} onChange={(c) => setGroupMember(k, i, c)} />
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: '#9aa', marginBottom: 4 }}>最終順位</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <label key={i} style={{ fontSize: 13 }}>{i + 1}位{' '}
+                    <TeamSelect teams={memberTeams} value={ranks[i]} onChange={(c) => setGroupRank(k, i, c)} />
+                  </label>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </Section>
+
       <Section title={`出場国（${teams.length}）`}>
         {teams.map((t, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
@@ -121,17 +158,6 @@ function Editor({ password, initial }) {
           </div>
         ))}
         <button onClick={addTeam} style={{ ...inputStyle, cursor: 'pointer', marginTop: 6 }}>＋ 出場国を追加</button>
-      </Section>
-
-      <Section title="R16 組み合わせ（8試合）">
-        {Array.from({ length: 8 }).map((_, m) => (
-          <div key={m} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ width: 40, color: '#9aa' }}>M{m}</span>
-            <TeamSelect teams={teams} value={r16[m * 2]} onChange={(c) => setR16(m * 2, c)} />
-            <span>vs</span>
-            <TeamSelect teams={teams} value={r16[m * 2 + 1]} onChange={(c) => setR16(m * 2 + 1, c)} />
-          </div>
-        ))}
       </Section>
 
       <Section title="正解（勝敗）">
@@ -211,6 +237,8 @@ function Admin() {
         r16Teams: Array.isArray(raw.r16Teams) && raw.r16Teams.length === 16 ? raw.r16Teams : Array(16).fill(''),
         scorerSuggest: Array.isArray(raw.scorerSuggest) ? raw.scorerSuggest : [],
         schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
+        groups: raw.groups && typeof raw.groups === 'object' ? raw.groups : {},
+        groupResult: raw.groupResult && typeof raw.groupResult === 'object' ? raw.groupResult : {},
       };
       setCfg(cfg);
     } catch (e) { setLoadError('設定の取得に失敗しました。もう一度お試しください'); }
