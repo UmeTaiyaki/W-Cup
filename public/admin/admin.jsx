@@ -2,10 +2,10 @@ const { useState, useEffect } = React;
 
 // ノックアウト実結果（採点の正解）。各ラウンド＝その段階に「到達」したチームの集合。
 const KNOCKOUT_ROUNDS = [
-  { key: 'r32', label: 'ベスト16進出（16）', cap: 16 },
-  { key: 'r16', label: 'ベスト8進出（8）', cap: 8 },
-  { key: 'qf', label: 'ベスト4進出（4）', cap: 4 },
-  { key: 'sf', label: '決勝進出（2）', cap: 2 },
+  { key: 'r32', label: 'ベスト32（勝者16）', cap: 16 },
+  { key: 'r16', label: 'ベスト16（勝者8）', cap: 8 },
+  { key: 'qf', label: '準々決勝（勝者4）', cap: 4 },
+  { key: 'sf', label: '準決勝（勝者2）', cap: 2 },
 ];
 
 function api(path, opts) {
@@ -85,11 +85,6 @@ function Editor({ password, initial }) {
   function upResult(patch) { setCfg((c) => ({ ...c, result: { ...c.result, ...patch } })); }
   function upKnockout(round, arr) { setCfg((c) => ({ ...c, result: { ...c.result, knockout: { ...c.result.knockout, [round]: arr } } })); }
 
-  // 出場国
-  function setTeam(i, patch) { up({ teams: teams.map((t, j) => (j === i ? { ...t, ...patch } : t)) }); }
-  function addTeam() { up({ teams: [...teams, { code: '', ja: '', flag: '', c: '#888888' }] }); }
-  function delTeam(i) { up({ teams: teams.filter((_, j) => j !== i) }); }
-
   // knockout toggle（到達チームの集合をトグル）
   function toggleKnockout(round, code) {
     const cur = cfg.result.knockout[round] || [];
@@ -151,19 +146,6 @@ function Editor({ password, initial }) {
         })}
       </Section>
 
-      <Section title={`出場国（${teams.length}）`}>
-        {teams.map((t, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
-            <input value={t.code} placeholder="CODE" onChange={(e) => setTeam(i, { code: e.target.value.toUpperCase() })} style={{ ...inputStyle, width: 70 }} />
-            <input value={t.ja} placeholder="国名" onChange={(e) => setTeam(i, { ja: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
-            <input value={t.flag} placeholder="🏳" onChange={(e) => setTeam(i, { flag: e.target.value })} style={{ ...inputStyle, width: 60 }} />
-            <input type="color" value={t.c || '#888888'} onChange={(e) => setTeam(i, { c: e.target.value })} style={{ width: 36, height: 34, padding: 0, border: 'none', background: 'none' }} />
-            <button onClick={() => delTeam(i)} style={{ ...inputStyle, cursor: 'pointer', color: '#FF6B6B' }}>削除</button>
-          </div>
-        ))}
-        <button onClick={addTeam} style={{ ...inputStyle, cursor: 'pointer', marginTop: 6 }}>＋ 出場国を追加</button>
-      </Section>
-
       <Section title="正解（勝敗）">
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
           <label>優勝 <TeamSelect teams={teams} value={cfg.result.champion} onChange={(c) => upResult({ champion: c })} /></label>
@@ -172,7 +154,7 @@ function Editor({ password, initial }) {
             <datalist id="scorers">{cfg.scorerSuggest.map((s) => <option key={s} value={s} />)}</datalist>
           </label>
         </div>
-        <p style={{ fontSize: 12, color: '#9aa', margin: '4px 0 10px' }}>各ラウンドに「到達」したチームを選択（採点はこの集合との一致で加点）。</p>
+        <p style={{ fontSize: 12, color: '#9aa', margin: '4px 0 10px' }}>ノックアウトはベスト32から。各ラウンドの勝者を選択（採点はこの集合との一致で加点）。</p>
         {KNOCKOUT_ROUNDS.map((r) => {
           const sel = cfg.result.knockout[r.key] || [];
           const over = sel.length > r.cap;
