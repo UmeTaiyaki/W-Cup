@@ -85,16 +85,31 @@ function CompareScreen({ T, state, goTab, wide = false }) {
 function RankingScreen({ T, state, wide = false }) {
   const M = state.members;
   const R = window.WC.RESULT;
-  const scored = M.map(m => ({ m, s: window.WC.scoreMember(state.preds[m.id]) }))
-    .sort((a, b) => b.s.total - a.s.total);
+  const [division, setDivision] = React.useState('core'); // 'core' | 'grand'
+  const keyOf = (s) => division === 'core' ? s.coreTotal : s.grandTotal;
+  const scored = M.map((m) => ({ m, s: window.WC.scoreMember(state.preds[m.id]) }))
+    .sort((a, b) => keyOf(b.s) - keyOf(a.s));
   const [open, setOpen] = React.useState(null);
-  const maxTotal = Math.max(1, ...scored.map(x => x.s.total));
+  const maxTotal = Math.max(1, ...scored.map((x) => keyOf(x.s)));
   const rankColor = i => i === 0 ? T.gold : i === 1 ? T.silver : i === 2 ? T.boot : T.faint;
 
   const HitBadge = ({ ok, label }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3, opacity: ok ? 1 : 0.4 }}>
       <Icon name={ok ? 'check' : 'close'} size={12} color={ok ? T.accent : T.faint} sw={2.6} />
       <span style={{ fontSize: 11, fontWeight: 700, color: ok ? T.text : T.faint }}>{label}</span>
+    </div>
+  );
+
+  const DivisionTabs = () => (
+    <div style={{ display: 'flex', gap: 6, margin: '12px 0 4px' }}>
+      {[['core', 'コア部門'], ['grand', '総合部門']].map(([id, label]) => (
+        <button key={id} onClick={() => setDivision(id)} style={{
+          border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 13,
+          padding: '8px 14px', borderRadius: 11,
+          background: division === id ? `${T.accent}1A` : 'transparent',
+          boxShadow: division === id ? `inset 0 0 0 1px ${T.accent}3D` : `inset 0 0 0 1px ${T.line}`,
+          color: division === id ? T.accent : T.sub }}>{label}</button>
+      ))}
     </div>
   );
 
@@ -105,8 +120,8 @@ function RankingScreen({ T, state, wide = false }) {
       <Icon name="flame" size={17} color={T.accent} />
       <div style={{ fontSize: 12.5, color: T.sub, lineHeight: 1.45 }}>
         <b style={{ color: T.text }}>サンプル結果</b>で集計中 ·
-        優勝 {window.WC.TEAM[R.champion].flag}{window.WC.TEAM[R.champion].ja} /
-        準優勝 {window.WC.TEAM[R.runnerUp].flag}{window.WC.TEAM[R.runnerUp].ja} /
+        優勝 {window.WC.TEAM[R.champion]?.flag}{window.WC.TEAM[R.champion]?.ja} /
+        準優勝 {window.WC.TEAM[R.runnerUp]?.flag}{window.WC.TEAM[R.runnerUp]?.ja} /
         得点王 {R.topScorer}
       </div>
     </div>
@@ -132,7 +147,7 @@ function RankingScreen({ T, state, wide = false }) {
               <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 22,
                 color: rankColor(pos) }}>{pos + 1}</div>
               <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 26,
-                color: T.text }}>{item.s.total}</div>
+                color: T.text }}>{keyOf(item.s)}</div>
               <div style={{ fontSize: 10, color: T.faint, fontWeight: 700 }}>pt</div>
             </div>
           </div>
@@ -150,7 +165,7 @@ function RankingScreen({ T, state, wide = false }) {
       <div style={{ color: T.gold }}>優勝</div>
       <div style={{ color: T.silver }}>準優勝</div>
       <div style={{ color: T.boot }}>得点王</div>
-      <div style={{ color: T.accent }}>トーナメント</div>
+      <div style={{ color: T.accent }}>オプション</div>
       <div style={{ textAlign: 'right' }}>合計</div>
     </div>
   );
@@ -187,16 +202,16 @@ function RankingScreen({ T, state, wide = false }) {
                   overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.m.name}</span>
               </div>
               <CatCell flag={cT ? cT.flag : '🏳️'} text={cT ? cT.ja : '—'} ok={cHit}
-                pts={item.s.champion} color={T.gold} />
+                pts={item.s.core.champion} color={T.gold} />
               <CatCell flag={rT ? rT.flag : '🏳️'} text={rT ? rT.ja : '—'} ok={rHit}
-                pts={item.s.runnerUp} color={T.silver} />
+                pts={item.s.core.runnerUp} color={T.silver} />
               <CatCell flag="⚽️" text={p.topScorer || '—'} ok={sHit}
-                pts={item.s.topScorer} color={T.boot} />
-              <CatCell text={`16強${item.s.bracketHits.r16}・8強${item.s.bracketHits.qf}・4強${item.s.bracketHits.sf}`}
-                ok={item.s.bracket > 0} pts={item.s.bracket} color={T.accent} />
+                pts={item.s.core.topScorer} color={T.boot} />
+              <CatCell text={`順位${item.s.option.rankHits}・KO${item.s.option.koHits.r32 + item.s.option.koHits.r16 + item.s.option.koHits.qf + item.s.option.koHits.sf}`}
+                ok={item.s.option.total > 0} pts={division === 'grand' ? item.s.option.total : 0} color={T.accent} />
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 21,
-                  color: T.text }}>{item.s.total}</span>
+                  color: T.text }}>{keyOf(item.s)}</span>
                 <span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}> pt</span>
               </div>
             </div>
@@ -210,7 +225,7 @@ function RankingScreen({ T, state, wide = false }) {
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16,
       padding: '12px 14px', background: T.panel2, borderRadius: 14 }}>
       {[['優勝', T.gold, '+25'], ['準優勝', T.silver, '+15'], ['得点王', T.boot, '+20'],
-        ['トーナメント', T.accent, '+2〜10']].map(([l, c, v]) => (
+        ['オプション', T.accent, 'グループ+ノックアウト']].map(([l, c, v]) => (
         <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 10, height: 10, borderRadius: 3, background: c }} />
           <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{l}</span>
@@ -228,6 +243,7 @@ function RankingScreen({ T, state, wide = false }) {
         <div style={{ fontSize: 27, fontWeight: 800, color: T.text, marginTop: 3 }}>
           予想の的中ランキング</div>
         <Banner />
+        <DivisionTabs />
         <Podium />
         <RankTable />
         <Legend />
@@ -247,11 +263,12 @@ function RankingScreen({ T, state, wide = false }) {
         <Icon name="flame" size={17} color={T.accent} />
         <div style={{ fontSize: 12, color: T.sub, lineHeight: 1.45 }}>
           <b style={{ color: T.text }}>サンプル結果</b>で集計中 ·
-          優勝 {window.WC.TEAM[R.champion].flag}{window.WC.TEAM[R.champion].ja} /
-          準優勝 {window.WC.TEAM[R.runnerUp].flag}{window.WC.TEAM[R.runnerUp].ja} /
+          優勝 {window.WC.TEAM[R.champion]?.flag}{window.WC.TEAM[R.champion]?.ja} /
+          準優勝 {window.WC.TEAM[R.runnerUp]?.flag}{window.WC.TEAM[R.runnerUp]?.ja} /
           得点王 {R.topScorer}
         </div>
       </div>
+      <DivisionTabs />
 
       {/* 表彰台 トップ3 */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 18 }}>
@@ -272,7 +289,7 @@ function RankingScreen({ T, state, wide = false }) {
                 <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 22,
                   color: rankColor(pos) }}>{pos + 1}</div>
                 <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 26,
-                  color: T.text }}>{item.s.total}</div>
+                  color: T.text }}>{keyOf(item.s)}</div>
                 <div style={{ fontSize: 10, color: T.faint, fontWeight: 700 }}>pt</div>
               </div>
             </div>
@@ -300,16 +317,17 @@ function RankingScreen({ T, state, wide = false }) {
                   {/* 内訳バー */}
                   <div style={{ display: 'flex', height: 6, borderRadius: 4, overflow: 'hidden',
                     marginTop: 5, background: T.panel2, width: 130 }}>
-                    {[['champion', T.gold], ['runnerUp', T.silver], ['topScorer', T.boot],
-                      ['bracket', T.accent]].map(([k, c]) => (
-                      <div key={k} style={{ width: `${(item.s[k] / maxTotal) * 100}%`,
+                    {[['champion', T.gold, item.s.core.champion], ['runnerUp', T.silver, item.s.core.runnerUp],
+                      ['topScorer', T.boot, item.s.core.topScorer],
+                      ...(division === 'grand' ? [['option', T.accent, item.s.option.total]] : [])].map(([k, c, v]) => (
+                      <div key={k} style={{ width: `${(v / maxTotal) * 100}%`,
                         background: c }} />
                     ))}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 22,
-                    color: T.text }}>{item.s.total}</span>
+                    color: T.text }}>{keyOf(item.s)}</span>
                   <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}> pt</span>
                 </div>
                 <div style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: '.2s' }}>
@@ -319,20 +337,18 @@ function RankingScreen({ T, state, wide = false }) {
               {isOpen && (
                 <div style={{ padding: '0 14px 14px 48px' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10 }}>
-                    <HitBadge ok={p.champion === R.champion}
-                      label={`優勝 +${item.s.champion}`} />
-                    <HitBadge ok={p.runnerUp === R.runnerUp}
-                      label={`準優勝 +${item.s.runnerUp}`} />
-                    <HitBadge ok={p.topScorer && p.topScorer.trim() === R.topScorer.trim()}
-                      label={`得点王 +${item.s.topScorer}`} />
+                    <HitBadge ok={p.champion === R.champion} label={`優勝 +${item.s.core.champion}`} />
+                    <HitBadge ok={p.runnerUp === R.runnerUp} label={`準優勝 +${item.s.core.runnerUp}`} />
+                    <HitBadge ok={p.topScorer && R.topScorer && p.topScorer.trim() === R.topScorer.trim()}
+                      label={`得点王 +${item.s.core.topScorer}`} />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Icon name="bracket" size={15} color={T.accent} />
-                    <span style={{ fontSize: 12.5, color: T.sub }}>
-                      トーナメント的中 <b style={{ color: T.text }}>+{item.s.bracket}pt</b>
-                      <span style={{ color: T.faint }}> （16強{item.s.bracketHits.r16}・8強{item.s.bracketHits.qf}・4強{item.s.bracketHits.sf}・決勝{item.s.bracketHits.final}）</span>
-                    </span>
-                  </div>
+                  {division === 'grand' && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 12.5, color: T.sub }}>
+                      <span>順位的中 <b style={{ color: T.text }}>+{item.s.option.groupRank}</b>（{item.s.option.rankHits}）</span>
+                      <span>ノックアウト <b style={{ color: T.text }}>+{item.s.option.knockout}</b>
+                        <span style={{ color: T.faint }}>（16強{item.s.option.koHits.r32}・8強{item.s.option.koHits.r16}・4強{item.s.option.koHits.qf}・決勝{item.s.option.koHits.sf}）</span></span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -343,7 +359,7 @@ function RankingScreen({ T, state, wide = false }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 16,
         padding: '12px 14px', background: T.panel2, borderRadius: 14 }}>
         {[['優勝', T.gold, '+25'], ['準優勝', T.silver, '+15'], ['得点王', T.boot, '+20'],
-          ['トーナメント', T.accent, '+2〜10']].map(([l, c, v]) => (
+          ['オプション', T.accent, 'グループ+ノックアウト']].map(([l, c, v]) => (
           <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: 3, background: c }} />
             <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{l}</span>
