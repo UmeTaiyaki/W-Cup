@@ -77,6 +77,7 @@
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
       const [state, setState] = useState(() => window.WC.load());
       const [tab, setTab] = useState('summary');
+      const [optScreen, setOptScreen] = useState(null); // 'grouprank' | 'thirdwild' | 'knockout' | null
       const [adding, setAdding] = useState(false);
       const [newName, setNewName] = useState('');
       const [, setCfgLoaded] = useState(0);
@@ -101,19 +102,28 @@
       const pred = state.preds[state.current];
 
       function persist(next) { setState(next); window.WC.save(next); }
-      function setCurrent(id) { persist({ ...state, current: id }); }
+      function setCurrent(id) { setOptScreen(null); persist({ ...state, current: id }); }
       function commitAdd() {
         const next = window.WC.addMember(state, newName);
-        setState(next); setNewName(''); setAdding(false); setTab('input');
+        setState(next); setNewName(''); setAdding(false); goTab('input');
       }
       function removeMember(id) { setState(window.WC.removeMember(state, id)); }
       function setPick(field, value) {
         persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, [field]: value } } });
       }
-      function setBracket(winners) {
-        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, bracket: winners } } });
+      function setGroupRank(groupKey, codeArray) {
+        const groupRank = { ...(pred.groupRank || {}), [groupKey]: codeArray };
+        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, groupRank } } });
       }
-      function doReset() { persist(window.WC.reset()); setTab('summary'); }
+      function setThirdAssign(slotId, code) {
+        const thirdAssign = { ...(pred.thirdAssign || {}), [slotId]: code };
+        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, thirdAssign } } });
+      }
+      function setKnockout(winners) {
+        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, knockout: winners } } });
+      }
+      function goTab(id) { setOptScreen(null); setTab(id); }
+      function doReset() { setOptScreen(null); persist(window.WC.reset()); setTab('summary'); }
 
       // ---- レスポンシブ判定（コンテナ幅基準）----
       const appRef = useRef(null);
@@ -147,11 +157,19 @@
 
       function renderScreen(wide) {
         if (tab === 'summary') return <SummaryScreen T={T} state={state} member={member} pred={pred}
-          goTab={setTab} wide={wide} dashboard={wide && t.dtLayout === 'dashboard'} />;
-        if (tab === 'input') return <InputScreen T={T} member={member} pred={pred} setPick={setPick}
-          onRemove={removeMember} canRemove={state.members.length > 1} wide={wide} />;
+          goTab={goTab} wide={wide} dashboard={wide && t.dtLayout === 'dashboard'} />;
+        if (tab === 'input') {
+          if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
+            setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
+          if (optScreen === 'thirdwild') return <ThirdWildScreen T={T} member={member} pred={pred}
+            setThirdAssign={setThirdAssign} goBack={() => setOptScreen(null)} wide={wide} />;
+          if (optScreen === 'knockout') return <KnockoutScreen T={T} member={member} pred={pred}
+            setKnockout={setKnockout} goBack={() => setOptScreen(null)} wide={wide} availWidth={contentAvail} />;
+          return <InputScreen T={T} member={member} pred={pred} setPick={setPick}
+            onRemove={removeMember} canRemove={state.members.length > 1} goOption={setOptScreen} wide={wide} />;
+        }
         if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
-        if (tab === 'compare') return <CompareScreen T={T} state={state} goTab={setTab} wide={wide} />;
+        if (tab === 'compare') return <CompareScreen T={T} state={state} goTab={goTab} wide={wide} />;
         if (tab === 'rank') return <RankingScreen T={T} state={state} wide={wide} />;
         return null;
       }
@@ -163,7 +181,7 @@
         <div style={{ display: 'flex', height: '100%', background: T.bg, position: 'relative',
           overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: T.grad, pointerEvents: 'none' }} />
-          <window.Sidebar T={T} t={t} tab={tab} setTab={setTab} tabs={DESKTOP_TABS}
+          <window.Sidebar T={T} t={t} tab={tab} setTab={goTab} tabs={DESKTOP_TABS}
             members={state.members} current={state.current} setCurrent={setCurrent}
             onAdd={() => { setNewName(''); setAdding(true); }} onReset={doReset}
             showWordmark={t.showWordmark} />
@@ -173,7 +191,7 @@
                 {renderScreen(true)}
               </div>
             </div>
-            {railShown && <window.RightRail T={T} state={state} member={member} pred={pred} goTab={setTab} />}
+            {railShown && <window.RightRail T={T} state={state} member={member} pred={pred} goTab={goTab} />}
           </div>
         </div>
       );
@@ -256,7 +274,7 @@
               {MOBILE_TABS.map(tb => {
                 const active = tab === tb.id;
                 return (
-                  <button key={tb.id} onClick={() => setTab(tb.id)} style={{
+                  <button key={tb.id} onClick={() => goTab(tb.id)} style={{
                     flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '4px 2px' }}>
                     <Icon name={tb.icon} size={23} color={active ? T.accent : T.faint} fill="none" sw={active ? 2.2 : 1.8} />

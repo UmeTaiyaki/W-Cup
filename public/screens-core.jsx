@@ -212,7 +212,12 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
 }
 
 // ===== 予想入力画面 =========================================
-function InputScreen({ T, member, pred, setPick, onRemove, canRemove, wide = false }) {
+function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, wide = false }) {
+  const gr = pred.groupRank || {};
+  const ta = pred.thirdAssign || {};
+  const grDone = ['A','B','C','D','E','F','G','H','I','J','K','L'].filter((k) => (gr[k] || []).length >= 3).length;
+  const taDone = (window.WC.WILDCARD_SLOTS || []).filter((s) => ta[s]).length;
+  const koReady = grDone === 12 && taDone === 8;
   const [sheet, setSheet] = React.useState(null); // 'champ' | 'runner' | 'scorer'
   const [confirm, setConfirm] = React.useState(false);
   React.useEffect(() => { setConfirm(false); }, [member.id]);
@@ -264,11 +269,18 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, wide = fal
         <Row field="scorer" label="得点王" sub="TOP SCORER" color={T.boot} icon="boot" scorer={pred.topScorer} />
       </div>
 
-      <div style={{
-        marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, color: T.faint,
-        fontSize: 12.5, background: T.panel2, borderRadius: 14, padding: '12px 14px' }}>
-        <Icon name="bracket" size={18} color={T.accent} />
-        <span style={{ color: T.sub }}>決勝トーナメントの予想は近日対応予定です。</span>
+      {/* オプション予想の入口 */}
+      <div style={{ marginTop: 22 }}>
+        <div style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, letterSpacing: 1.4,
+          color: T.accent, marginBottom: 10 }}>■ オプション予想（やりたい人）</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <OptionCard T={T} emoji="📊" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
+            onClick={() => goOption('grouprank')} />
+          <OptionCard T={T} emoji="🎯" title="3位ワイルドカード" sub={`8枠に3位を割当 · ${taDone}/8枠`}
+            onClick={() => goOption('thirdwild')} />
+          <OptionCard T={T} emoji="🏟" title="ノックアウト予想" sub={koReady ? 'ベスト32→決勝' : '先にグループ順位予想を'}
+            onClick={() => koReady && goOption('knockout')} disabled={!koReady} />
+        </div>
       </div>
 
       {/* 参加者の削除 */}
@@ -316,6 +328,23 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, wide = fal
       <ScorerPicker open={sheet === 'scorer'} onClose={() => setSheet(null)} T={T} centered={wide}
         value={pred.topScorer} onPick={s => setPick('topScorer', s)} />
     </div>
+  );
+}
+
+function OptionCard({ T, emoji, title, sub, onClick, disabled = false }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+      border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
+      background: T.card, borderRadius: 14, padding: '13px 14px', opacity: disabled ? 0.55 : 1,
+      boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+      <span style={{ fontSize: 20 }}>{emoji}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: T.text }}>{title}</div>
+        <div style={{ fontSize: 11.5, color: T.faint, marginTop: 1 }}>{sub}</div>
+      </div>
+      <Icon name="chevron" size={18} color={T.faint} />
+    </button>
   );
 }
 
