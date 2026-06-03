@@ -1,0 +1,10 @@
+{
+  "name": "wcup2026-yosou",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test functions/",
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public --project-name=wcup2026-yosou --commit-dirty=true"
+  }
+}
