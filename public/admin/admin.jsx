@@ -66,9 +66,12 @@ function Editor({ password, initial }) {
   const GROUP_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
   function setGroupMember(k, i, code) {
     setCfg((c) => {
-      const g = { ...c.groups, [k]: [...(c.groups[k] || ['', '', '', ''])] };
-      g[k][i] = code || '';
-      return { ...c, groups: g };
+      const arr = [...(c.groups[k] || ['', '', '', ''])];
+      arr[i] = code || '';
+      const g = { ...c.groups, [k]: arr };
+      const members = new Set(arr.filter(Boolean));
+      const gr = { ...c.groupResult, [k]: (c.groupResult[k] || []).filter((x) => !x || members.has(x)) };
+      return { ...c, groups: g, groupResult: gr };
     });
   }
   function setGroupRank(k, i, code) {

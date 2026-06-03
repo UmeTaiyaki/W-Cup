@@ -268,7 +268,7 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, wide = fal
         marginTop: 16, display: 'flex', alignItems: 'center', gap: 10, color: T.faint,
         fontSize: 12.5, background: T.panel2, borderRadius: 14, padding: '12px 14px' }}>
         <Icon name="bracket" size={18} color={T.accent} />
-        <span style={{ color: T.sub }}>決勝トーナメントの予想は下の「トーナメント」タブから。</span>
+        <span style={{ color: T.sub }}>決勝トーナメントの予想は近日対応予定です。</span>
       </div>
 
       {/* 参加者の削除 */}
