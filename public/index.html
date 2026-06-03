@@ -44,6 +44,7 @@
   <script type="text/babel" src="screens-core.jsx"></script>
   <script type="text/babel" src="screens-bracket.jsx"></script>
   <script type="text/babel" src="screens-rank.jsx"></script>
+  <script type="text/babel" src="screens-group.jsx"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -116,13 +117,13 @@
       const MOBILE_TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
         { id: 'input', label: '予想', icon: 'edit' },
-        { id: 'bracket', label: 'トーナメント', icon: 'bracket' },
+        { id: 'group', label: 'グループ', icon: 'grid' },
         { id: 'rank', label: 'ランキング', icon: 'medal' },
       ];
       const DESKTOP_TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
         { id: 'input', label: '予想を入力', icon: 'edit' },
-        { id: 'bracket', label: 'トーナメント', icon: 'bracket' },
+        { id: 'group', label: 'グループ', icon: 'grid' },
         { id: 'compare', label: '見比べ', icon: 'people' },
         { id: 'rank', label: 'ランキング', icon: 'medal' },
       ];
@@ -139,14 +140,13 @@
           goTab={setTab} wide={wide} dashboard={wide && t.dtLayout === 'dashboard'} />;
         if (tab === 'input') return <InputScreen T={T} member={member} pred={pred} setPick={setPick}
           onRemove={removeMember} canRemove={state.members.length > 1} wide={wide} />;
-        if (tab === 'bracket') return <BracketScreen T={T} member={member} pred={pred}
-          setBracket={setBracket} wide={wide} availWidth={contentAvail} />;
+        if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
         if (tab === 'compare') return <CompareScreen T={T} state={state} goTab={setTab} wide={wide} />;
         if (tab === 'rank') return <RankingScreen T={T} state={state} wide={wide} />;
         return null;
       }
 
-      const showSwitcher = tab === 'summary' || tab === 'input' || tab === 'bracket';
+      const showSwitcher = tab === 'summary' || tab === 'input';
 
       // ================= デスクトップ shell =================
       const desktopShell = (

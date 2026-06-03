@@ -12,6 +12,7 @@ function Icon({ name, size = 24, color = 'currentColor', fill = 'none', sw = 1.9
     boot: <g {...p}><path d="M4 7h4l1 5 8 1c2 .3 3 1.7 3 3.5V19H4V7Z"/><path d="M4 14h5M4 19h17"/></g>,
     medal: <g {...p}><circle cx="12" cy="15" r="5"/><path d="M9 4l3 6 3-6M8.5 4h7M12 13.4l.9 1.7 1.9.2-1.4 1.3.4 1.9-1.8-1-1.8 1 .4-1.9-1.4-1.3 1.9-.2.9-1.7Z"/></g>,
     bracket: <g {...p}><path d="M3 5h5v6h4M3 19h5v-6M16 9h5M16 9v6M16 15h5"/></g>,
+    grid: <g {...p}><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></g>,
     people: <g {...p}><circle cx="8.5" cy="9" r="2.6"/><circle cx="16" cy="9.5" r="2.2"/><path d="M3.5 18c.4-2.6 2.4-4.2 5-4.2s4.6 1.6 5 4.2M14.5 14c2.3.1 4 1.6 4.4 4"/></g>,
     edit: <g {...p}><path d="M5 19h14M7 15.5 16 6.5l2 2-9 9-2.6.6.6-2.6Z"/></g>,
     check: <g {...p}><path d="M5 12.5 10 17l9-10"/></g>,
