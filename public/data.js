@@ -218,7 +218,15 @@
     } catch (e) {}
     // 初期化：シードを複製
     const preds = {};
-    MEMBERS.forEach(m => { preds[m.id] = JSON.parse(JSON.stringify(SEED[m.id])); });
+    MEMBERS.forEach(m => {
+      const seed = SEED[m.id] || {};
+      preds[m.id] = {
+        ...emptyPred(),
+        champion: seed.champion ?? null,
+        runnerUp: seed.runnerUp ?? null,
+        topScorer: seed.topScorer ?? '',
+      };
+    });
     const init = { current: 'hikaru', members: JSON.parse(JSON.stringify(MEMBERS)), preds };
     save(init);
     return init;
