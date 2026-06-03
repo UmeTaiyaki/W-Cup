@@ -187,7 +187,7 @@ function RankingScreen({ T, state, wide = false }) {
           const p = state.preds[item.m.id];
           const cHit = p.champion === R.champion;
           const rHit = p.runnerUp === R.runnerUp;
-          const sHit = p.topScorer && p.topScorer.trim() === R.topScorer.trim();
+          const sHit = p.topScorer && R.topScorer && p.topScorer.trim() === R.topScorer.trim();
           const cT = window.WC.TEAM[p.champion], rT = window.WC.TEAM[p.runnerUp];
           return (
             <div key={item.m.id} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10,
