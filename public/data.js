@@ -247,7 +247,7 @@
         pred.topScorer.trim() === window.WC.RESULT.topScorer.trim()) { s.topScorer = SCORING.topScorer; }
     // bracket
     const b = pred.bracket || {};
-    const rb = window.WC.RESULT.bracket;
+    const rb = window.WC.RESULT.bracket || {};
     let bp = 0, r16h = 0, qfh = 0, sfh = 0, fh = 0;
     ['r16', 'qf', 'sf', 'final'].forEach(r => {
       const mine = b[r] || [], act = rb[r] || [];

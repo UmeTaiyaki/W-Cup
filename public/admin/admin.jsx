@@ -11,7 +11,7 @@ function api(path, opts) {
   return fetch(path, { cache: 'no-store', ...opts });
 }
 
-function Login({ onOk }) {
+function Login({ onOk, externalError }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,7 +29,7 @@ function Login({ onOk }) {
       <input type="password" value={pw} autoFocus placeholder="管理パスワード"
         onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
         style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #333', background: '#13241C', color: '#fff', fontSize: 16 }} />
-      {err && <p style={{ color: '#FF6B6B', fontSize: 13 }}>{err}</p>}
+      {(err || externalError) && <p style={{ color: '#FF6B6B', fontSize: 13 }}>{err || externalError}</p>}
       <button onClick={submit} disabled={busy || !pw} style={{ marginTop: 14, width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#B6FF3C', color: '#0A1410', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>ログイン</button>
       <p style={{ marginTop: 18 }}><a href="/">← 予想アプリに戻る</a></p>
     </div>
@@ -96,7 +96,7 @@ function Editor({ password, initial }) {
     setBusy(true); setMsg('');
     try {
       const r = await api('/api/config', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + password }, body: JSON.stringify(cfg) });
-      const data = await r.json();
+      const data = await r.json().catch(() => ({}));
       if (r.ok) setMsg('✅ 保存しました（' + data.updatedAt + '）');
       else setMsg('❌ ' + (data.error || '保存失敗'));
     } catch (e) { setMsg('❌ 通信エラー'); }
@@ -194,25 +194,30 @@ function Admin() {
   const [password, setPassword] = useState('');
   const [cfg, setCfg] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   async function afterLogin(pw) {
-    setPassword(pw); setLoading(true);
+    setPassword(pw); setLoading(true); setLoadError('');
     try {
       const r = await api('/api/config');
-      const data = await r.json();
-      // 正規化（欠損フィールド補完）
-      data.result = data.result || { champion: null, runnerUp: null, topScorer: '', bracket: {} };
-      data.result.bracket = data.result.bracket || {};
-      ['r16', 'qf', 'sf', 'final'].forEach((k) => { data.result.bracket[k] = data.result.bracket[k] || []; });
-      data.r16Teams = data.r16Teams && data.r16Teams.length === 16 ? data.r16Teams : Array(16).fill('');
-      data.scorerSuggest = data.scorerSuggest || [];
-      data.schedule = data.schedule || [];
-      setCfg(data);
-    } catch (e) { /* 失敗時は再ログイン */ }
+      const raw = await r.json();
+      // 正規化（欠損フィールド補完・イミュータブル）
+      const baseResult = raw.result && typeof raw.result === 'object' ? raw.result : {};
+      const rawBracket = baseResult.bracket && typeof baseResult.bracket === 'object' ? baseResult.bracket : {};
+      const bracket = { r16: rawBracket.r16 || [], qf: rawBracket.qf || [], sf: rawBracket.sf || [], final: rawBracket.final || [] };
+      const cfg = {
+        ...raw,
+        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', bracket },
+        r16Teams: Array.isArray(raw.r16Teams) && raw.r16Teams.length === 16 ? raw.r16Teams : Array(16).fill(''),
+        scorerSuggest: Array.isArray(raw.scorerSuggest) ? raw.scorerSuggest : [],
+        schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
+      };
+      setCfg(cfg);
+    } catch (e) { setLoadError('設定の取得に失敗しました。もう一度お試しください'); }
     setLoading(false);
   }
 
-  if (!cfg) return <Login onOk={afterLogin} />;
+  if (!cfg) return <Login onOk={afterLogin} externalError={loadError} />;
   if (loading) return <p style={{ padding: 40 }}>読み込み中…</p>;
   return <Editor password={password} initial={cfg} />;
 }
