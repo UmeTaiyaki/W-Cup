@@ -6,8 +6,8 @@ import { DEFAULT_CONFIG } from './defaults.js';
 test('デフォルト設定は妥当', () => {
   const r = validateConfig(DEFAULT_CONFIG);
   assert.equal(r.ok, true);
-  assert.equal(r.value.teams.length, 32);
-  assert.equal(r.value.r16Teams.length, 16);
+  assert.equal(r.value.teams.length, 48);
+  assert.equal(r.value.r16Teams.length, 0);
 });
 
 test('teams が無いと失敗', () => {
@@ -49,4 +49,58 @@ test('欠損フィールドは正規化で補完される', () => {
   assert.deepEqual(r.value.result.bracket.r16, []);
   assert.equal(r.value.result.champion, null);
   assert.deepEqual(r.value.schedule, []);
+});
+
+test('groups: 妥当な所属は通り正規化される', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }, { code: 'BBB', ja: 'B' }],
+    groups: { A: ['aaa', 'BBB'] },
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.groups.A, ['AAA', 'BBB']);
+});
+
+test('groups: 未登録コードは失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    groups: { A: ['ZZZ'] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /groups/);
+});
+
+test('groups: 不正なキーは失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    groups: { Z: ['AAA'] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /groups/);
+});
+
+test('groupResult: 所属外コードは失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }, { code: 'BBB', ja: 'B' }],
+    groups: { A: ['AAA'] },
+    groupResult: { A: ['BBB'] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /groupResult/);
+});
+
+test('groupResult: 所属内コードは通る', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }, { code: 'BBB', ja: 'B' }],
+    groups: { A: ['AAA', 'BBB'] },
+    groupResult: { A: ['BBB', 'AAA'] },
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.groupResult.A, ['BBB', 'AAA']);
+});
+
+test('groups/groupResult 省略時は空オブジェクト', () => {
+  const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }] });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.groups, {});
+  assert.deepEqual(r.value.groupResult, {});
 });

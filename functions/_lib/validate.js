@@ -80,5 +80,44 @@ export function validateConfig(input) {
     }));
   }
 
-  return { ok: true, value: { version: 1, updatedAt: null, teams, r16Teams, scorerSuggest, result, schedule } };
+  // groups（A〜L、各コードは teams 内。空文字スロット許容）
+  const GROUP_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  const groups = {};
+  if (input.groups != null) {
+    if (!isObj(input.groups)) return { ok: false, error: 'groups はオブジェクトが必要です' };
+    for (const k of Object.keys(input.groups)) {
+      if (!GROUP_KEYS.includes(k)) return { ok: false, error: `groups に不正なキー: ${k}` };
+      const arr = input.groups[k];
+      if (!Array.isArray(arr)) return { ok: false, error: `groups.${k} は配列が必要です` };
+      const norm = [];
+      for (const c of arr) {
+        if (c === '') { norm.push(''); continue; }
+        if (!(isStr(c) && known(c.toUpperCase()))) return { ok: false, error: `groups.${k} に未登録コード: ${c}` };
+        norm.push(c.toUpperCase());
+      }
+      groups[k] = norm;
+    }
+  }
+
+  // groupResult（各コードは対応 groups[k] の所属内。空文字スロット許容）
+  const groupResult = {};
+  if (input.groupResult != null) {
+    if (!isObj(input.groupResult)) return { ok: false, error: 'groupResult はオブジェクトが必要です' };
+    for (const k of Object.keys(input.groupResult)) {
+      if (!GROUP_KEYS.includes(k)) return { ok: false, error: `groupResult に不正なキー: ${k}` };
+      const arr = input.groupResult[k];
+      if (!Array.isArray(arr)) return { ok: false, error: `groupResult.${k} は配列が必要です` };
+      const members = new Set((groups[k] || []).filter(Boolean));
+      const norm = [];
+      for (const c of arr) {
+        if (c === '') { norm.push(''); continue; }
+        const up = isStr(c) ? c.toUpperCase() : '';
+        if (!up || !members.has(up)) return { ok: false, error: `groupResult.${k} に所属外コード: ${c}` };
+        norm.push(up);
+      }
+      groupResult[k] = norm;
+    }
+  }
+
+  return { ok: true, value: { version: 1, updatedAt: null, teams, r16Teams, scorerSuggest, result, schedule, groups, groupResult } };
 }
