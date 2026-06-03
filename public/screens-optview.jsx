@@ -318,4 +318,4 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
   );
 }
 
-Object.assign(window, { OptionViewScreen });
+Object.assign(window, { OptionViewScreen, KnockoutView });
