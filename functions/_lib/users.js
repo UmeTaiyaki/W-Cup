@@ -27,6 +27,18 @@ export function makeUser(name, code) {
   };
 }
 
+// 他者に見せてよい公開ビュー。秘密の同期コード(code)を除外する。
+// 部屋の見比べボードや id 指定取得など、本人以外も読みうる応答で使う。
+export function publicUser(user) {
+  if (!user || typeof user !== 'object') return null;
+  return {
+    id: user.id,
+    name: user.name,
+    pred: user.pred,
+    updatedAt: user.updatedAt ?? null,
+  };
+}
+
 // 保存済み/受信した User を安全な形へ正規化。必須項目（id）が無ければ null。
 export function validateUser(input) {
   if (!input || typeof input !== 'object') return null;

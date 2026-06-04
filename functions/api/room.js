@@ -1,6 +1,6 @@
 import { json } from '../_lib/http.js';
 import { makeRoom, addMember, ROOM_LIMITS } from '../_lib/rooms.js';
-import { validateUser } from '../_lib/users.js';
+import { validateUser, publicUser } from '../_lib/users.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 
 const rKey = (id) => `room:${id}`;
@@ -57,7 +57,10 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const room = await readRoom(env, url.searchParams.get('id'));
   if (!room) return json(404, { error: '部屋が見つかりません' });
-  const members = (await Promise.all(room.members.map((uid) => readUser(env, uid)))).filter(Boolean);
+  // 各メンバーは公開ビュー（code を除く）で返す。同室者に同期コードを漏らさない。
+  const members = (await Promise.all(room.members.map((uid) => readUser(env, uid))))
+    .filter(Boolean)
+    .map(publicUser);
   return json(200, { room, members });
 }
 

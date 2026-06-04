@@ -1,5 +1,5 @@
 import { json } from '../_lib/http.js';
-import { makeUser, validateUser, USER_LIMITS } from '../_lib/users.js';
+import { makeUser, validateUser, publicUser, USER_LIMITS } from '../_lib/users.js';
 import { validatePred } from '../_lib/predictions.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 
@@ -43,7 +43,8 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   const user = await readUser(env, url.searchParams.get('id'));
   if (!user) return json(404, { error: 'ユーザーが見つかりません' });
-  return json(200, user);
+  // 秘密の同期コードは返さない（id を知るだけの第三者に漏らさない）。
+  return json(200, publicUser(user));
 }
 
 // POST /api/user  { op: 'create' | 'setPred' | 'sync', ... }
@@ -78,6 +79,11 @@ export async function onRequestPost({ request, env }) {
   if (op === 'setPred') {
     const user = await readUser(env, input.userId);
     if (!user) return json(404, { error: 'ユーザーが見つかりません' });
+    // 本人確認（IDOR防止）: 同期コードの所持を要求する。
+    // クライアントは自分の code を保持しているため UX は変わらない。
+    if (normalizeCode(input.code) !== user.code) {
+      return json(403, { error: '本人確認に失敗しました' });
+    }
     const next = { ...user, pred: validatePred(input.pred).value, updatedAt: new Date().toISOString() };
     try {
       await env.CONFIG.put(uKey(user.id), JSON.stringify(next));
@@ -85,7 +91,8 @@ export async function onRequestPost({ request, env }) {
       console.error('user setPred: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
     }
-    return json(200, next);
+    // 応答に code は含めない（本人は既に保持している）。
+    return json(200, publicUser(next));
   }
 
   if (op === 'sync') {
