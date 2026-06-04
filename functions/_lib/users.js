@@ -4,7 +4,7 @@ import { genId } from './ids.js';
 import { emptyPred, validatePred } from './predictions.js';
 import { normalizeCode } from './codes.js';
 
-export const USER_LIMITS = { name: 20, postBytes: 64 * 1024 };
+export const USER_LIMITS = { name: 20, postBytes: 64 * 1024, maxRooms: 50, roomName: 30 };
 
 const trimName = (name) => {
   if (typeof name !== 'string') return null;
@@ -12,6 +12,20 @@ const trimName = (name) => {
   if (!nm) return null;
   return Array.from(nm).slice(0, USER_LIMITS.name).join('');
 };
+
+// rooms 配列を {id, code, name} の形へ正規化（不正要素は除外、上限で丸め）。
+function normalizeRooms(rooms) {
+  if (!Array.isArray(rooms)) return [];
+  const out = [];
+  for (const r of rooms) {
+    if (!r || typeof r !== 'object') continue;
+    if (typeof r.id !== 'string' || !r.id) continue;
+    const name = (typeof r.name === 'string' ? r.name.trim() : '').slice(0, USER_LIMITS.roomName);
+    out.push({ id: r.id, code: normalizeCode(r.code), name });
+    if (out.length >= USER_LIMITS.maxRooms) break;
+  }
+  return out;
+}
 
 // 名前とコードから新規 User を生成。名前不正なら null。
 export function makeUser(name, code) {
@@ -23,6 +37,7 @@ export function makeUser(name, code) {
     name: nm,
     code: normalizeCode(code),
     pred: emptyPred(),
+    rooms: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -50,6 +65,7 @@ export function validateUser(input) {
     name: nm,
     code: normalizeCode(input.code),
     pred: validatePred(input.pred).value,
+    rooms: normalizeRooms(input.rooms),
     updatedAt: typeof input.updatedAt === 'string' ? input.updatedAt : null,
   };
 }

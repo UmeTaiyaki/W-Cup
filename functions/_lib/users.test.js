@@ -52,3 +52,40 @@ test('publicUser は code を除いた公開ビューを返す', () => {
 test('publicUser は null 入力に null を返す', () => {
   assert.equal(publicUser(null), null);
 });
+
+test('makeUser は rooms を空配列で初期化する', () => {
+  const u = makeUser('たけし', 'ABCD2345');
+  assert.deepEqual(u.rooms, []);
+});
+
+test('validateUser は rooms 欠損時に空配列を補完する', () => {
+  const v = validateUser({ id: 'u1', name: 'のぞみ', code: 'ABCD2345' });
+  assert.deepEqual(v.rooms, []);
+});
+
+test('validateUser は rooms の各要素を {id,code,name} へ正規化する', () => {
+  const v = validateUser({
+    id: 'u1', name: 'x', code: 'ABCD2345',
+    rooms: [
+      { id: 'r1', code: 'wxyz2345', name: ' 部屋A ', junk: 1 },
+      { id: '', code: 'x', name: 'bad' },      // id 無し → 除外
+      'not-an-object',                          // 非オブジェクト → 除外
+    ],
+  });
+  assert.equal(v.rooms.length, 1);
+  assert.deepEqual(v.rooms[0], { id: 'r1', code: 'WXYZ2345', name: '部屋A' });
+});
+
+test('validateUser は rooms を上限 maxRooms で丸める', () => {
+  const many = Array.from({ length: USER_LIMITS.maxRooms + 5 },
+    (_, i) => ({ id: `r${i}`, code: 'ABCD2345', name: `room${i}` }));
+  const v = validateUser({ id: 'u1', name: 'x', code: 'ABCD2345', rooms: many });
+  assert.equal(v.rooms.length, USER_LIMITS.maxRooms);
+});
+
+test('publicUser は rooms を含めない', () => {
+  const u = makeUser('たけし', 'ABCD2345');
+  u.rooms = [{ id: 'r1', code: 'WXYZ2345', name: '部屋A' }];
+  const pub = publicUser(u);
+  assert.ok(!('rooms' in pub), 'rooms を含んではいけない');
+});
