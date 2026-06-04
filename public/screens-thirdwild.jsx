@@ -69,6 +69,8 @@ function ThirdWildScreen({ T, member, pred, setThirdAssign, goBack, wide = false
       <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(260px, 1fr))' : '1fr', gap: 10 }}>
         {SLOTS.map((s) => <Slot key={s} slot={s} />)}
       </div>
+      <OptionSaveBar T={T} onSave={goBack}
+        hint="入力はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
 
       {/* 選択シート */}
       {openSlot && (

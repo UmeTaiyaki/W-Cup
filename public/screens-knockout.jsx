@@ -10,33 +10,45 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
   const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
   // フックは必ずトップで宣言（条件分岐の前）
   const [ri, setRi] = React.useState(0); // モバイルステッパーの現在ラウンド
-  const der = window.WC.deriveKnockout(pred.groupRank || {}, pred.thirdAssign || {}, pred.knockout || {});
+  // 優勝・準優勝は各ラウンドで自動的に勝ち上がる（先頭=優勝が最優先）
+  const forced = [pred.champion, pred.runnerUp].filter(Boolean);
+  const forcedSet = new Set(forced);
+  const der = window.WC.deriveKnockoutAuto(pred.groupRank || {}, pred.thirdAssign || {}, pred.knockout || {}, forced);
   const champ = pred.champion ? window.WC.TEAM[pred.champion] : null;
 
-  // 勝者を選んで整合を取り直して保存
+  // 入室時／優勝・準優勝の変更時に、自動勝ち上がりを予想（pred.knockout）へ反映して保存する。
+  React.useEffect(() => {
+    if (!forced.length) return;
+    const d = window.WC.deriveKnockoutAuto(pred.groupRank || {}, pred.thirdAssign || {}, pred.knockout || {}, forced);
+    if (JSON.stringify(d.winners) !== JSON.stringify(pred.knockout || {})) setKnockout(d.winners);
+  }, [pred.champion, pred.runnerUp, JSON.stringify(pred.groupRank), JSON.stringify(pred.thirdAssign), JSON.stringify(pred.knockout)]);
+
+  // 勝者を選んで整合を取り直して保存（優勝・準優勝が含まれるカードは自動勝ち上がりで固定）
   function pick(round, matchIdx, team) {
     if (!team) return;
+    const card = der.matches[round][matchIdx] || [];
+    if (card.some((t) => forcedSet.has(t))) return; // 自動勝ち上がり枠は変更不可
     const ko = JSON.parse(JSON.stringify(pred.knockout || {}));
     ROUNDS.forEach((r) => {
       ko[r] = (ko[r] || []).slice(0, LENS[r]);
       while (ko[r].length < LENS[r]) ko[r].push(null);
     });
     ko[round][matchIdx] = team;
-    const d = window.WC.deriveKnockout(pred.groupRank || {}, pred.thirdAssign || {}, ko);
+    const d = window.WC.deriveKnockoutAuto(pred.groupRank || {}, pred.thirdAssign || {}, ko, forced);
     setKnockout(d.winners);
   }
 
-  const TeamBtn = ({ team, isWinner, dimmed, onClick, half }) => (
+  const TeamBtn = ({ team, isWinner, dimmed, onClick, half, placeholder }) => (
     <button onClick={onClick} disabled={!team} style={{
       display: 'flex', alignItems: 'center', gap: 7, width: '100%', height: half,
       border: 'none', background: isWinner ? T.accent : 'transparent',
       cursor: team ? 'pointer' : 'default', padding: '0 9px', fontFamily: 'inherit',
       borderRadius: isWinner ? 9 : 0, opacity: dimmed ? 0.4 : 1, minWidth: 0 }}>
       <span style={{ fontSize: 17, flexShrink: 0 }}>{team ? window.WC.TEAM[team]?.flag : '⚪️'}</span>
-      <span style={{ fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden',
-        textOverflow: 'ellipsis', flex: 1, textAlign: 'left',
+      <span style={{ fontSize: team ? 12.5 : 11.5, fontWeight: team ? 800 : 700, whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, textAlign: 'left',
         color: isWinner ? T.accentInk : (team ? T.text : T.faint) }}>
-        {team ? window.WC.TEAM[team]?.ja : '未定'}</span>
+        {team ? window.WC.TEAM[team]?.ja : (placeholder || '未定')}</span>
       {isWinner && <Icon name="check" size={13} color={T.accentInk} sw={2.6} />}
     </button>
   );
@@ -77,18 +89,23 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {matches.map((teams, idx) => {
               const w = winners[idx];
+              const seeds = (der.seeds && der.seeds[round] && der.seeds[round][idx]) || [];
               return (
                 <div key={idx} style={{ background: T.card, borderRadius: 12, padding: 4,
                   boxShadow: `inset 0 0 0 1px ${w ? T.accent + '66' : T.line}` }}>
                   <TeamBtn team={teams[0]} isWinner={w && w === teams[0]} dimmed={w && w !== teams[0]}
-                    onClick={() => pick(round, idx, teams[0])} half={40} />
+                    onClick={() => pick(round, idx, teams[0])} half={40} placeholder={seeds[0]} />
                   <div style={{ height: 1, background: T.line, margin: '0 8px' }} />
                   <TeamBtn team={teams[1]} isWinner={w && w === teams[1]} dimmed={w && w !== teams[1]}
-                    onClick={() => pick(round, idx, teams[1])} half={40} />
+                    onClick={() => pick(round, idx, teams[1])} half={40} placeholder={seeds[1]} />
                 </div>
               );
             })}
           </div>
+          {ri === ROUNDS.length - 1 && (
+            <OptionSaveBar T={T} onSave={goBack}
+              hint="勝者の選択はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
+          )}
         </div>
         <div style={{ display: 'flex', gap: 10, padding: '10px 16px',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 10px)', borderTop: `1px solid ${T.line}` }}>
@@ -146,16 +163,17 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
   const MatchCard = ({ round, r, idx }) => {
     const teams = der.matches[round][idx];
     const w = der.winners[round][idx];
+    const seeds = (der.seeds && der.seeds[round] && der.seeds[round][idx]) || [];
     return (
       <div style={{ position: 'absolute', left: colX(r), top: centerY(r, idx) - cardH / 2,
         width: colW, height: cardH, background: T.card, borderRadius: 11,
         boxShadow: `inset 0 0 0 1px ${w ? T.accent + '66' : T.line}`,
         display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 3, gap: 2 }}>
         <TeamBtn team={teams[0]} isWinner={w && w === teams[0]} dimmed={w && w !== teams[0]}
-          onClick={() => pick(round, idx, teams[0])} half={cardH / 2 - 3} />
+          onClick={() => pick(round, idx, teams[0])} half={cardH / 2 - 3} placeholder={seeds[0]} />
         <div style={{ height: 1, background: T.line, margin: '0 6px' }} />
         <TeamBtn team={teams[1]} isWinner={w && w === teams[1]} dimmed={w && w !== teams[1]}
-          onClick={() => pick(round, idx, teams[1])} half={cardH / 2 - 3} />
+          onClick={() => pick(round, idx, teams[1])} half={cardH / 2 - 3} placeholder={seeds[1]} />
       </div>
     );
   };
@@ -193,6 +211,8 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
           </div>
         </div>
       </div>
+      <OptionSaveBar T={T} onSave={goBack} style={{ maxWidth: 520, margin: '18px auto 0' }}
+        hint="勝者の選択はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
     </div>
   );
 }

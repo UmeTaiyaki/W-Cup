@@ -47,6 +47,7 @@ function LeagueTables({ T }) {
   const gr = window.WC.GROUP_RESULT || {};
   const TEAM = window.WC.TEAM || {};
   const compute = window.WC.computeStandings;
+  const [squadCode, setSquadCode] = React.useState(null);
 
   const Card = ({ k }) => {
     const members = (groups[k] || []).filter(Boolean);
@@ -80,7 +81,7 @@ function LeagueTables({ T }) {
                   <div key={r.code} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                     <span style={{ width: 16, textAlign: 'center', fontFamily: 'Archivo', fontWeight: 800, color: posColor }}>{i + 1}</span>
                     <span style={{ fontSize: 18 }}>{tm.flag}</span>
-                    <span style={{ fontWeight: 700, color: T.text, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tm.ja}</span>
+                    <span onClick={() => setSquadCode(r.code)} style={{ fontWeight: 700, color: T.text, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{tm.ja}<span style={{ color: T.faint, marginLeft: 3 }}>›</span></span>
                     <span style={{ width: 28, textAlign: 'center', fontWeight: 900, color: T.text }}>{r.pts}</span>
                     <span style={{ width: 18, textAlign: 'center', color: T.sub }}>{r.played}</span>
                     <span style={{ width: 46, textAlign: 'center', color: T.sub, fontSize: 12 }}>{r.w}-{r.d}-{r.l}</span>
@@ -100,7 +101,7 @@ function LeagueTables({ T }) {
                 <div key={code} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 18, textAlign: 'center', fontFamily: 'Archivo', fontWeight: 800, fontSize: 13, color: posColor }}>{pos >= 0 ? pos + 1 : '–'}</span>
                   <span style={{ fontSize: 20 }}>{tm.flag}</span>
-                  <span style={{ fontWeight: 700, color: T.text, fontSize: 14, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tm.ja}</span>
+                  <span onClick={() => setSquadCode(code)} style={{ fontWeight: 700, color: T.text, fontSize: 14, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}>{tm.ja}<span style={{ color: T.faint, marginLeft: 3 }}>›</span></span>
                 </div>
               );
             })}
@@ -112,9 +113,12 @@ function LeagueTables({ T }) {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 12 }}>
-      {GK.map((k) => <Card key={k} k={k} />)}
-    </div>
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 12 }}>
+        {GK.map((k) => <Card key={k} k={k} />)}
+      </div>
+      {squadCode && <SquadSheet T={T} code={squadCode} onClose={() => setSquadCode(null)} />}
+    </>
   );
 }
 
@@ -129,9 +133,10 @@ function KnockoutResults({ T }) {
     ? window.WC.deriveKnockoutFromSets(gr, R.thirdAssign || {}, R.knockout || {})
     : null;
   const champ = R.champion ? TEAM[R.champion] : null;
-  const koAny = der && ROUNDS.some((r) => (der.winners[r] || []).some(Boolean));
 
-  if (!der || (!koAny && !champ)) {
+  // 進出国が未確定でも、各枠の出自（A組1位など）は決まっているので
+  // トーナメント表は常に表示する。確定結果はそのまま枠に入る。
+  if (!der) {
     return (
       <div style={{ background: T.card, borderRadius: 16, padding: '26px 18px', textAlign: 'center',
         boxShadow: `inset 0 0 0 1px ${T.line}`, color: T.faint, fontSize: 14, fontWeight: 700 }}>
@@ -139,10 +144,17 @@ function KnockoutResults({ T }) {
       </div>
     );
   }
-  return <window.KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />;
+  return <window.KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} champEmptyLabel="優勝" />;
 }
 
 // ---- ③得点王ランキング ----
+// 選手名は `NAME (CODE)` 形式（旧データは素の名前）。国旗＋選手名に整形する。
+function parseScorerName(raw) {
+  const m = /^(.*)\s+\(([A-Za-z]{2,3})\)$/.exec(raw || '');
+  if (!m) return { flag: '', name: raw || '' };
+  const tm = (window.WC.TEAM || {})[m[2]] || {};
+  return { flag: tm.flag || '', name: m[1] };
+}
 function ScorerRanking({ T }) {
   const scorers = [...(window.WC.SCORERS || [])]
     .filter((s) => s && s.name)
@@ -157,16 +169,20 @@ function ScorerRanking({ T }) {
   }
   return (
     <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 7 }}>
-      {scorers.map((s, i) => (
+      {scorers.map((s, i) => {
+        const { flag, name } = parseScorerName(s.name);
+        return (
         <div key={s.name + i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: T.card,
           borderRadius: 12, padding: '11px 15px', boxShadow: `inset 0 0 0 1px ${T.line}` }}>
           <span style={{ width: 24, textAlign: 'center', fontFamily: 'Archivo', fontWeight: 900, fontSize: 16,
             color: i === 0 ? T.gold : i === 1 ? T.silver : i === 2 ? '#CD7F32' : T.faint }}>{i + 1}</span>
-          <span style={{ flex: 1, fontWeight: 700, color: T.text, fontSize: 15 }}>{s.name}</span>
+          {flag && <span style={{ fontSize: 20, flexShrink: 0 }}>{flag}</span>}
+          <span style={{ flex: 1, fontWeight: 700, color: T.text, fontSize: 15 }}>{name}</span>
           <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 18, color: T.accent }}>{s.goals}</span>
           <span style={{ fontSize: 12, color: T.faint, fontWeight: 700 }}>得点</span>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -25,6 +25,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const champ = pred.champion ? TEAM[pred.champion] : null;
   const hasAny = grDone > 0 || taDone > 0 || koAny;
   const [section, setSection] = React.useState('group'); // 'group' | 'wild' | 'ko'
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   const posMeta = (i) =>
     i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver }
@@ -40,8 +41,18 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           <Icon name="chevron" size={15} color={T.accent} /></span>ホームに戻る
       </button>
       <Eyebrow T={T}>OPTIONS · 閲覧</Eyebrow>
-      <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 12 }}>
-        {viewed ? `${viewed.name}のオプション予想` : 'オプション予想'}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+        gap: 10, marginTop: 3, marginBottom: 12 }}>
+        <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, minWidth: 0,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {viewed ? `${viewed.name}のオプション予想` : 'オプション予想'}</div>
+        <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
+          cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '8px 14px',
+          display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
+          fontWeight: 800, fontSize: 13 }}>
+          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
+        </button>
+      </div>
 
       {/* メンバー切替チップ */}
       <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4 }}>
@@ -206,26 +217,30 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           )}
         </div>
       </div>
+      <ShareSheet T={T} member={viewed} pred={pred} open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }
 
 /* ノックアウトの読み取り専用表示（トーナメント表ビュー・レスポンシブ）
    コンテナ幅を実測し、収まる時は中央寄せ・収まらない時は横スクロール */
-function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
+function KnockoutView({ T, der, champ, ROUNDS, LABELS, champEmptyLabel = '優勝予想' }) {
   const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
   const wrapRef = React.useRef(null);
   const avail = window.useContainerWidth(wrapRef);
+  const [squadCode, setSquadCode] = React.useState(null);
 
-  const TeamRow = ({ team, isWinner, dimmed, half }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: half,
+  const TeamRow = ({ team, isWinner, dimmed, half, placeholder }) => (
+    <div onClick={() => team && setSquadCode(team)}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', height: half,
       background: isWinner ? T.accent : 'transparent', padding: '0 10px',
-      borderRadius: isWinner ? 10 : 0, opacity: dimmed ? 0.4 : 1, minWidth: 0 }}>
+      borderRadius: isWinner ? 10 : 0, opacity: dimmed ? 0.4 : 1, minWidth: 0,
+      cursor: team ? 'pointer' : 'default' }}>
       <span style={{ fontSize: 18, flexShrink: 0 }}>{team ? window.WC.TEAM[team]?.flag : '⚪️'}</span>
-      <span style={{ fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden',
-        textOverflow: 'ellipsis', flex: 1,
+      <span style={{ fontSize: team ? 13.5 : 12, fontWeight: team ? 800 : 700, whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis', flex: 1,
         color: isWinner ? T.accentInk : (team ? T.text : T.faint) }}>
-        {team ? window.WC.TEAM[team]?.ja : '未定'}</span>
+        {team ? window.WC.TEAM[team]?.ja : (placeholder || '未定')}</span>
       {isWinner && <Icon name="check" size={14} color={T.accentInk} sw={2.6} />}
     </div>
   );
@@ -261,14 +276,15 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
   const MatchCard = ({ round, r, idx }) => {
     const teams = der.matches[round][idx];
     const w = der.winners[round][idx];
+    const seeds = (der.seeds && der.seeds[round] && der.seeds[round][idx]) || [];
     return (
       <div style={{ position: 'absolute', left: colX(r), top: centerY(r, idx) - cardH / 2,
         width: colW, height: cardH, background: T.card, borderRadius: 11,
         boxShadow: `inset 0 0 0 1px ${w ? T.accent + '66' : T.line}`,
         display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 3, gap: 2 }}>
-        <TeamRow team={teams[0]} isWinner={w && w === teams[0]} dimmed={w && w !== teams[0]} half={cardH / 2 - 3} />
+        <TeamRow team={teams[0]} isWinner={w && w === teams[0]} dimmed={w && w !== teams[0]} half={cardH / 2 - 3} placeholder={seeds[0]} />
         <div style={{ height: 1, background: T.line, margin: '0 6px' }} />
-        <TeamRow team={teams[1]} isWinner={w && w === teams[1]} dimmed={w && w !== teams[1]} half={cardH / 2 - 3} />
+        <TeamRow team={teams[1]} isWinner={w && w === teams[1]} dimmed={w && w !== teams[1]} half={cardH / 2 - 3} placeholder={seeds[1]} />
       </div>
     );
   };
@@ -301,19 +317,21 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS }) {
             {ROUNDS.map((round, r) => der.matches[round].map((_, idx) => (
               <MatchCard key={round + idx} round={round} r={r} idx={idx} />
             )))}
-            <div style={{ position: 'absolute', left: champX, top: champCenterY - 48, width: colW, height: 96,
+            <div onClick={() => champ && setSquadCode(champ.code)}
+              style={{ position: 'absolute', left: champX, top: champCenterY - 48, width: colW, height: 96,
               borderRadius: 16, background: champ ? `linear-gradient(160deg, ${T.gold}33, ${T.card})` : T.card,
               boxShadow: `inset 0 0 0 1.5px ${champ ? T.gold : T.line}`, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              alignItems: 'center', justifyContent: 'center', gap: 4, cursor: champ ? 'pointer' : 'default' }}>
               <Icon name="trophy" size={24} color={T.gold} />
               <div style={{ fontSize: 28 }}>{champ ? champ.flag : '🏆'}</div>
               <div style={{ fontWeight: 800, fontSize: 14, color: champ ? T.text : T.faint }}>
-                {champ ? champ.ja : '優勝予想'}</div>
+                {champ ? champ.ja : champEmptyLabel}</div>
             </div>
           </div>
         </div>
       </div>
     </div>
+      {squadCode && <SquadSheet T={T} code={squadCode} onClose={() => setSquadCode(null)} />}
     </div>
   );
 }

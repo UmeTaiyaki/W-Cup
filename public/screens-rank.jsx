@@ -84,14 +84,28 @@ function CompareScreen({ T, state, goTab, wide = false }) {
 // ===== ランキング画面 =======================================
 function RankingScreen({ T, state, wide = false }) {
   const M = state.members;
-  const R = window.WC.RESULT;
+  const R = window.WC.RESULT || {};
   const [division, setDivision] = React.useState('core'); // 'core' | 'grand'
   const keyOf = (s) => division === 'core' ? s.coreTotal : s.grandTotal;
   const scored = M.map((m) => ({ m, s: window.WC.scoreMember(state.preds[m.id]) }))
     .sort((a, b) => keyOf(b.s) - keyOf(a.s));
   const [open, setOpen] = React.useState(null);
   const maxTotal = Math.max(1, ...scored.map((x) => keyOf(x.s)));
-  const rankColor = i => i === 0 ? T.gold : i === 1 ? T.silver : i === 2 ? T.boot : T.faint;
+
+  // 確定結果が1つでも入力されているか（採点が実際に意味を持つか）を判定。
+  // 未確定のあいだは順位メダル色を出さず「結果待ち」を明示する。
+  const KO_ROUNDS = ['r32', 'r16', 'qf', 'sf'];
+  const grRes = R.groupResult || {};
+  const koRes = R.knockout || {};
+  const resultsLive =
+    !!(R.champion || R.runnerUp || (R.topScorer && R.topScorer.trim())) ||
+    Object.keys(grRes).some((k) => (grRes[k] || []).filter(Boolean).length > 0) ||
+    KO_ROUNDS.some((r) => (koRes[r] || []).length > 0);
+
+  const rankColor = i => !resultsLive ? T.faint
+    : i === 0 ? T.gold : i === 1 ? T.silver : i === 2 ? T.boot : T.faint;
+  // 未確定時は順位番号を出さず「–」（全員0ptで並びに意味が無いため）
+  const rankLabel = i => resultsLive ? i + 1 : '–';
 
   const HitBadge = ({ ok, label }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 3, opacity: ok ? 1 : 0.4 }}>
@@ -113,21 +127,50 @@ function RankingScreen({ T, state, wide = false }) {
     </div>
   );
 
-  // ----- デスクトップ：一覧テーブル -----
-  const Banner = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: T.panel2,
-      borderRadius: 14, padding: '11px 13px', margin: '12px 0 16px' }}>
-      <Icon name="flame" size={17} color={T.accent} />
-      <div style={{ fontSize: 12.5, color: T.sub, lineHeight: 1.45 }}>
-        <b style={{ color: T.text }}>サンプル結果</b>で集計中 ·
-        優勝 {window.WC.TEAM[R.champion]?.flag}{window.WC.TEAM[R.champion]?.ja} /
-        準優勝 {window.WC.TEAM[R.runnerUp]?.flag}{window.WC.TEAM[R.runnerUp]?.ja} /
-        得点王 {R.topScorer}
+  // ----- 集計状況バナー（確定結果 or 大会開始前を正直に表示）-----
+  const Banner = () => {
+    const champ = R.champion ? window.WC.TEAM[R.champion] : null;
+    const runner = R.runnerUp ? window.WC.TEAM[R.runnerUp] : null;
+    const scorer = (R.topScorer || '').trim();
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: T.panel2,
+        borderRadius: 14, padding: '11px 13px', margin: '12px 0 16px' }}>
+        <Icon name={resultsLive ? 'flame' : 'trophy'} size={17}
+          color={resultsLive ? T.accent : T.faint} />
+        <div style={{ fontSize: 12.5, color: T.sub, lineHeight: 1.45 }}>
+          {resultsLive ? (
+            <React.Fragment>
+              <b style={{ color: T.text }}>確定結果</b>で集計中 ·{' '}
+              優勝 {champ ? `${champ.flag}${champ.ja}` : '—'} /{' '}
+              準優勝 {runner ? `${runner.flag}${runner.ja}` : '—'} /{' '}
+              得点王 {scorer || '—'}
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              <b style={{ color: T.text }}>大会開始前</b> · 結果が確定すると自動でここに集計されます
+            </React.Fragment>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // 結果未確定のあいだは順位を付けず、参加者数と入力待ちを示すプレースホルダーを表示
+  const EmptyPodium = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+      background: T.card, borderRadius: 18, boxShadow: `inset 0 0 0 1px ${T.line}`,
+      padding: '26px 18px', margin: wide ? '0 auto 4px' : '0 0 18px',
+      maxWidth: wide ? 460 : 'none' }}>
+      <Icon name="trophy" size={26} color={T.faint} />
+      <div style={{ fontWeight: 800, fontSize: 15, color: T.text }}>順位はまだ確定していません</div>
+      <div style={{ fontSize: 12.5, color: T.sub, textAlign: 'center', lineHeight: 1.5 }}>
+        {M.length}人が予想を登録済み。<br />
+        試合結果が入力されると、ここに的中ポイントのランキングが表示されます。
       </div>
     </div>
   );
 
-  const Podium = () => (
+  const Podium = () => !resultsLive ? <EmptyPodium /> : (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10,
       maxWidth: wide ? 460 : 'none', margin: wide ? '0 auto 4px' : '0 0 18px' }}>
       {[1, 0, 2].map(pos => {
@@ -185,17 +228,17 @@ function RankingScreen({ T, state, wide = false }) {
       <div>
         {scored.map((item, i) => {
           const p = state.preds[item.m.id];
-          const cHit = p.champion === R.champion;
-          const rHit = p.runnerUp === R.runnerUp;
+          const cHit = !!(p.champion && R.champion && p.champion === R.champion);
+          const rHit = !!(p.runnerUp && R.runnerUp && p.runnerUp === R.runnerUp);
           const sHit = p.topScorer && R.topScorer && p.topScorer.trim() === R.topScorer.trim();
           const cT = window.WC.TEAM[p.champion], rT = window.WC.TEAM[p.runnerUp];
           return (
             <div key={item.m.id} style={{ display: 'grid', gridTemplateColumns: COLS, gap: 10,
               alignItems: 'center', padding: '11px 16px',
               borderTop: `1px solid ${T.line}`,
-              background: i === 0 ? `${T.gold}0F` : 'transparent' }}>
+              background: resultsLive && i === 0 ? `${T.gold}0F` : 'transparent' }}>
               <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 17,
-                color: rankColor(i) }}>{i + 1}</span>
+                color: rankColor(i) }}>{rankLabel(i)}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
                 <Avatar m={item.m} size={30} T={T} />
                 <span style={{ fontWeight: 800, color: T.text, fontSize: 14, whiteSpace: 'nowrap',
@@ -257,45 +300,11 @@ function RankingScreen({ T, state, wide = false }) {
       <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
         予想の的中ランキング</div>
 
-      {/* サンプル結果バナー */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: T.panel2,
-        borderRadius: 14, padding: '11px 13px', margin: '12px 0 16px' }}>
-        <Icon name="flame" size={17} color={T.accent} />
-        <div style={{ fontSize: 12, color: T.sub, lineHeight: 1.45 }}>
-          <b style={{ color: T.text }}>サンプル結果</b>で集計中 ·
-          優勝 {window.WC.TEAM[R.champion]?.flag}{window.WC.TEAM[R.champion]?.ja} /
-          準優勝 {window.WC.TEAM[R.runnerUp]?.flag}{window.WC.TEAM[R.runnerUp]?.ja} /
-          得点王 {R.topScorer}
-        </div>
-      </div>
+      <Banner />
       <DivisionTabs />
 
-      {/* 表彰台 トップ3 */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 18 }}>
-        {[1, 0, 2].map(pos => {
-          const item = scored[pos]; if (!item) return <div key={pos} style={{ flex: 1 }} />;
-          const h = pos === 0 ? 116 : pos === 1 ? 92 : 78;
-          return (
-            <div key={pos} style={{ flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 7 }}>
-              <Avatar m={item.m} size={pos === 0 ? 48 : 40} T={T} />
-              <div style={{ fontWeight: 800, fontSize: 13, color: T.text }}>{item.m.name}</div>
-              <div style={{
-                width: '100%', height: h, borderRadius: '14px 14px 0 0',
-                background: `linear-gradient(180deg, ${rankColor(pos)}38, ${T.card})`,
-                boxShadow: `inset 0 0 0 1px ${T.line}`,
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                justifyContent: 'flex-start', paddingTop: 12, gap: 2 }}>
-                <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 22,
-                  color: rankColor(pos) }}>{pos + 1}</div>
-                <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 26,
-                  color: T.text }}>{keyOf(item.s)}</div>
-                <div style={{ fontSize: 10, color: T.faint, fontWeight: 700 }}>pt</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      {/* 表彰台 トップ3（結果未確定なら「結果待ち」プレースホルダー）*/}
+      <Podium />
 
       {/* 詳細リスト */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -310,7 +319,7 @@ function RankingScreen({ T, state, wide = false }) {
                 background: 'transparent', cursor: 'pointer', padding: '12px 14px',
                 fontFamily: 'inherit', textAlign: 'left' }}>
                 <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 18,
-                  color: rankColor(i), width: 22 }}>{i + 1}</span>
+                  color: rankColor(i), width: 22 }}>{rankLabel(i)}</span>
                 <Avatar m={item.m} size={34} T={T} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: T.text, fontSize: 15 }}>{item.m.name}</div>
@@ -337,8 +346,8 @@ function RankingScreen({ T, state, wide = false }) {
               {isOpen && (
                 <div style={{ padding: '0 14px 14px 48px' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10 }}>
-                    <HitBadge ok={p.champion === R.champion} label={`優勝 +${item.s.core.champion}`} />
-                    <HitBadge ok={p.runnerUp === R.runnerUp} label={`準優勝 +${item.s.core.runnerUp}`} />
+                    <HitBadge ok={!!(p.champion && R.champion && p.champion === R.champion)} label={`優勝 +${item.s.core.champion}`} />
+                    <HitBadge ok={!!(p.runnerUp && R.runnerUp && p.runnerUp === R.runnerUp)} label={`準優勝 +${item.s.core.runnerUp}`} />
                     <HitBadge ok={p.topScorer && R.topScorer && p.topScorer.trim() === R.topScorer.trim()}
                       label={`得点王 +${item.s.core.topScorer}`} />
                   </div>
