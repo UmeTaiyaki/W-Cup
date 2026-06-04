@@ -37,10 +37,61 @@ test('result.champion が teams に無いと失敗', () => {
 test('欠損フィールドは正規化で補完される', () => {
   const r = validateConfig({ teams: [{ code: 'AAA', ja: 'A' }] });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.value.scorerSuggest, []);
   assert.deepEqual(r.value.result.bracket.r16, []);
   assert.equal(r.value.result.champion, null);
   assert.deepEqual(r.value.schedule, []);
+  assert.deepEqual(r.value.squads, {});
+});
+
+test('squads: 妥当な名簿は通り正規化される（club含む）', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    squads: { aaa: [{ name: ' 田中 ', pos: 'gk', club: ' FC東京 (JPN) ' }, { name: '佐藤', pos: 'FW' }] },
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.squads.AAA, [
+    { name: '田中', pos: 'GK', club: 'FC東京 (JPN)' },
+    { name: '佐藤', pos: 'FW', club: '' },
+  ]);
+});
+
+test('squads: pos/club 空は許容', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    squads: { AAA: [{ name: '無所属', pos: '' }, { name: 'ポジ無し' }] },
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.squads.AAA, [
+    { name: '無所属', pos: '', club: '' },
+    { name: 'ポジ無し', pos: '', club: '' },
+  ]);
+});
+
+test('squads: 未登録コードは失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    squads: { ZZZ: [{ name: '誰か', pos: 'MF' }] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /squads/);
+});
+
+test('squads: 不正ポジションは失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    squads: { AAA: [{ name: '誰か', pos: 'XX' }] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /ポジション/);
+});
+
+test('squads: 選手名が空は失敗', () => {
+  const r = validateConfig({
+    teams: [{ code: 'AAA', ja: 'A' }],
+    squads: { AAA: [{ name: '   ', pos: 'MF' }] },
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /選手名/);
 });
 
 test('groups: 妥当な所属は通り正規化される', () => {

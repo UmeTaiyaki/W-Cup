@@ -2,6 +2,7 @@
 // 返り値: { ok: true, value } | { ok: false, error }
 import { WILDCARD_SLOTS } from '../../public/lib/bracket.js';
 const CODE_RE = /^[A-Za-z]{2,4}$/;
+const POS_SET = new Set(['GK', 'DF', 'MF', 'FW']);
 const isStr = (v) => typeof v === 'string';
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 
@@ -25,15 +26,6 @@ export function validateConfig(input) {
     teams.push({ code, ja: t.ja.trim(), flag: isStr(t.flag) ? t.flag : '', c: isStr(t.c) ? t.c : '#888888' });
   }
   const known = (c) => codes.has(c);
-
-  // scorerSuggest
-  let scorerSuggest = [];
-  if (input.scorerSuggest != null) {
-    if (!Array.isArray(input.scorerSuggest) || input.scorerSuggest.some((s) => !isStr(s))) {
-      return { ok: false, error: 'scorerSuggest は文字列配列が必要です' };
-    }
-    scorerSuggest = input.scorerSuggest.map((s) => s.trim()).filter(Boolean);
-  }
 
   // result
   const ri = isObj(input.result) ? input.result : {};
@@ -181,5 +173,30 @@ export function validateConfig(input) {
     }
   }
 
-  return { ok: true, value: { version: 1, updatedAt: null, teams, scorerSuggest, result, schedule, groups, groupResult, groupMatches, scorers } };
+  // squads（国別選手名簿。キーは既知コード、各選手は name 非空・pos は GK/DF/MF/FW か空）
+  const squads = {};
+  if (input.squads != null) {
+    if (!isObj(input.squads)) return { ok: false, error: 'squads はオブジェクトが必要です' };
+    for (const k of Object.keys(input.squads)) {
+      const code = isStr(k) ? k.toUpperCase() : '';
+      if (!known(code)) return { ok: false, error: `squads に未登録コード: ${k}` };
+      const arr = input.squads[k];
+      if (!Array.isArray(arr)) return { ok: false, error: `squads.${code} は配列が必要です` };
+      const norm = [];
+      for (const p of arr) {
+        if (!isObj(p) || !isStr(p.name) || !p.name.trim()) {
+          return { ok: false, error: `squads.${code} の選手名が必要です` };
+        }
+        const pos = isStr(p.pos) ? p.pos.trim().toUpperCase() : '';
+        if (pos && !POS_SET.has(pos)) {
+          return { ok: false, error: `squads.${code} のポジションが不正です: ${p.pos}` };
+        }
+        const club = isStr(p.club) ? p.club.trim() : '';
+        norm.push({ name: p.name.trim(), pos, club });
+      }
+      squads[code] = norm;
+    }
+  }
+
+  return { ok: true, value: { version: 1, updatedAt: null, teams, result, schedule, groups, groupResult, groupMatches, scorers, squads } };
 }

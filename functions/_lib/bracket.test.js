@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout } from '../../public/lib/bracket.js';
+import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutAuto, seedLabel } from '../../public/lib/bracket.js';
 
 // 全12グループに1〜3位を入れたサンプル順位
 const GR = {
@@ -36,6 +36,34 @@ test('R32カードが順位予想と3位割当から組み上がる', () => {
 test('順位未入力のスロットは null カード', () => {
   const d = deriveKnockout({}, {}, {});
   assert.deepEqual(d.matches.r32[2], [null, null]);
+});
+
+test('seedLabel は枠の出自を返す（直接シード／ワイルドカード）', () => {
+  assert.equal(seedLabel('A1'), 'A組 1位');
+  assert.equal(seedLabel('B2'), 'B組 2位');
+  assert.equal(seedLabel({ wc: ['A', 'B', 'C', 'D', 'F'] }), '3位 (A/B/C/D/F)');
+});
+
+test('seeds は進出国が未確定でも常に決まっている', () => {
+  const d = deriveKnockout({}, {}, {});
+  // M3 = A2 vs B2（直接シード）
+  assert.deepEqual(d.seeds.r32[2], ['A組 2位', 'B組 2位']);
+  // M1 = E1 vs ワイルドカード
+  assert.deepEqual(d.seeds.r32[0], ['E組 1位', '3位 (A/B/C/D/F)']);
+});
+
+test('deriveKnockoutAuto: 優勝・準優勝は自動で決勝まで勝ち上がる', () => {
+  // E1（M1=上半分）を優勝、C1（M9=下半分）を準優勝に
+  const d = deriveKnockoutAuto(GR, TA, {}, ['E1', 'C1']);
+  assert.equal(d.winners.r32[0], 'E1');
+  assert.equal(d.winners.r32[8], 'C1');
+  assert.deepEqual(d.finalists, ['E1', 'C1']); // 両者が決勝（sf勝者）へ
+});
+
+test('deriveKnockoutAuto: forced はユーザー選択より優先される', () => {
+  // M1 = E1 vs A3。ユーザーが A3 を選んでも優勝 E1 が勝つ
+  const d = deriveKnockoutAuto(GR, TA, { r32: ['A3'] }, ['E1']);
+  assert.equal(d.winners.r32[0], 'E1');
 });
 
 test('勝者は対戦カードに含まれる場合のみ有効', () => {

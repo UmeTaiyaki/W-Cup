@@ -32,6 +32,14 @@ export const PERMITTED = Object.fromEntries(
     .map((m) => [m.id, m.bottom.wc])
 );
 
+// seed トークン → 表示ラベル（進出国が未確定でも枠の出自を示す）
+// 'A1' → 'A組 1位' / { wc: ['B','E',...] } → '3位 (B/E/...)'
+export function seedLabel(seed) {
+  if (typeof seed === 'string') return `${seed[0]}組 ${seed[1]}位`;
+  if (seed && Array.isArray(seed.wc)) return `3位 (${seed.wc.join('/')})`;
+  return '';
+}
+
 // seed トークン → チームコード
 function seedTeam(seed, groupRank, thirdAssign, slotId) {
   if (typeof seed === 'string') {
@@ -73,11 +81,36 @@ export function deriveKnockout(groupRank = {}, thirdAssign = {}, knockout = {}) 
   const sfm = pair(qfw);
   const sfw = sanitize(knockout.sf, sfm, 2);
 
+  // r32 各枠の出自ラベル（静的。グループ順位が未確定でも常に決まっている）
+  const r32seeds = BRACKET_STRUCTURE.r32.map((m) => [seedLabel(m.top), seedLabel(m.bottom)]);
+
   return {
     matches: { r32: r32m, r16: r16m, qf: qfm, sf: sfm },
     winners: { r32: r32w, r16: r16w, qf: qfw, sf: sfw },
+    seeds: { r32: r32seeds },
     finalists: sfw,
   };
+}
+
+// 予想画面用：forced チーム（優勝・準優勝など）を各ラウンドで自動的に勝ち上がらせる。
+// forced は優先順位順（先頭が最優先）。同一カードに複数 forced がいれば先頭が勝つ。
+// forced 以外の枠はユーザー選択（knockout）を尊重する。
+export function deriveKnockoutAuto(groupRank = {}, thirdAssign = {}, knockout = {}, forced = []) {
+  const rounds = ['r32', 'r16', 'qf', 'sf'];
+  const fseq = (forced || []).filter(Boolean);
+  const ko = {};
+  let der = deriveKnockout(groupRank, thirdAssign, ko);
+  for (const r of rounds) {
+    const userW = knockout[r] || [];
+    ko[r] = der.matches[r].map((m, i) => {
+      const auto = fseq.find((t) => m.includes(t));
+      if (auto) return auto;
+      const u = userW[i];
+      return u && m.includes(u) ? u : null;
+    });
+    der = deriveKnockout(groupRank, thirdAssign, ko);
+  }
+  return der;
 }
 
 // admin の「到達チーム集合」(順不同) を deriveKnockout の対戦カードに整列しつつ
