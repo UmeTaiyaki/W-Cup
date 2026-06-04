@@ -89,12 +89,13 @@
     L: ['ENG', 'CRO', 'PAN', 'GHA'],
   };
 
-  // ---- 結果（デモ用サンプル） --------------------------------
-  // 実際の大会はこれから。順位を見せるためのサンプル結果。
+  // ---- 結果（確定結果。未確定なら空） ------------------------
+  // 実際の大会結果は管理画面(KV)から fetchConfig で取得して上書きされる。
+  // 未取得・未確定のあいだは空のまま＝採点は実際に入力された結果のみで行う。
   const RESULT = {
-    champion: 'ARG',
-    runnerUp: 'FRA',
-    topScorer: 'ムバッペ',
+    champion: null,
+    runnerUp: null,
+    topScorer: '',
     groupResult: {},
     knockout: { r32: [], r16: [], qf: [], sf: [] },
     thirdAssign: {},
@@ -140,12 +141,6 @@
     },
   };
 
-  // ---- 得点王候補（自由入力のサジェスト用） ------------------
-  const SCORER_SUGGEST = [
-    'ムバッペ', 'ハーランド', 'メッシ', 'ヴィニシウス', 'ヤマル',
-    'ベリンガム', 'ケイン', 'グリーズマン', 'ラウタロ', '三笘',
-  ];
-
   // ---- テーマ（Tweaksで切替） --------------------------------
   const THEMES = {
     pitch: {
@@ -177,8 +172,10 @@
     },
   };
 
-  // ---- localStorage 永続化 -----------------------------------
-  const KEY = 'wc2026_predict_v1';
+  // ---- 共有ストレージ（KVバックエンド）------------------------
+  // 予想データと参加者リストはサーバー(/api/predictions)で全員共有する。
+  // 端末ローカルに残すのは「いま表示しているメンバー(current)」だけ。
+  const CUR_KEY = 'wc2026_current_v1';
 
   // 空の予想（新規参加者の初期値）
   function emptyPred() {
@@ -190,36 +187,47 @@
     };
   }
 
-  function load() {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const s = JSON.parse(raw);
-        // 旧データ救済：members が無ければ初期メンバーを補完
-        if (!Array.isArray(s.members) || !s.members.length) {
-          s.members = JSON.parse(JSON.stringify(MEMBERS));
-        }
-        // Phase B: 旧予想にオプションフィールドを補完
-        const blank = emptyPred();
-        Object.keys(s.preds || {}).forEach((id) => {
-          const p = s.preds[id] || {};
-          s.preds[id] = {
-            champion: p.champion ?? null,
-            runnerUp: p.runnerUp ?? null,
-            topScorer: p.topScorer ?? '',
-            groupRank: p.groupRank || JSON.parse(JSON.stringify(blank.groupRank)),
-            thirdAssign: p.thirdAssign || { ...blank.thirdAssign },
-            knockout: p.knockout || JSON.parse(JSON.stringify(blank.knockout)),
-          };
-        });
-        // current が消えていたら先頭に
-        if (!s.preds[s.current]) s.current = s.members[0].id;
-        return s;
-      }
-    } catch (e) {}
-    // 初期化：シードを複製
+  function loadCurrent() {
+    try { return localStorage.getItem(CUR_KEY) || null; } catch (e) { return null; }
+  }
+  function saveCurrent(id) {
+    try { if (id) localStorage.setItem(CUR_KEY, id); } catch (e) {}
+  }
+
+  // 各予想にオプションフィールドを補完（旧データ・サーバー応答の正規化）
+  function normalizeDoc(doc) {
+    const blank = emptyPred();
+    const members = Array.isArray(doc.members) && doc.members.length
+      ? doc.members : JSON.parse(JSON.stringify(MEMBERS));
+    const src = doc.preds || {};
     const preds = {};
-    MEMBERS.forEach(m => {
+    members.forEach((m) => {
+      const p = src[m.id] || {};
+      preds[m.id] = {
+        champion: p.champion ?? null,
+        runnerUp: p.runnerUp ?? null,
+        topScorer: p.topScorer ?? '',
+        groupRank: p.groupRank || JSON.parse(JSON.stringify(blank.groupRank)),
+        thirdAssign: p.thirdAssign || { ...blank.thirdAssign },
+        knockout: p.knockout || JSON.parse(JSON.stringify(blank.knockout)),
+      };
+    });
+    return { members, preds };
+  }
+
+  // current(端末ローカル)を doc に合成して App の state 形にする
+  function withCurrent(doc, preferId) {
+    const norm = normalizeDoc(doc);
+    const wanted = preferId || loadCurrent();
+    const current = (wanted && norm.preds[wanted]) ? wanted
+      : (norm.members[0] && norm.members[0].id) || null;
+    return { current, members: norm.members, preds: norm.preds };
+  }
+
+  // フェッチ前の即時表示用プレースホルダ（シード）。オフライン時のフォールバックも兼ねる。
+  function seedDoc() {
+    const preds = {};
+    MEMBERS.forEach((m) => {
       const seed = SEED[m.id] || {};
       preds[m.id] = {
         ...emptyPred(),
@@ -228,52 +236,103 @@
         topScorer: seed.topScorer ?? '',
       };
     });
-    const init = { current: 'hikaru', members: JSON.parse(JSON.stringify(MEMBERS)), preds };
-    save(init);
-    return init;
-  }
-  function save(state) {
-    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
-  }
-  function reset() {
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    return load();
+    return withCurrent({ members: JSON.parse(JSON.stringify(MEMBERS)), preds });
   }
 
-  // ---- 参加者を追加 / 削除 ------------------------------------
-  function addMember(state, name) {
-    const nm = (name || '').trim();
-    if (!nm) return state;
-    const id = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
-    const members = state.members || [];
-    const c = MEMBER_COLORS[members.length % MEMBER_COLORS.length];
-    const initial = Array.from(nm)[0] || '?';
-    const member = { id, name: nm, initial, c, custom: true };
-    const next = {
-      ...state,
-      members: [...members, member],
-      preds: { ...state.preds, [id]: emptyPred() },
-      current: id,
-    };
-    save(next);
-    return next;
+  // サーバーから最新の予想を取得（失敗時は null）
+  async function fetchPredictions() {
+    try {
+      const res = await fetch('/api/predictions', { cache: 'no-store' });
+      if (!res.ok) return null;
+      const doc = await res.json();
+      if (!doc || !Array.isArray(doc.members) || !doc.preds) return null;
+      return withCurrent(doc);
+    } catch (e) { return null; }
   }
-  function removeMember(state, id) {
-    const members = (state.members || []).filter(m => m.id !== id);
-    if (!members.length) return state; // 全消しは防ぐ
-    const preds = { ...state.preds };
-    delete preds[id];
-    const current = state.current === id ? members[0].id : state.current;
-    const next = { ...state, members, preds, current };
-    save(next);
-    return next;
+
+  async function postOp(body) {
+    const res = await fetch('/api/predictions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      keepalive: !!body.__keepalive,
+    });
+    if (!res.ok) {
+      let msg = '保存に失敗しました';
+      try { const e = await res.json(); if (e && e.error) msg = e.error; } catch (e2) {}
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
+  // ---- 編集中メンバーの予想を debounce 保存（メンバー単位マージ）-------
+  let saveTimer = null;
+  let pending = null; // { memberId, pred }
+  function scheduleSave(memberId, pred) {
+    pending = { memberId, pred };
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, 700);
+  }
+  function flushSave() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    if (!pending) return;
+    const { memberId, pred } = pending;
+    pending = null;
+    postOp({ op: 'setPred', memberId, pred }).catch((e) => {
+      console.error('予想の保存に失敗しました', e);
+    });
+  }
+  // 離脱時に未保存分を確実に送る
+  function flushBeacon() {
+    if (!pending) return;
+    const { memberId, pred } = pending;
+    pending = null;
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    try {
+      const blob = new Blob(
+        [JSON.stringify({ op: 'setPred', memberId, pred })],
+        { type: 'application/json' });
+      if (navigator.sendBeacon) navigator.sendBeacon('/api/predictions', blob);
+      else postOp({ op: 'setPred', memberId, pred, __keepalive: true }).catch(() => {});
+    } catch (e) {}
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flushBeacon);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushBeacon();
+    });
+  }
+
+  // ---- 参加者を追加 / 削除 / リセット（即時サーバー反映）-------------
+  async function addMember(name) {
+    const nm = (name || '').trim();
+    if (!nm) return null;
+    const doc = await postOp({ op: 'addMember', name: nm });
+    const state = withCurrent(doc, doc.newId);
+    saveCurrent(state.current);
+    return state;
+  }
+  async function removeMember(id, currentId) {
+    const doc = await postOp({ op: 'removeMember', memberId: id });
+    const prefer = currentId === id ? null : currentId;
+    const state = withCurrent(doc, prefer);
+    saveCurrent(state.current);
+    return state;
+  }
+  async function reset() {
+    const doc = await postOp({ op: 'reset' });
+    const state = withCurrent(doc, doc.members[0] && doc.members[0].id);
+    saveCurrent(state.current);
+    return state;
   }
 
   window.WC = {
     TEAMS, TEAM, MEMBERS, MEMBER_COLORS, GROUPS, GROUP_RESULT: {},
-    RESULT, SEED, SCORER_SUGGEST, THEMES,
-    GROUP_MATCHES: {}, SCORERS: [],
-    load, save, reset, emptyPred, addMember, removeMember,
+    RESULT, SEED, THEMES,
+    GROUP_MATCHES: {}, SCORERS: [], SQUADS: {},
+    emptyPred, seedDoc, withCurrent, fetchPredictions,
+    loadCurrent, saveCurrent, scheduleSave, flushSave,
+    addMember, removeMember, reset,
   };
 
   // ---- 共有設定の取得（KVバックエンド）----------------------
@@ -290,7 +349,6 @@
         cfg.teams.forEach((t) => { map[t.code] = t; });
         window.WC.TEAM = map;
       }
-      if (Array.isArray(cfg.scorerSuggest)) window.WC.SCORER_SUGGEST = cfg.scorerSuggest;
       if (cfg.result && typeof cfg.result === 'object') {
         window.WC.RESULT = { ...window.WC.RESULT, ...cfg.result };
       }
@@ -304,6 +362,7 @@
         window.WC.GROUP_MATCHES = cfg.groupMatches;
       }
       if (Array.isArray(cfg.scorers)) window.WC.SCORERS = cfg.scorers;
+      if (cfg.squads && typeof cfg.squads === 'object') window.WC.SQUADS = cfg.squads;
       return true;
     } catch (e) {
       return false;
