@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, dashboard = false }) {
+function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, dashboard = false, solo = false }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
   const done = (pred.champion ? 1 : 0) + (pred.runnerUp ? 1 : 0) + (pred.topScorer ? 1 : 0);
@@ -173,10 +173,12 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
             <Picks />
             <ViewOptionsBtn />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Panel><Everyone flush /></Panel>
-            <Panel><ChampDist /></Panel>
-          </div>
+          {!solo && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Panel><Everyone flush /></Panel>
+              <Panel><ChampDist /></Panel>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -193,9 +195,11 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
             <Picks />
             <ViewOptionsBtn />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Panel><Everyone flush /></Panel>
-          </div>
+          {!solo && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Panel><Everyone flush /></Panel>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -208,13 +212,13 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
       <PodiumHero />
       <Picks />
       <ViewOptionsBtn />
-      <Everyone />
+      {!solo && <Everyone />}
     </div>
   );
 }
 
 // ===== 予想入力画面 =========================================
-function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, wide = false }) {
+function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, wide = false, solo = false }) {
   const gr = pred.groupRank || {};
   const ta = pred.thirdAssign || {};
   const grDone = ['A','B','C','D','E','F','G','H','I','J','K','L'].filter((k) => (gr[k] || []).length >= 3).length;
@@ -268,7 +272,8 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
       <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
         3つを予想しよう</div>
       <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
-        優勝・準優勝・得点王を選ぶと自動で保存。上の人物アイコンで仲間を切り替えられます。</p>
+        {solo ? '優勝・準優勝・得点王を選ぶと自動で保存されます。'
+              : '優勝・準優勝・得点王を選ぶと自動で保存。上の人物アイコンで仲間を切り替えられます。'}</p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Row field="champ" label="優勝" sub="CHAMPION" color={T.gold} icon="trophy" code={pred.champion} />
@@ -291,6 +296,7 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
       </div>
 
       {/* 参加者の削除 */}
+      {!solo && (
       <div style={{ marginTop: 28, paddingTop: 18, borderTop: `1px solid ${T.line}` }}>
         {!confirm ? (
           <button onClick={() => setConfirm(true)} disabled={!canRemove} style={{
@@ -327,6 +333,7 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
             参加者が1人のときは削除できません。</p>
         )}
       </div>
+      )}
 
       <TeamPicker open={sheet === 'champ'} onClose={() => setSheet(null)} T={T} centered={wide}
         title="優勝を選ぶ" onPick={c => setPick('champion', c)} />
