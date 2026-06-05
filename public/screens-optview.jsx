@@ -26,6 +26,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const hasAny = grDone > 0 || taDone > 0 || koAny;
   const [section, setSection] = React.useState('group'); // 'group'(順位＋3位WC) | 'ko'
   const [shareOpen, setShareOpen] = React.useState(false);
+  const [openGroups, setOpenGroups] = React.useState({}); // グループ順位アコーディオンの開閉
 
   const posMeta = (i) =>
     i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver }
@@ -124,43 +125,60 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
       boxShadow: `inset 0 0 0 1px ${T.line}`, color: T.faint, fontSize: 12.5, fontWeight: 600 }}>{text}</div>
   );
 
-  // ---- グループ順位（読み取り専用）----
-  const GroupCard = ({ k }) => {
+  // ---- グループ順位（読み取り専用・アコーディオン）----
+  const GroupAccordion = ({ k }) => {
     const mem = (GROUPS[k] || []).filter(Boolean);
     const order = (gr[k] || []).filter(Boolean);
     const auto4 = order.length === 3 ? mem.find((c) => !order.includes(c)) : null;
     const ranked = auto4 ? [...order, auto4] : order;
+    const done = order.length >= 3;
+    const open = !!openGroups[k];
+    const status = done ? '完了' : order.length > 0 ? `${order.length}/3` : '未予想';
     return (
-      <div style={{ background: T.card, borderRadius: 16, padding: 13, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
-          <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 14, color: T.accent }}>GROUP {k}</span>
-          <span style={{ fontSize: 11, color: order.length >= 3 ? T.accent : T.faint, fontWeight: 700 }}>
-            {order.length >= 3 ? '完了' : `${order.length}/3`}</span>
-        </div>
-        {ranked.length === 0 ? (
-          <div style={{ color: T.faint, fontSize: 12.5, padding: '4px 2px' }}>未予想</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {ranked.map((code, i) => {
-              const tm = TEAM[code]; if (!tm) return null;
-              const meta = posMeta(i);
-              const isAuto = code === auto4;
-              return (
-                <div key={code} style={{ display: 'flex', alignItems: 'center', gap: 9,
-                  padding: '6px 8px', borderRadius: 9,
-                  background: isAuto ? 'transparent' : `${meta.c}14`,
-                  opacity: isAuto ? 0.6 : 1 }}>
-                  <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, color: meta.c,
-                    background: `${meta.c}22`, borderRadius: 6, padding: '2px 6px', minWidth: 22, textAlign: 'center' }}>
-                    {meta.n}</span>
-                  <span style={{ fontSize: 18 }}>{tm.flag}</span>
-                  <span style={{ fontWeight: 700, color: T.text, fontSize: 13.5, flex: 1, whiteSpace: 'nowrap',
-                    overflow: 'hidden', textOverflow: 'ellipsis' }}>{tm.ja}</span>
-                  {isAuto && <span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}>自動</span>}
-                </div>
-              );
-            })}
-          </div>
+      <div style={{ background: T.card, borderRadius: 14, boxShadow: `inset 0 0 0 1px ${T.line}`, overflow: 'hidden' }}>
+        <button onClick={() => setOpenGroups((s) => ({ ...s, [k]: !s[k] }))} style={{
+          width: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
+          fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px' }}>
+          <span style={{ display: 'inline-flex', flexShrink: 0,
+            transform: open ? 'rotate(90deg)' : 'none', transition: '.18s' }}>
+            <Icon name="chevron" size={15} color={T.faint} />
+          </span>
+          <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 14, color: T.accent, flexShrink: 0 }}>
+            GROUP {k}</span>
+          {!open && ranked.length > 0 && (
+            <span style={{ display: 'flex', gap: 1, fontSize: 15, minWidth: 0, overflow: 'hidden',
+              whiteSpace: 'nowrap' }}>
+              {ranked.map((c) => <span key={c} style={{ opacity: c === auto4 ? 0.45 : 1 }}>{TEAM[c]?.flag}</span>)}
+            </span>
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, flexShrink: 0,
+            color: done ? T.accent : T.faint }}>{status}</span>
+        </button>
+        {open && (
+          ranked.length === 0 ? (
+            <div style={{ color: T.faint, fontSize: 12.5, padding: '0 14px 13px' }}>未予想</div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 11px 12px' }}>
+              {ranked.map((code, i) => {
+                const tm = TEAM[code]; if (!tm) return null;
+                const meta = posMeta(i);
+                const isAuto = code === auto4;
+                return (
+                  <div key={code} style={{ display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '6px 8px', borderRadius: 9, minWidth: 0,
+                    background: isAuto ? 'transparent' : `${meta.c}14`, opacity: isAuto ? 0.6 : 1 }}>
+                    <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, color: meta.c,
+                      background: `${meta.c}22`, borderRadius: 6, padding: '2px 5px', minWidth: 20,
+                      textAlign: 'center', flexShrink: 0 }}>{meta.n}</span>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{tm.flag}</span>
+                    <span style={{ fontWeight: 700, color: T.text, fontSize: 13, flex: 1, whiteSpace: 'nowrap',
+                      overflow: 'hidden', textOverflow: 'ellipsis' }}>{tm.ja}</span>
+                    {isAuto && <span style={{ fontSize: 10, color: T.faint, fontWeight: 700, flexShrink: 0 }}>自動</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )
         )}
       </div>
     );
@@ -197,10 +215,10 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
               <SubHead emoji="📊" text="グループ順位" note={`${grDone}/12組`} />
-              {grDone > 0 ? (
+              {GK.some((k) => (gr[k] || []).filter(Boolean).length > 0) ? (
                 <div style={{ display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
-                  {GK.map((k) => <GroupCard key={k} k={k} />)}
+                  gridTemplateColumns: wide ? '1fr 1fr' : '1fr', gap: 8, alignItems: 'start' }}>
+                  {GK.map((k) => <GroupAccordion key={k} k={k} />)}
                 </div>
               ) : <MiniEmpty text="グループ順位予想はまだありません" />}
             </div>
