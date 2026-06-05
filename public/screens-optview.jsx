@@ -24,7 +24,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const koAny = ROUNDS.some((r) => (der.winners[r] || []).some(Boolean));
   const champ = pred.champion ? TEAM[pred.champion] : null;
   const hasAny = grDone > 0 || taDone > 0 || koAny;
-  const [section, setSection] = React.useState('group'); // 'group' | 'wild' | 'ko'
+  const [section, setSection] = React.useState('group'); // 'group'(順位＋3位WC) | 'ko'
   const [shareOpen, setShareOpen] = React.useState(false);
 
   const posMeta = (i) =>
@@ -76,9 +76,8 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
 
   // ---- セクション切替タブ（旧・統計バーをタップ可能化）----
   const TABS = [
-    { id: 'group', emoji: '📊', label: 'グループ', value: grDone, sub: '/12組' },
-    { id: 'wild', emoji: '🎯', label: '3位WC', value: taDone, sub: `/${SLOTS.length}枠` },
-    { id: 'ko', emoji: '🏟', label: 'ノック', value: koAny ? 'あり' : '—', sub: '' },
+    { id: 'group', emoji: '📊', label: 'グループステージ', value: grDone, sub: '/12組' },
+    { id: 'ko', emoji: '🏟', label: 'ノックアウト', value: koAny ? 'あり' : '—', sub: '' },
   ];
   const Tabs = () => (
     <div style={{ display: 'flex', gap: 8, margin: '14px 0 0' }}>
@@ -116,6 +115,22 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
       <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '6px 0 0' }}>
         {viewed ? viewed.name : 'この人'}は「予想」タブでまだ入力していないようです。</p>
     </div>
+  );
+
+  // ---- 小見出し（グループステージ内の区切り）----
+  const SubHead = ({ emoji, text, note }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '0 0 10px' }}>
+      <span style={{ fontSize: 14 }}>{emoji}</span>
+      <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1,
+        color: T.sub }}>{text}</span>
+      {note && <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.faint }}>{note}</span>}
+    </div>
+  );
+
+  // ---- 軽量な空表示（小見出し直下に置く一行）----
+  const MiniEmpty = ({ text }) => (
+    <div style={{ background: T.card, borderRadius: 14, padding: '14px 16px',
+      boxShadow: `inset 0 0 0 1px ${T.line}`, color: T.faint, fontSize: 12.5, fontWeight: 600 }}>{text}</div>
   );
 
   // ---- グループ順位（読み取り専用）----
@@ -186,24 +201,28 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     <React.Fragment>
       <Tabs />
       <div style={{ marginTop: 16 }}>
-        {/* グループ順位 */}
+        {/* グループステージ（グループ順位＋3位ワイルドカード）*/}
         {section === 'group' && (
-          grDone > 0 ? (
-            <div style={{ display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
-              {GK.map((k) => <GroupCard key={k} k={k} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <SubHead emoji="📊" text="グループ順位" note={`${grDone}/12組`} />
+              {grDone > 0 ? (
+                <div style={{ display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
+                  {GK.map((k) => <GroupCard key={k} k={k} />)}
+                </div>
+              ) : <MiniEmpty text="グループ順位予想はまだありません" />}
             </div>
-          ) : <EmptyHint text="グループ順位予想はまだありません" />
-        )}
-
-        {/* 3位ワイルドカード */}
-        {section === 'wild' && (
-          taDone > 0 ? (
-            <div style={{ display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
-              {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
+            <div>
+              <SubHead emoji="🎯" text="3位ワイルドカード" note={`${taDone}/${SLOTS.length}枠`} />
+              {taDone > 0 ? (
+                <div style={{ display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
+                  {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
+                </div>
+              ) : <MiniEmpty text="3位ワイルドカードはまだ割り当てられていません" />}
             </div>
-          ) : <EmptyHint text="3位ワイルドカードはまだ割り当てられていません" />
+          </div>
         )}
 
         {/* ノックアウト */}
