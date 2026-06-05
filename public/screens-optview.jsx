@@ -27,6 +27,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const [section, setSection] = React.useState('group'); // 'group'(順位＋3位WC) | 'ko'
   const [shareOpen, setShareOpen] = React.useState(false);
   const [openGroups, setOpenGroups] = React.useState({}); // グループ順位アコーディオンの開閉
+  const [wcOpen, setWcOpen] = React.useState(false); // 3位ワイルドカードアコーディオンの開閉
 
   const posMeta = (i) =>
     i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver }
@@ -158,7 +159,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           ranked.length === 0 ? (
             <div style={{ color: T.faint, fontSize: 12.5, padding: '0 14px 13px' }}>未予想</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: '0 11px 12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '0 11px 12px' }}>
               {ranked.map((code, i) => {
                 const tm = TEAM[code]; if (!tm) return null;
                 const meta = posMeta(i);
@@ -184,23 +185,52 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     );
   };
 
-  // ---- 3位ワイルドカード（読み取り専用）----
-  const WildcardSlot = ({ slot }) => {
+  // ---- 3位ワイルドカード（読み取り専用・アコーディオン。通過チームを縦並び）----
+  const WildcardRow = ({ slot }) => {
     const code = ta[slot];
     const tm = code ? TEAM[code] : null;
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, background: T.card,
-        borderRadius: 14, padding: '11px 13px', boxShadow: `inset 0 0 0 1px ${code ? T.accent + '40' : T.line}` }}>
-        <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, color: T.faint, width: 28 }}>{slot}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, color: T.faint, fontFamily: 'Archivo', letterSpacing: 0.5 }}>
-            {(PERMITTED[slot] || []).join('/')} の3位</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-            <span style={{ fontSize: 18 }}>{tm ? tm.flag : '⚪️'}</span>
-            <span style={{ fontWeight: 800, fontSize: 14, color: code ? T.text : T.faint }}>
-              {tm ? tm.ja : '未割当'}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 8px', borderRadius: 9,
+        minWidth: 0, background: code ? `${T.accent}12` : 'transparent', opacity: code ? 1 : 0.7 }}>
+        <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, color: T.faint,
+          width: 30, flexShrink: 0 }}>{slot}</span>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>{tm ? tm.flag : '⚪️'}</span>
+        <span style={{ fontWeight: 700, fontSize: 13, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden',
+          textOverflow: 'ellipsis', color: code ? T.text : T.faint }}>{tm ? tm.ja : '未割当'}</span>
+        <span style={{ fontSize: 10, color: T.faint, fontFamily: 'Archivo', letterSpacing: 0.3,
+          flexShrink: 0 }}>{(PERMITTED[slot] || []).join('/')}</span>
+      </div>
+    );
+  };
+
+  const WildcardAccordion = () => {
+    const status = taDone > 0 ? `${taDone}/${SLOTS.length}枠` : '未割当';
+    const flags = SLOTS.map((s) => ta[s]).filter(Boolean);
+    return (
+      <div style={{ background: T.card, borderRadius: 14, boxShadow: `inset 0 0 0 1px ${T.line}`, overflow: 'hidden' }}>
+        <button onClick={() => setWcOpen((o) => !o)} style={{
+          width: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
+          fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px' }}>
+          <span style={{ display: 'inline-flex', flexShrink: 0,
+            transform: wcOpen ? 'rotate(90deg)' : 'none', transition: '.18s' }}>
+            <Icon name="chevron" size={15} color={T.faint} />
+          </span>
+          <span style={{ fontSize: 14 }}>🎯</span>
+          <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text, flexShrink: 0 }}>3位ワイルドカード</span>
+          {!wcOpen && flags.length > 0 && (
+            <span style={{ display: 'flex', gap: 1, fontSize: 15, minWidth: 0, overflow: 'hidden',
+              whiteSpace: 'nowrap' }}>
+              {flags.map((c, i) => <span key={c + i}>{TEAM[c]?.flag}</span>)}
+            </span>
+          )}
+          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, flexShrink: 0,
+            color: taDone >= SLOTS.length ? T.accent : T.faint }}>{status}</span>
+        </button>
+        {wcOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0 11px 12px' }}>
+            {SLOTS.map((s) => <WildcardRow key={s} slot={s} />)}
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -223,13 +253,9 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
               ) : <MiniEmpty text="グループ順位予想はまだありません" />}
             </div>
             <div>
-              <SubHead emoji="🎯" text="3位ワイルドカード" note={`${taDone}/${SLOTS.length}枠`} />
-              {taDone > 0 ? (
-                <div style={{ display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
-                  {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
-                </div>
-              ) : <MiniEmpty text="3位ワイルドカードはまだ割り当てられていません" />}
+              {taDone > 0
+                ? <WildcardAccordion />
+                : <MiniEmpty text="3位ワイルドカードはまだ割り当てられていません" />}
             </div>
           </div>
         )}
