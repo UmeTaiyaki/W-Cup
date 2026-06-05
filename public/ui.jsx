@@ -25,6 +25,8 @@ function Icon({ name, size = 24, color = 'currentColor', fill = 'none', sw = 1.9
     refresh: <g {...p}><path d="M4 12a8 8 0 0 1 14-5m1-3v4h-4M20 12a8 8 0 0 1-14 5m-1 3v-4h4"/></g>,
     star: <g {...p}><path d="M12 3.5l2.5 5.3 5.5.7-4 3.9 1 5.6L12 16.9 7 19l1-5.6-4-3.9 5.5-.7L12 3.5Z"/></g>,
     share: <g {...p}><circle cx="6" cy="12" r="2.4"/><circle cx="17" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M8.2 10.9 14.8 7.1M8.2 13.1 14.8 16.9"/></g>,
+    copy: <g {...p}><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></g>,
+    door: <g {...p}><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h8M14 3l4 2v14l-4 2M14 3v18M11 12h.01"/></g>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block', flexShrink: 0 }}>
