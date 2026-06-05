@@ -274,28 +274,30 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth }) {
 
           {view === 'members' && (
             <div>
-              {/* メンバー丸アイコン切替 */}
-              <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 6 }}>
-                {members.map((m) => {
-                  const active = m.id === curId && !viewOpt;
-                  return (
-                    <button key={m.id} onClick={() => { setSel(m.id); setViewOpt(null); }} style={{
-                      display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
-                      border: 'none', cursor: 'pointer', borderRadius: 999,
-                      padding: active ? '5px 13px 5px 5px' : '5px',
-                      background: active ? T.card : 'transparent',
-                      boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
-                      <Avatar m={m} size={30} T={T} />
-                      {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text,
-                        whiteSpace: 'nowrap' }}>{m.name}{m.id === me.id ? '（あなた）' : ''}</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* メンバー丸アイコン切替（オプション閲覧中はOptionView側の切替に集約） */}
+              {!viewOpt && (
+                <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 6 }}>
+                  {members.map((m) => {
+                    const active = m.id === curId;
+                    return (
+                      <button key={m.id} onClick={() => setSel(m.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
+                        border: 'none', cursor: 'pointer', borderRadius: 999,
+                        padding: active ? '5px 13px 5px 5px' : '5px',
+                        background: active ? T.card : 'transparent',
+                        boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
+                        <Avatar m={m} size={30} T={T} />
+                        {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text,
+                          whiteSpace: 'nowrap' }}>{m.name}{m.id === me.id ? '（あなた）' : ''}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {viewOpt
                 ? <OptionViewScreen T={T} state={state} viewId={viewOpt} setViewId={setViewOpt}
-                    goBack={() => setViewOpt(null)} wide={wide} availWidth={avail} />
+                    goBack={() => setViewOpt(null)} wide={wide} availWidth={avail} backLabel="戻る" />
                 : <SummaryScreen solo T={T} state={state} member={curMember} pred={curPred}
                     goView={(id) => setViewOpt(id)} wide={wide} />}
             </div>

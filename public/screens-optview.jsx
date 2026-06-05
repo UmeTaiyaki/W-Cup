@@ -4,7 +4,7 @@
    編集はしない。上部のメンバーチップで閲覧対象を切り替えられる。
    props: T, state, viewId, setViewId, goBack, wide, availWidth
    ============================================================ */
-function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0 }) {
+function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0, backLabel = 'ホームに戻る' }) {
   const members = state.members;
   const viewed = members.find((m) => m.id === viewId) || members[0];
   const pred = (viewed && state.preds[viewed.id]) || {};
@@ -38,13 +38,13 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
         display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', marginBottom: 6 }}>
         <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
-          <Icon name="chevron" size={15} color={T.accent} /></span>ホームに戻る
+          <Icon name="chevron" size={15} color={T.accent} /></span>{backLabel}
       </button>
       <Eyebrow T={T}>OPTIONS · 閲覧</Eyebrow>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
         gap: 10, marginTop: 3, marginBottom: 12 }}>
-        <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, minWidth: 0,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: wide ? 27 : 21, fontWeight: 800, color: T.text, minWidth: 0, flex: 1,
+          lineHeight: 1.2 }}>
           {viewed ? `${viewed.name}のオプション予想` : 'オプション予想'}</div>
         <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
           cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '8px 14px',
@@ -76,9 +76,9 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
 
   // ---- セクション切替タブ（旧・統計バーをタップ可能化）----
   const TABS = [
-    { id: 'group', emoji: '📊', label: 'グループ順位', value: grDone, sub: '/12組' },
+    { id: 'group', emoji: '📊', label: 'グループ', value: grDone, sub: '/12組' },
     { id: 'wild', emoji: '🎯', label: '3位WC', value: taDone, sub: `/${SLOTS.length}枠` },
-    { id: 'ko', emoji: '🏟', label: 'ノックアウト', value: koAny ? 'あり' : '—', sub: '' },
+    { id: 'ko', emoji: '🏟', label: 'ノック', value: koAny ? 'あり' : '—', sub: '' },
   ];
   const Tabs = () => (
     <div style={{ display: 'flex', gap: 8, margin: '14px 0 0' }}>
@@ -93,9 +93,8 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
             transition: '.15s' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{ fontSize: 13 }}>{tb.emoji}</span>
-              <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 1,
-                color: active ? T.accent : T.faint, whiteSpace: 'nowrap', overflow: 'hidden',
-                textOverflow: 'ellipsis' }}>{tb.label}</span>
+              <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 0.5,
+                color: active ? T.accent : T.faint }}>{tb.label}</span>
             </div>
             <div style={{ marginTop: 5, display: 'flex', alignItems: 'baseline', gap: 3 }}>
               <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 19,
