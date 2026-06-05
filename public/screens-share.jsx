@@ -59,7 +59,7 @@ function ShareSheet({ T, member, pred, open, onClose }) {
     }
   }
 
-  const noData = !avail.group && !avail.knockout && !avail.scorer;
+  const noData = !avail.core && !avail.group && !avail.knockout;
   const btnLabel =
     status === 'working' ? '生成中…'
     : status === 'done' ? '完了 ✓'
