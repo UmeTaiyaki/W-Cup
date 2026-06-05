@@ -4,7 +4,7 @@
    編集はしない。上部のメンバーチップで閲覧対象を切り替えられる。
    props: T, state, viewId, setViewId, goBack, wide, availWidth
    ============================================================ */
-function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0, backLabel = 'ホームに戻る' }) {
+function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0, backLabel = 'ホームに戻る', embedded = false }) {
   const members = state.members;
   const viewed = members.find((m) => m.id === viewId) || members[0];
   const pred = (viewed && state.preds[viewed.id]) || {};
@@ -181,40 +181,49 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     );
   };
 
+  // ---- タブ＋予想内容（本体。埋め込み時はこれだけを描画）----
+  const Body = () => (
+    <React.Fragment>
+      <Tabs />
+      <div style={{ marginTop: 16 }}>
+        {/* グループ順位 */}
+        {section === 'group' && (
+          grDone > 0 ? (
+            <div style={{ display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
+              {GK.map((k) => <GroupCard key={k} k={k} />)}
+            </div>
+          ) : <EmptyHint text="グループ順位予想はまだありません" />
+        )}
+
+        {/* 3位ワイルドカード */}
+        {section === 'wild' && (
+          taDone > 0 ? (
+            <div style={{ display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
+              {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
+            </div>
+          ) : <EmptyHint text="3位ワイルドカードはまだ割り当てられていません" />
+        )}
+
+        {/* ノックアウト */}
+        {section === 'ko' && (
+          koAny ? (
+            <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
+          ) : <EmptyHint text="ノックアウト予想はまだありません" />
+        )}
+      </div>
+    </React.Fragment>
+  );
+
+  // 埋め込み（ホーム/部屋にインライン表示）: ヘッダー・共有・戻る・メンバーチップ無し
+  if (embedded) return <div><Body /></div>;
+
   return (
     <div style={{ paddingBottom: 24 }}>
       <Header />
       <div style={{ padding: wide ? '0' : '0 16px' }}>
-        <Tabs />
-
-        <div style={{ marginTop: 16 }}>
-          {/* グループ順位 */}
-          {section === 'group' && (
-            grDone > 0 ? (
-              <div style={{ display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(158px, 1fr))', gap: 10 }}>
-                {GK.map((k) => <GroupCard key={k} k={k} />)}
-              </div>
-            ) : <EmptyHint text="グループ順位予想はまだありません" />
-          )}
-
-          {/* 3位ワイルドカード */}
-          {section === 'wild' && (
-            taDone > 0 ? (
-              <div style={{ display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 9 }}>
-                {SLOTS.map((s) => <WildcardSlot key={s} slot={s} />)}
-              </div>
-            ) : <EmptyHint text="3位ワイルドカードはまだ割り当てられていません" />
-          )}
-
-          {/* ノックアウト */}
-          {section === 'ko' && (
-            koAny ? (
-              <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
-            ) : <EmptyHint text="ノックアウト予想はまだありません" />
-          )}
-        </div>
+        <Body />
       </div>
       <ShareSheet T={T} member={viewed} pred={pred} open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>

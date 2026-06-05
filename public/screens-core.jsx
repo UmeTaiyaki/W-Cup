@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, dashboard = false, solo = false }) {
+function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
   const done = (pred.champion ? 1 : 0) + (pred.runnerUp ? 1 : 0) + (pred.topScorer ? 1 : 0);
@@ -85,14 +85,10 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
     </div>
   );
 
-  const ViewOptionsBtn = () => (
-    <button onClick={() => goView && goView(member.id)} style={{
-      border: 'none', borderRadius: 16, padding: '15px', cursor: 'pointer',
-      background: T.accent, color: T.accentInk, fontSize: 16, fontWeight: 800,
-      fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    }}>
-      <Icon name="bracket" size={19} color={T.accentInk} />オプションの予想を見る
-    </button>
+  // オプション予想（グループ順位/3位WC/ノックアウト）をその場にインライン表示
+  const Options = () => (
+    <OptionViewScreen embedded T={T} state={state} viewId={member.id}
+      setViewId={() => {}} wide={wide} />
   );
 
   const Everyone = ({ flush = false }) => (
@@ -171,7 +167,7 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <PodiumHero />
             <Picks />
-            <ViewOptionsBtn />
+            <Options />
           </div>
           {!solo && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -193,7 +189,7 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <PodiumHero />
             <Picks />
-            <ViewOptionsBtn />
+            <Options />
           </div>
           {!solo && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -211,7 +207,7 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
       <Header />
       <PodiumHero />
       <Picks />
-      <ViewOptionsBtn />
+      <Options />
       {!solo && <Everyone />}
     </div>
   );

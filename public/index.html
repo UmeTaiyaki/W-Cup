@@ -190,7 +190,6 @@
     function Home({ T, t, setTweak, me, setMe, isDesktop, contW, mode, onSignOut, initialTab }) {
       const [tab, setTab] = useState(initialTab || 'summary'); // summary | input | rooms | group | account
       const [optScreen, setOptScreen] = useState(null);  // grouprank | thirdwild | knockout | null
-      const [viewOpt, setViewOpt] = useState(false);     // オプション予想ビューア表示中か
       // 見比べ中の部屋。初期値は「最後に開いた部屋」（localStorage、me.rooms に存在する場合）
       const LAST_ROOM_KEY = 'wc2026_last_room_v1';
       const [roomView, setRoomView] = useState(() => {
@@ -248,7 +247,7 @@
         ta[slot] = code; persist({ ...pred, thirdAssign: ta });
       }
       function setKnockout(w) { persist({ ...pred, knockout: w }); }
-      function goTab(id) { setOptScreen(null); setViewOpt(false); setTab(id); }
+      function goTab(id) { setOptScreen(null); setTab(id); }
 
       // 既存 screens は state.members/preds を参照するため単一メンバーのシムを渡す
       const soloState = { current: me.id, members: [member], preds: { [me.id]: pred } };
@@ -264,10 +263,8 @@
       const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
 
       function renderScreen(wide) {
-        if (viewOpt) return <OptionViewScreen T={T} state={soloState} viewId={me.id}
-          setViewId={() => {}} goBack={() => setViewOpt(false)} wide={wide} availWidth={contentAvail} />;
         if (tab === 'summary') return <SummaryScreen solo T={T} state={soloState} member={member}
-          pred={pred} goTab={goTab} goView={() => setViewOpt(true)} wide={wide} />;
+          pred={pred} goTab={goTab} wide={wide} />;
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
@@ -298,7 +295,7 @@
             showWordmark={t.showWordmark} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-              <div key={tab + (optScreen || '') + (viewOpt ? 'v' : '') + (roomView ? roomView.id : '')}
+              <div key={tab + (optScreen || '') + (roomView ? roomView.id : '')}
                 style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
                 {renderScreen(true)}
               </div>
@@ -341,7 +338,7 @@
           </div>
 
           {/* 画面 */}
-          <div ref={scrollRef} data-scroll="main" key={tab + (optScreen || '') + (viewOpt ? 'v' : '') + (roomView ? roomView.id : '')}
+          <div ref={scrollRef} data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '')}
             style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1, paddingTop: 4 }}>
             {tab === 'rooms' && roomView && pullDist > 0 && (
               <div style={{ height: pullDist, display: 'flex', alignItems: 'center', justifyContent: 'center',

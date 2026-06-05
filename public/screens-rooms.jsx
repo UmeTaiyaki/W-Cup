@@ -183,7 +183,6 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
   const [err, setErr] = useState('');
   const [view, setView] = useState('members'); // 'members' | 'compare' | 'rank'
   const [sel, setSel] = useState(me.id);       // 選択中メンバー
-  const [viewOpt, setViewOpt] = useState(null);// オプション閲覧中メンバーID | null
   const [copied, setCopied] = useState(false);
   const COLORS = window.WC.MEMBER_COLORS || ['#FF8A3D', '#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#22D3EE'];
 
@@ -216,7 +215,6 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
   const curId = members.find((m) => m.id === sel) ? sel : (members[0] && members[0].id);
   const curMember = members.find((m) => m.id === curId) || null;
   const curPred = state ? state.preds[curId] : null;
-  const avail = wide ? (availWidth || 760) : 600;
 
   const pad = wide ? '4px 0 24px' : '4px 16px 16px';
 
@@ -249,7 +247,7 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
             {[['members', 'メンバー'], ['compare', '見比べ'], ['rank', 'ランキング']].map(([id, label]) => {
               const active = view === id;
               return (
-                <button key={id} onClick={() => { setView(id); setViewOpt(null); }} style={{
+                <button key={id} onClick={() => { setView(id); }} style={{
                   flex: 1, border: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer',
                   fontFamily: 'inherit', fontWeight: 800, fontSize: 14,
                   background: active ? T.accent : 'transparent', color: active ? T.accentInk : T.sub }}>
@@ -260,32 +258,26 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
 
           {view === 'members' && (
             <div>
-              {/* メンバー丸アイコン切替（オプション閲覧中はOptionView側の切替に集約） */}
-              {!viewOpt && (
-                <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 6 }}>
-                  {members.map((m) => {
-                    const active = m.id === curId;
-                    return (
-                      <button key={m.id} onClick={() => setSel(m.id)} style={{
-                        display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
-                        border: 'none', cursor: 'pointer', borderRadius: 999,
-                        padding: active ? '5px 13px 5px 5px' : '5px',
-                        background: active ? T.card : 'transparent',
-                        boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
-                        <Avatar m={m} size={30} T={T} />
-                        {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text,
-                          whiteSpace: 'nowrap' }}>{m.name}{m.id === me.id ? '（あなた）' : ''}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              {/* メンバー丸アイコン切替 */}
+              <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 6 }}>
+                {members.map((m) => {
+                  const active = m.id === curId;
+                  return (
+                    <button key={m.id} onClick={() => setSel(m.id)} style={{
+                      display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
+                      border: 'none', cursor: 'pointer', borderRadius: 999,
+                      padding: active ? '5px 13px 5px 5px' : '5px',
+                      background: active ? T.card : 'transparent',
+                      boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
+                      <Avatar m={m} size={30} T={T} />
+                      {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text,
+                        whiteSpace: 'nowrap' }}>{m.name}{m.id === me.id ? '（あなた）' : ''}</span>}
+                    </button>
+                  );
+                })}
+              </div>
 
-              {viewOpt
-                ? <OptionViewScreen T={T} state={state} viewId={viewOpt} setViewId={setViewOpt}
-                    goBack={() => setViewOpt(null)} wide={wide} availWidth={avail} backLabel="戻る" />
-                : <SummaryScreen solo T={T} state={state} member={curMember} pred={curPred}
-                    goView={(id) => setViewOpt(id)} wide={wide} />}
+              <SummaryScreen solo T={T} state={state} member={curMember} pred={curPred} wide={wide} />
             </div>
           )}
 
