@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeUser, validateUser, publicUser, USER_LIMITS } from './users.js';
+import { makeUser, validateUser, publicUser, addRoomToUser, USER_LIMITS } from './users.js';
 
 test('makeUser は名前・コードから User を生成する', () => {
   const u = makeUser('  たけし  ', 'ABCD2345');
@@ -88,4 +88,26 @@ test('publicUser は rooms を含めない', () => {
   u.rooms = [{ id: 'r1', code: 'WXYZ2345', name: '部屋A' }];
   const pub = publicUser(u);
   assert.ok(!('rooms' in pub), 'rooms を含んではいけない');
+});
+
+test('addRoomToUser は rooms に {id,code,name} を追記する（不変）', () => {
+  const u = makeUser('たけし', 'ABCD2345');
+  const next = addRoomToUser(u, { id: 'r1', code: 'wxyz2345', name: ' 部屋A ' });
+  assert.deepEqual(next.rooms, [{ id: 'r1', code: 'WXYZ2345', name: '部屋A' }]);
+  assert.deepEqual(u.rooms, [], '元の user は変更しない');
+});
+
+test('addRoomToUser は同じ id を重複追加しない', () => {
+  const u = { ...makeUser('x', 'ABCD2345'), rooms: [{ id: 'r1', code: 'WXYZ2345', name: '部屋A' }] };
+  const next = addRoomToUser(u, { id: 'r1', code: 'WXYZ2345', name: '部屋A' });
+  assert.equal(next.rooms.length, 1);
+});
+
+test('addRoomToUser は上限超過時に追加しない', () => {
+  const rooms = Array.from({ length: USER_LIMITS.maxRooms },
+    (_, i) => ({ id: `r${i}`, code: 'ABCD2345', name: `room${i}` }));
+  const u = { ...makeUser('x', 'ABCD2345'), rooms };
+  const next = addRoomToUser(u, { id: 'rNEW', code: 'ABCD2345', name: 'new' });
+  assert.equal(next.rooms.length, USER_LIMITS.maxRooms);
+  assert.ok(!next.rooms.find((r) => r.id === 'rNEW'));
 });

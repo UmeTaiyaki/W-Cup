@@ -54,6 +54,19 @@ export function publicUser(user) {
   };
 }
 
+// User.rooms に部屋参照 {id,code,name} を追記した新しい User を返す（不変）。
+// 同じ id は重複追加しない。上限 maxRooms 超過時は追加しない。
+export function addRoomToUser(user, room) {
+  if (!user || typeof user !== 'object' || !room || typeof room.id !== 'string' || !room.id) {
+    return user;
+  }
+  const rooms = Array.isArray(user.rooms) ? user.rooms : [];
+  if (rooms.some((r) => r && r.id === room.id)) return { ...user, rooms };
+  if (rooms.length >= USER_LIMITS.maxRooms) return { ...user, rooms };
+  const name = (typeof room.name === 'string' ? room.name.trim() : '').slice(0, USER_LIMITS.roomName);
+  return { ...user, rooms: [...rooms, { id: room.id, code: normalizeCode(room.code), name }] };
+}
+
 // 保存済み/受信した User を安全な形へ正規化。必須項目（id）が無ければ null。
 export function validateUser(input) {
   if (!input || typeof input !== 'object') return null;

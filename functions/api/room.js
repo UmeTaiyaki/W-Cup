@@ -1,6 +1,6 @@
 import { json } from '../_lib/http.js';
 import { makeRoom, addMember, ROOM_LIMITS } from '../_lib/rooms.js';
-import { validateUser, publicUser } from '../_lib/users.js';
+import { validateUser, publicUser, addRoomToUser } from '../_lib/users.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 
 const rKey = (id) => `room:${id}`;
@@ -35,6 +35,18 @@ async function readUser(env, id) {
   } catch (e) {
     console.error('room: member read failed', e);
     return null;
+  }
+}
+
+// User.rooms に部屋参照を追記して保存（端末またぎ用、best-effort）。
+async function attachRoomToUser(env, userId, room) {
+  try {
+    const user = await readUser(env, userId);
+    if (!user) return;
+    const next = addRoomToUser(user, { id: room.id, code: room.code, name: room.name });
+    await env.CONFIG.put(uKey(userId), JSON.stringify(next));
+  } catch (e) {
+    console.error('room: attach to user failed', e);
   }
 }
 
@@ -93,6 +105,7 @@ export async function onRequestPost({ request, env }) {
       console.error('room create: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
     }
+    await attachRoomToUser(env, input.userId, room);
     return json(200, { roomId: room.id, code, room });
   }
 
@@ -119,6 +132,7 @@ export async function onRequestPost({ request, env }) {
       console.error('room join: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
     }
+    await attachRoomToUser(env, input.userId, res.room);
     return json(200, { roomId: room.id, room: res.room });
   }
 
