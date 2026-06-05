@@ -74,32 +74,23 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     </div>
   );
 
-  // ---- セクション切替タブ（旧・統計バーをタップ可能化）----
+  // ---- セクション切替タブ（大会結果タブと同じピル型デザイン）----
   const TABS = [
-    { id: 'group', emoji: '📊', label: 'グループステージ', value: grDone, sub: '/12組' },
-    { id: 'ko', emoji: '🏟', label: 'ノックアウト', value: koAny ? 'あり' : '—', sub: '' },
+    { id: 'group', label: 'グループステージ' },
+    { id: 'ko', label: 'ノックアウト' },
   ];
   const Tabs = () => (
-    <div style={{ display: 'flex', gap: 8, margin: '14px 0 0' }}>
+    <div style={{ display: 'flex', gap: 8, margin: '14px 0 0', flexWrap: 'wrap' }}>
       {TABS.map((tb) => {
         const active = section === tb.id;
         return (
           <button key={tb.id} onClick={() => setSection(tb.id)} style={{
-            flex: 1, minWidth: 0, textAlign: 'left', border: 'none', cursor: 'pointer',
-            fontFamily: 'inherit', borderRadius: 14, padding: '11px 12px',
-            background: active ? `${T.accent}1A` : T.card,
-            boxShadow: active ? `inset 0 0 0 1.5px ${T.accent}` : `inset 0 0 0 1px ${T.line}`,
-            transition: '.15s' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ fontSize: 13 }}>{tb.emoji}</span>
-              <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 10, letterSpacing: 0.5,
-                color: active ? T.accent : T.faint }}>{tb.label}</span>
-            </div>
-            <div style={{ marginTop: 5, display: 'flex', alignItems: 'baseline', gap: 3 }}>
-              <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 19,
-                color: active ? T.text : T.sub }}>{tb.value}</span>
-              {tb.sub && <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}>{tb.sub}</span>}
-            </div>
+            border: 'none', cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999,
+            padding: '8px 16px', fontWeight: 800, fontSize: 13.5,
+            background: active ? T.accent : T.card,
+            color: active ? T.accentInk : T.sub,
+            boxShadow: active ? 'none' : `inset 0 0 0 1px ${T.line}`, transition: '.15s' }}>
+            {tb.label}
           </button>
         );
       })}
