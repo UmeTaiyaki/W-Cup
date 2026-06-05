@@ -27,6 +27,7 @@
   @keyframes wcFade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes wcSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   @keyframes wcPop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes wcSpin { to { transform: rotate(360deg); } }
   /* 得点王セレクト：国名(optgroup)を選手名(option)より大きく・目立たせて境目を明確に
      ※デスクトップ/Androidで有効。iOSネイティブピッカーはCSS非対応のためラベル装飾＋インデントで補う */
   .wc-scorer-select optgroup { font-size: 17px; font-weight: 900; color: #B6FF3C; }
@@ -116,20 +117,77 @@
       );
     }
 
-    // アカウント画面（同期コード再表示＋このブラウザのデータ削除）
-    function AccountScreen({ T, me, onSignOut }) {
+    // アカウント画面（名前変更＋同期コード再表示＋このブラウザのデータ削除）
+    function AccountScreen({ T, me, setMe, onSignOut }) {
       const [copied, setCopied] = useState(false);
       const [confirm, setConfirm] = useState(false);
+      const [editing, setEditing] = useState(false);
+      const [draft, setDraft] = useState(me.name || '');
+      const [saving, setSaving] = useState(false);
+      const [nameErr, setNameErr] = useState('');
       const fmt = (c) => (c || '').replace(/(.{4})(?=.)/g, '$1-');
       function copy() {
         try { navigator.clipboard.writeText(me.code); setCopied(true); setTimeout(() => setCopied(false), 1600); }
         catch (e) {}
       }
+      function startEdit() { setDraft(me.name || ''); setNameErr(''); setEditing(true); }
+      function cancelEdit() { setEditing(false); setNameErr(''); }
+      async function saveName() {
+        const nm = draft.trim();
+        if (!nm || saving) return;
+        if (nm === me.name) { setEditing(false); return; }
+        setSaving(true); setNameErr('');
+        try {
+          const u = await window.WC.Me.setName(nm);
+          setMe({ ...me, name: u.name, updatedAt: u.updatedAt });
+          setEditing(false);
+        } catch (e) {
+          setNameErr(e && e.message ? e.message : '変更に失敗しました');
+        } finally { setSaving(false); }
+      }
+      const avatar = { c: T.accent, initial: Array.from(me.name || '?')[0] || '?' };
       return (
         <div style={{ padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <Eyebrow T={T}>アカウント</Eyebrow>
-            <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3 }}>{me.name}</div>
+            {!editing ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+                <Avatar m={avatar} size={44} T={T} />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 23, fontWeight: 800, color: T.text,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{me.name}</div>
+                <button onClick={startEdit} style={{
+                  border: 'none', borderRadius: 12, padding: '9px 14px', cursor: 'pointer',
+                  background: `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
+                  fontWeight: 800, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="edit" size={15} color={T.accent} sw={2.2} />名前を変更</button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                <input autoFocus value={draft} maxLength={8}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') cancelEdit(); }}
+                  placeholder="ニックネーム（8文字まで）"
+                  style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none',
+                    background: T.panel2, color: T.text, fontSize: 18, fontFamily: 'inherit',
+                    fontWeight: 800, padding: '13px 14px', borderRadius: 14,
+                    boxShadow: `inset 0 0 0 1.5px ${T.accent}` }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                  <span style={{ flex: 1, fontSize: 12, color: nameErr ? '#FF6B6B' : T.faint, fontWeight: 700 }}>
+                    {nameErr || `${Array.from(draft.trim()).length} / 8 文字`}</span>
+                  <button onClick={cancelEdit} style={{
+                    border: 'none', borderRadius: 12, padding: '10px 16px', cursor: 'pointer',
+                    background: T.panel2, color: T.sub, fontFamily: 'inherit', fontWeight: 800, fontSize: 13.5 }}>
+                    キャンセル</button>
+                  <button onClick={saveName} disabled={!draft.trim() || saving} style={{
+                    border: 'none', borderRadius: 12, padding: '10px 18px',
+                    cursor: !draft.trim() || saving ? 'default' : 'pointer',
+                    background: !draft.trim() || saving ? T.panel2 : T.accent,
+                    color: !draft.trim() || saving ? T.faint : T.accentInk,
+                    fontFamily: 'inherit', fontWeight: 800, fontSize: 13.5 }}>
+                    {saving ? '…' : '保存'}</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 同期コード */}
@@ -204,35 +262,21 @@
         setRoomView(r);
       }
 
-      // 下スワイプで部屋を更新（プル・トゥ・リフレッシュ）。更新ボタンは廃止。
+      // ヘッダーの更新ボタンで最新データを再取得（プル更新は廃止）。
       const [roomRefreshKey, setRoomRefreshKey] = useState(0);
-      const [pullDist, setPullDist] = useState(0);
-      const scrollRef = useRef(null);
-      const ptr = useRef({ startY: 0, pulling: false, dist: 0 });
-      useEffect(() => {
-        const el = scrollRef.current;
-        if (!el) return;
-        const active = () => tab === 'rooms' && !!roomView;
-        const start = (e) => { if (active() && el.scrollTop <= 0) ptr.current = { startY: e.touches[0].clientY, pulling: true, dist: 0 }; };
-        const move = (e) => {
-          const s = ptr.current;
-          if (!s.pulling) return;
-          const dy = e.touches[0].clientY - s.startY;
-          if (dy > 0 && el.scrollTop <= 0) { e.preventDefault(); s.dist = Math.min(dy * 0.5, 80); setPullDist(s.dist); }
-          else { s.pulling = false; s.dist = 0; setPullDist(0); }
-        };
-        const end = () => { const s = ptr.current; if (s.pulling && s.dist >= 55) setRoomRefreshKey((k) => k + 1); s.pulling = false; s.dist = 0; setPullDist(0); };
-        el.addEventListener('touchstart', start, { passive: true });
-        el.addEventListener('touchmove', move, { passive: false });
-        el.addEventListener('touchend', end, { passive: true });
-        el.addEventListener('touchcancel', end, { passive: true });
-        return () => {
-          el.removeEventListener('touchstart', start);
-          el.removeEventListener('touchmove', move);
-          el.removeEventListener('touchend', end);
-          el.removeEventListener('touchcancel', end);
-        };
-      }, [tab, roomView]);
+      const [refreshing, setRefreshing] = useState(false);
+      async function doRefresh() {
+        if (refreshing) return;
+        setRefreshing(true);
+        setRoomRefreshKey((k) => k + 1);                 // 部屋の見比べデータを再取得
+        const minSpin = new Promise((r) => setTimeout(r, 650)); // 最低限スピンを見せる
+        try {
+          const u = await window.WC.Me.refresh();         // 自分の最新データを再取得
+          if (u) setMe(u);
+        } catch (e) { /* 失敗してもUIは維持 */ }
+        await minSpin;
+        setRefreshing(false);
+      }
 
       const pred = me.pred || window.WC.emptyPred();
       const member = { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' };
@@ -281,7 +325,7 @@
           return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={openRoom} wide={wide} />;
         }
         if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
-        if (tab === 'account') return <AccountScreen T={T} me={me} onSignOut={onSignOut} />;
+        if (tab === 'account') return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} />;
         return null;
       }
 
@@ -328,25 +372,29 @@
                   </div>
                 </div>
               ) : <div />}
-              <button onClick={() => goTab('account')} title="アカウント" style={{
-                border: 'none', background: T.card, width: 34, height: 34, borderRadius: '50%',
-                display: 'grid', placeItems: 'center', cursor: 'pointer',
-                boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-                <Icon name="people" size={17} color={tab === 'account' ? T.accent : T.sub} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button onClick={doRefresh} disabled={refreshing} title="更新" style={{
+                  border: 'none', background: T.card, width: 34, height: 34, borderRadius: '50%',
+                  display: 'grid', placeItems: 'center', cursor: refreshing ? 'default' : 'pointer',
+                  boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+                  <span style={{ display: 'grid', placeItems: 'center',
+                    animation: refreshing ? 'wcSpin 0.7s linear infinite' : 'none' }}>
+                    <Icon name="refresh" size={16} color={refreshing ? T.accent : T.sub} />
+                  </span>
+                </button>
+                <button onClick={() => goTab('account')} title="アカウント" style={{
+                  border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+                  display: 'grid', placeItems: 'center' }}>
+                  <Avatar m={member} size={34} active={tab === 'account'} T={T} />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* 画面 */}
-          <div ref={scrollRef} data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '')}
+          <div data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '')}
             style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1, paddingTop: 4 }}>
-            {tab === 'rooms' && roomView && pullDist > 0 && (
-              <div style={{ height: pullDist, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: T.faint, fontSize: 12, fontWeight: 700, overflow: 'hidden' }}>
-                {pullDist >= 55 ? '離して更新' : '↓ 引っぱって更新'}
-              </div>
-            )}
-            <div style={{ maxWidth: 620, margin: '0 auto', transform: pullDist > 0 ? `translateY(${pullDist * 0.2}px)` : 'none' }}>{renderScreen(false)}</div>
+            <div style={{ maxWidth: 620, margin: '0 auto' }}>{renderScreen(false)}</div>
           </div>
 
           {/* タブバー */}
