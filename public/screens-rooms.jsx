@@ -177,7 +177,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false }) {
 
 // 部屋ビュー: メンバー丸アイコン切替＋選択メンバーのホーム風サマリー
 // （見比べ / ランキングはサブタブで併存。既存 Summary/OptionView/Compare/Ranking を再利用）
-function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth }) {
+function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refreshKey = 0 }) {
   const { useState, useEffect } = React;
   const [data, setData] = useState(null);   // {room, members}
   const [err, setErr] = useState('');
@@ -185,17 +185,15 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth }) {
   const [sel, setSel] = useState(me.id);       // 選択中メンバー
   const [viewOpt, setViewOpt] = useState(null);// オプション閲覧中メンバーID | null
   const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(true);
   const COLORS = window.WC.MEMBER_COLORS || ['#FF8A3D', '#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#22D3EE'];
 
   function load() {
-    setLoading(true);
     return window.WC.Rooms.get(room.id)
       .then((d) => { setData(d); setErr(''); })
-      .catch((e) => setErr(e.message || '部屋を取得できません'))
-      .finally(() => setLoading(false));
+      .catch((e) => setErr(e.message || '部屋を取得できません'));
   }
-  useEffect(() => { let alive = true; load().then(() => { if (!alive) setData(null); }); return () => { alive = false; }; }, [room.id]);
+  // room 切替 or プル更新(refreshKey)で再取得
+  useEffect(() => { let alive = true; load().then(() => { if (!alive) setData(null); }); return () => { alive = false; }; }, [room.id, refreshKey]);
 
   function copyCode() {
     try { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(() => setCopied(false), 1600); }
@@ -224,33 +222,21 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth }) {
 
   return (
     <div style={{ padding: pad }}>
-      {/* 戻る */}
-      <button onClick={goBack} style={{
-        border: 'none', background: 'transparent', color: T.sub, fontFamily: 'inherit',
-        fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
-        gap: 2, padding: '4px 0', marginBottom: 8 }}>
-        ← 部屋一覧へ</button>
-
-      {/* 部屋名＋更新＋コード */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <Eyebrow T={T}>ROOM</Eyebrow>
-          <div style={{ fontSize: 22, fontWeight: 800, color: T.text, marginTop: 2,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || '部屋'}</div>
-        </div>
-        <button onClick={load} title="最新に更新" disabled={loading} style={{
-          border: 'none', background: T.card, width: 36, height: 36, borderRadius: '50%',
-          display: 'grid', placeItems: 'center', cursor: loading ? 'default' : 'pointer',
-          boxShadow: `inset 0 0 0 1px ${T.line}`, flexShrink: 0 }}>
-          <Icon name="refresh" size={17} color={T.sub} />
-        </button>
+      {/* 控えめなヘッダー: 一覧へ / 部屋名 / 参加コード（タップでコピー） */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <button onClick={goBack} style={{
+          border: 'none', background: 'transparent', color: T.sub, fontFamily: 'inherit',
+          fontWeight: 700, fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+          gap: 2, padding: '2px 0' }}>← 一覧</button>
+        <span style={{ color: T.line }}>|</span>
+        <span style={{ color: T.sub, fontWeight: 700, fontSize: 12.5, maxWidth: 150,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || '部屋'}</span>
         <button onClick={copyCode} title="参加コードをコピー" style={{
-          border: 'none', borderRadius: 12, padding: '9px 12px', cursor: 'pointer',
-          background: copied ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'Archivo, monospace',
-          fontWeight: 800, fontSize: 13.5, letterSpacing: 1.5, display: 'flex', alignItems: 'center', gap: 6,
-          boxShadow: copied ? `inset 0 0 0 1.5px ${T.accent}` : 'none', flexShrink: 0 }}>
-          <Icon name={copied ? 'check' : 'copy'} size={15} color={T.accent} sw={2.4} />
-          {roomFmtCode(room.code)}</button>
+          marginLeft: 'auto', border: 'none', background: 'transparent', color: T.faint,
+          fontFamily: 'Archivo, monospace', fontWeight: 700, fontSize: 11.5, letterSpacing: 1,
+          cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
+          <Icon name={copied ? 'check' : 'copy'} size={12} color={T.faint} sw={2.2} />
+          {copied ? 'コピー済' : roomFmtCode(room.code)}</button>
       </div>
 
       {err && <div style={{ color: '#FF6B6B', fontSize: 14, fontWeight: 700, padding: '12px 0' }}>{err}</div>}
