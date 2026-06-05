@@ -193,10 +193,10 @@ function Onboarding({ T, onDone }) {
         <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.7, margin: '8px 0 22px' }}>
           ニックネームを決めて、あなたの予想を始めましょう。<br />
           ログインは不要です。</p>
-        <input autoFocus value={name} maxLength={20}
+        <input autoFocus value={name} maxLength={8}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) commitName(); }}
-          placeholder="ニックネーム（例：たけし）"
+          placeholder="ニックネーム（8文字まで）"
           style={{ width: '100%', border: 'none', outline: 'none', boxSizing: 'border-box',
             background: T.panel2, color: T.text, fontSize: 17, fontFamily: 'inherit',
             fontWeight: 700, padding: '15px 16px', borderRadius: 14,

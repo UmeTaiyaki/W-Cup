@@ -63,6 +63,16 @@
     saveIdentity(out.userId, out.code, out.user);
     return out;
   }
+  // 名前を変更（本人確認=code 必須）。キャッシュへ名前だけマージして返す。
+  async function setName(name) {
+    const id = load();
+    if (!id) throw new Error('ログインが必要です');
+    const out = await postOp({ op: 'setName', userId: id.userId, code: id.code, name });
+    const merged = { ...(cachedUser() || {}), name: out.name, updatedAt: out.updatedAt };
+    cacheUser(merged);
+    return merged;
+  }
+
   // 保存済み identity で最新 user を取得。失効(404)なら clear して null。
   async function refresh() {
     const id = load();
@@ -138,7 +148,7 @@
 
   window.WC = window.WC || {};
   window.WC.Me = {
-    load, cachedUser, clear, create, sync, refresh,
+    load, cachedUser, clear, create, sync, refresh, setName,
     scheduleSave, flushSave, flushBeacon, cacheUser,
   };
   window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };

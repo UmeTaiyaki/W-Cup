@@ -4,14 +4,17 @@ import { genId } from './ids.js';
 import { emptyPred, validatePred } from './predictions.js';
 import { normalizeCode } from './codes.js';
 
-export const USER_LIMITS = { name: 20, postBytes: 64 * 1024, maxRooms: 50, roomName: 30 };
+export const USER_LIMITS = { name: 8, postBytes: 64 * 1024, maxRooms: 50, roomName: 30 };
 
-const trimName = (name) => {
+// 名前を trim → 最大長で丸める。空なら null。文字数は書記素ではなくコードポイント基準。
+export const normalizeName = (name) => {
   if (typeof name !== 'string') return null;
   const nm = name.trim();
   if (!nm) return null;
   return Array.from(nm).slice(0, USER_LIMITS.name).join('');
 };
+
+const trimName = normalizeName;
 
 // rooms 配列を {id, code, name} の形へ正規化（不正要素は除外、上限で丸め）。
 function normalizeRooms(rooms) {

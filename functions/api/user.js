@@ -1,5 +1,5 @@
 import { json } from '../_lib/http.js';
-import { makeUser, validateUser, publicUser, USER_LIMITS } from '../_lib/users.js';
+import { makeUser, validateUser, publicUser, normalizeName, USER_LIMITS } from '../_lib/users.js';
 import { validatePred } from '../_lib/predictions.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 
@@ -92,6 +92,25 @@ export async function onRequestPost({ request, env }) {
       return json(500, { error: '保存に失敗しました' });
     }
     // 応答に code は含めない（本人は既に保持している）。
+    return json(200, publicUser(next));
+  }
+
+  if (op === 'setName') {
+    const user = await readUser(env, input.userId);
+    if (!user) return json(404, { error: 'ユーザーが見つかりません' });
+    // 本人確認（IDOR防止）: setPred と同様に同期コードの所持を要求する。
+    if (normalizeCode(input.code) !== user.code) {
+      return json(403, { error: '本人確認に失敗しました' });
+    }
+    const nm = normalizeName(input.name);
+    if (!nm) return json(400, { error: '名前を入力してください' });
+    const next = { ...user, name: nm, updatedAt: new Date().toISOString() };
+    try {
+      await env.CONFIG.put(uKey(user.id), JSON.stringify(next));
+    } catch (e) {
+      console.error('user setName: KV write failed', e);
+      return json(500, { error: '保存に失敗しました' });
+    }
     return json(200, publicUser(next));
   }
 
