@@ -175,55 +175,75 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false }) {
   );
 }
 
-// 部屋の見比べ（メンバー取得 → 既存 Compare/Ranking を再利用）
-function RoomCompareScreen({ T, me, room, goBack, wide = false }) {
+// 部屋ビュー: メンバー丸アイコン切替＋選択メンバーのホーム風サマリー
+// （見比べ / ランキングはサブタブで併存。既存 Summary/OptionView/Compare/Ranking を再利用）
+function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth }) {
   const { useState, useEffect } = React;
   const [data, setData] = useState(null);   // {room, members}
   const [err, setErr] = useState('');
-  const [sub, setSub] = useState('compare'); // 'compare' | 'rank'
+  const [view, setView] = useState('members'); // 'members' | 'compare' | 'rank'
+  const [sel, setSel] = useState(me.id);       // 選択中メンバー
+  const [viewOpt, setViewOpt] = useState(null);// オプション閲覧中メンバーID | null
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
   const COLORS = window.WC.MEMBER_COLORS || ['#FF8A3D', '#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#22D3EE'];
 
-  useEffect(() => {
-    let alive = true;
-    window.WC.Rooms.get(room.id)
-      .then((d) => { if (alive) setData(d); })
-      .catch((e) => { if (alive) setErr(e.message || '部屋を取得できません'); });
-    return () => { alive = false; };
-  }, [room.id]);
+  function load() {
+    setLoading(true);
+    return window.WC.Rooms.get(room.id)
+      .then((d) => { setData(d); setErr(''); })
+      .catch((e) => setErr(e.message || '部屋を取得できません'))
+      .finally(() => setLoading(false));
+  }
+  useEffect(() => { let alive = true; load().then(() => { if (!alive) setData(null); }); return () => { alive = false; }; }, [room.id]);
 
   function copyCode() {
     try { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(() => setCopied(false), 1600); }
     catch (e) {}
   }
 
-  // publicUser[] → 既存 screens 用の state（members に色/イニシャルを付与）
+  // publicUser[] → 既存 screens 用の state（members に色/イニシャルを付与。自分を先頭に）
   const state = data ? (() => {
-    const members = data.members.map((u, i) => ({
+    const ordered = [...data.members].sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : 0));
+    const members = ordered.map((u, i) => ({
       id: u.id, name: u.name || '名無し', c: COLORS[i % COLORS.length],
       initial: Array.from(u.name || '?')[0] || '?',
     }));
     const preds = {};
-    data.members.forEach((u) => { preds[u.id] = u.pred || window.WC.emptyPred(); });
+    ordered.forEach((u) => { preds[u.id] = u.pred || window.WC.emptyPred(); });
     return { current: me.id, members, preds };
   })() : null;
+
+  const members = state ? state.members : [];
+  const curId = members.find((m) => m.id === sel) ? sel : (members[0] && members[0].id);
+  const curMember = members.find((m) => m.id === curId) || null;
+  const curPred = state ? state.preds[curId] : null;
+  const avail = wide ? (availWidth || 760) : 600;
 
   const pad = wide ? '4px 0 24px' : '4px 16px 16px';
 
   return (
     <div style={{ padding: pad }}>
+      {/* 戻る */}
       <button onClick={goBack} style={{
         border: 'none', background: 'transparent', color: T.sub, fontFamily: 'inherit',
         fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
         gap: 2, padding: '4px 0', marginBottom: 8 }}>
         ← 部屋一覧へ</button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      {/* 部屋名＋更新＋コード */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <Eyebrow T={T}>ROOM</Eyebrow>
           <div style={{ fontSize: 22, fontWeight: 800, color: T.text, marginTop: 2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || '部屋'}</div>
         </div>
+        <button onClick={load} title="最新に更新" disabled={loading} style={{
+          border: 'none', background: T.card, width: 36, height: 36, borderRadius: '50%',
+          display: 'grid', placeItems: 'center', cursor: loading ? 'default' : 'pointer',
+          boxShadow: `inset 0 0 0 1px ${T.line}`, flexShrink: 0 }}>
+          <Icon name="refresh" size={17} color={T.sub} />
+        </button>
         <button onClick={copyCode} title="参加コードをコピー" style={{
           border: 'none', borderRadius: 12, padding: '9px 12px', cursor: 'pointer',
           background: copied ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'Archivo, monospace',
@@ -238,12 +258,12 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false }) {
 
       {state && (
         <div>
-          {/* サブタブ */}
+          {/* サブタブ: メンバー / 見比べ / ランキング */}
           <div style={{ display: 'flex', gap: 6, background: T.panel2, borderRadius: 12, padding: 4, marginBottom: 14 }}>
-            {[['compare', '見比べ'], ['rank', 'ランキング']].map(([id, label]) => {
-              const active = sub === id;
+            {[['members', 'メンバー'], ['compare', '見比べ'], ['rank', 'ランキング']].map(([id, label]) => {
+              const active = view === id;
               return (
-                <button key={id} onClick={() => setSub(id)} style={{
+                <button key={id} onClick={() => { setView(id); setViewOpt(null); }} style={{
                   flex: 1, border: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer',
                   fontFamily: 'inherit', fontWeight: 800, fontSize: 14,
                   background: active ? T.accent : 'transparent', color: active ? T.accentInk : T.sub }}>
@@ -251,9 +271,38 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false }) {
               );
             })}
           </div>
-          {sub === 'compare'
-            ? <CompareScreen T={T} state={state} goTab={() => setSub('rank')} wide={wide} />
-            : <RankingScreen T={T} state={state} wide={wide} />}
+
+          {view === 'members' && (
+            <div>
+              {/* メンバー丸アイコン切替 */}
+              <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 6 }}>
+                {members.map((m) => {
+                  const active = m.id === curId && !viewOpt;
+                  return (
+                    <button key={m.id} onClick={() => { setSel(m.id); setViewOpt(null); }} style={{
+                      display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
+                      border: 'none', cursor: 'pointer', borderRadius: 999,
+                      padding: active ? '5px 13px 5px 5px' : '5px',
+                      background: active ? T.card : 'transparent',
+                      boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
+                      <Avatar m={m} size={30} T={T} />
+                      {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text,
+                        whiteSpace: 'nowrap' }}>{m.name}{m.id === me.id ? '（あなた）' : ''}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {viewOpt
+                ? <OptionViewScreen T={T} state={state} viewId={viewOpt} setViewId={setViewOpt}
+                    goBack={() => setViewOpt(null)} wide={wide} availWidth={avail} />
+                : <SummaryScreen solo T={T} state={state} member={curMember} pred={curPred}
+                    goView={(id) => setViewOpt(id)} wide={wide} />}
+            </div>
+          )}
+
+          {view === 'compare' && <CompareScreen T={T} state={state} goTab={() => setView('rank')} wide={wide} />}
+          {view === 'rank' && <RankingScreen T={T} state={state} wide={wide} />}
         </div>
       )}
     </div>
