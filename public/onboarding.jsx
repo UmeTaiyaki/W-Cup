@@ -112,7 +112,7 @@ function Onboarding({ T, onDone }) {
       setErr(e.status === 404 ? 'コードに該当するユーザーがいません' : (e.message || '復元に失敗しました'));
     } finally { setBusy(false); }
   }
-  function finish() { window.WC.Me.flushSave(); onDone({ ...me, pred }); }
+  function finish(tab) { window.WC.Me.flushSave(); onDone({ ...me, pred }, tab); }
 
   function copyCode() {
     try {
@@ -356,8 +356,13 @@ function Onboarding({ T, onDone }) {
       </div>
 
       <div style={{ marginTop: 20 }}>
-        {primaryBtn('はじめる', finish)}
+        {primaryBtn('はじめる', () => finish('summary'))}
       </div>
+      <button onClick={() => finish('rooms')} style={{
+        marginTop: 12, width: '100%', border: 'none', background: 'transparent',
+        color: T.accent, fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <Icon name="people" size={17} color={T.accent} />仲間と見比べる部屋を作る・参加する</button>
     </div>
   );
 }

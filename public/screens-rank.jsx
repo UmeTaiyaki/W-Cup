@@ -57,7 +57,7 @@ function CompareScreen({ T, state, goTab, wide = false }) {
     <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px' }}>
       <Eyebrow T={T}>COMPARE</Eyebrow>
       <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 16 }}>
-        {wide ? 'みんなの予想を見比べ' : '4人の予想を見比べ'}</div>
+        {wide ? 'みんなの予想を見比べ' : `${M.length}人の予想を見比べ`}</div>
       <div style={wide ? { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18,
         alignItems: 'start' } : undefined}>
         <Section title="優勝" sub="CHAMPION" color={T.gold} icon="trophy"

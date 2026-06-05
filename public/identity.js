@@ -112,9 +112,34 @@
     });
   }
 
+  // ---- 部屋（ルーム）API ----
+  async function postRoom(body) {
+    const res = await fetch('/api/room', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body), cache: 'no-store',
+    });
+    if (!res.ok) {
+      let msg = '通信に失敗しました'; const status = res.status;
+      try { const e = await res.json(); if (e && e.error) msg = e.error; } catch (e2) {}
+      const err = new Error(msg); err.status = status; throw err;
+    }
+    return res.json();
+  }
+  // 部屋を作成 → {roomId, code, room}
+  async function createRoom(userId, name) { return postRoom({ op: 'create', userId, name }); }
+  // 部屋に参加 → {roomId, room}
+  async function joinRoom(userId, code) { return postRoom({ op: 'join', userId, code }); }
+  // 部屋＋メンバー取得 → {room, members:[publicUser]}
+  async function getRoom(roomId) {
+    const res = await fetch('/api/room?id=' + encodeURIComponent(roomId), { cache: 'no-store' });
+    if (!res.ok) { const err = new Error('部屋を取得できません'); err.status = res.status; throw err; }
+    return res.json();
+  }
+
   window.WC = window.WC || {};
   window.WC.Me = {
     load, cachedUser, clear, create, sync, refresh,
     scheduleSave, flushSave, flushBeacon, cacheUser,
   };
+  window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };
 })();
