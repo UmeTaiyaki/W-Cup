@@ -5,13 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>管理画面 — W杯2026 予想</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
-  body { font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; background: #0b0d12; color: #F3F7F2; -webkit-font-smoothing: antialiased; }
+  body { font-family: 'Noto Sans JP', system-ui, sans-serif; background: #0b0d12; color: #F3F7F2; -webkit-font-smoothing: antialiased; }
   input, select, button, textarea { font-family: inherit; }
   a { color: #B6FF3C; }
+  /* 得点王セレクト：国名(optgroup)を選手名(option)より大きく目立たせる（デスクトップ/Android） */
+  .wc-scorer-select optgroup { font-size: 16px; font-weight: 900; color: #B6FF3C; }
+  .wc-scorer-select option { font-size: 13px; font-weight: 500; color: #fff; }
 </style>
 </head>
 <body>

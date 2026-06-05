@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, dashboard = false }) {
+function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, dashboard = false, solo = false }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
   const done = (pred.champion ? 1 : 0) + (pred.runnerUp ? 1 : 0) + (pred.topScorer ? 1 : 0);
@@ -126,61 +126,6 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
     </div>
   );
 
-  // みんなのオプション予想（タップで読み取り専用ビューアへ）
-  const OptionsRoster = ({ flush = false }) => {
-    const GK = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-    const SLOTS = window.WC.WILDCARD_SLOTS || [];
-    const Pill = ({ emoji, text, on }) => (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700,
-        color: on ? T.text : T.faint, background: on ? `${T.accent}1A` : T.panel2,
-        borderRadius: 7, padding: '3px 7px', whiteSpace: 'nowrap' }}>
-        <span style={{ fontSize: 12 }}>{emoji}</span>{text}</span>
-    );
-    return (
-      <div style={{ marginTop: flush ? 0 : 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 10 }}>
-          <span style={{ fontWeight: 800, fontSize: 16, color: T.text }}>みんなのオプション予想</span>
-          <span style={{ fontFamily: 'Archivo', fontWeight: 700, fontSize: 10, letterSpacing: 1.2,
-            color: T.faint }}>タップで詳細</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {M.map(m => {
-            const p = state.preds[m.id] || {};
-            const gr = p.groupRank || {}, ta = p.thirdAssign || {};
-            const grDone = GK.filter(k => (gr[k] || []).length >= 3).length;
-            const taDone = SLOTS.filter(s => ta[s]).length;
-            const der = window.WC.deriveKnockout(gr, ta, p.knockout || {});
-            const koAny = ['r32', 'r16', 'qf', 'sf'].some(r => (der.winners[r] || []).some(Boolean));
-            const none = grDone === 0 && taDone === 0 && !koAny;
-            return (
-              <button key={m.id} onClick={() => goView && goView(m.id)} style={{
-                display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
-                border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: T.card,
-                borderRadius: 16, padding: '10px 13px', boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-                <Avatar m={m} size={32} T={T} />
-                <span style={{ fontWeight: 700, color: T.text, fontSize: 14.5, flexShrink: 0 }}>{m.name}</span>
-                <div style={{ display: 'flex', gap: 5, flex: 1, justifyContent: 'flex-end',
-                  flexWrap: 'wrap', minWidth: 0 }}>
-                  {none ? (
-                    <span style={{ fontSize: 12, color: T.faint, fontWeight: 600 }}>未予想</span>
-                  ) : (
-                    <>
-                      <Pill emoji="📊" text={`${grDone}/12`} on={grDone > 0} />
-                      <Pill emoji="🎯" text={`${taDone}/${SLOTS.length}`} on={taDone > 0} />
-                      <Pill emoji="🏟" text={koAny ? '✓' : '—'} on={koAny} />
-                    </>
-                  )}
-                </div>
-                <Icon name="chevron" size={17} color={T.faint} />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   // 優勝予想の分布（ダッシュボード用）
   const ChampDist = () => {
     const counts = {};
@@ -228,11 +173,12 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
             <Picks />
             <ViewOptionsBtn />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Panel><Everyone flush /></Panel>
-            <Panel><OptionsRoster flush /></Panel>
-            <Panel><ChampDist /></Panel>
-          </div>
+          {!solo && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Panel><Everyone flush /></Panel>
+              <Panel><ChampDist /></Panel>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -249,10 +195,11 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
             <Picks />
             <ViewOptionsBtn />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Panel><Everyone flush /></Panel>
-            <Panel><OptionsRoster flush /></Panel>
-          </div>
+          {!solo && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Panel><Everyone flush /></Panel>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -265,14 +212,13 @@ function SummaryScreen({ T, state, member, pred, goTab, goView, wide = false, da
       <PodiumHero />
       <Picks />
       <ViewOptionsBtn />
-      <Everyone />
-      <OptionsRoster />
+      {!solo && <Everyone />}
     </div>
   );
 }
 
 // ===== 予想入力画面 =========================================
-function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, wide = false }) {
+function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, wide = false, solo = false }) {
   const gr = pred.groupRank || {};
   const ta = pred.thirdAssign || {};
   const grDone = ['A','B','C','D','E','F','G','H','I','J','K','L'].filter((k) => (gr[k] || []).length >= 3).length;
@@ -285,6 +231,9 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
 
   const Row = ({ field, label, sub, color, icon, code, scorer }) => {
     const filled = code || scorer;
+    const sm = scorer ? (/^(.*)\s+\(([A-Za-z]{2,3})\)$/.exec(scorer) || []) : [];
+    const scFlag = sm[2] ? (window.WC.TEAM[sm[2]] || {}).flag : '';
+    const scName = sm[1] || scorer;
     return (
       <button onClick={() => setSheet(field)} style={{
         width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
@@ -303,11 +252,12 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
             <span style={{ fontFamily: 'Archivo', fontWeight: 700, fontSize: 10,
               letterSpacing: 1.5, color: T.faint, whiteSpace: 'nowrap' }}>{sub}</span>
           </div>
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 9 }}>
-            {code && <span style={{ fontSize: 24 }}>{window.WC.TEAM[code].flag}</span>}
-            <span style={{ fontSize: 18, fontWeight: 800,
-              color: filled ? T.text : T.faint }}>
-              {code ? window.WC.TEAM[code].ja : (scorer || 'タップして選ぶ')}
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+            {(code ? window.WC.TEAM[code].flag : scFlag) &&
+              <span style={{ fontSize: 24, flexShrink: 0 }}>{code ? window.WC.TEAM[code].flag : scFlag}</span>}
+            <span style={{ fontSize: 18, fontWeight: 800, color: filled ? T.text : T.faint,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {code ? window.WC.TEAM[code].ja : (scorer ? scName : 'タップして選ぶ')}
             </span>
           </div>
         </div>
@@ -322,7 +272,8 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
       <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
         3つを予想しよう</div>
       <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
-        優勝・準優勝・得点王を選ぶと自動で保存。上の人物アイコンで仲間を切り替えられます。</p>
+        {solo ? '優勝・準優勝・得点王を選ぶと自動で保存されます。'
+              : '優勝・準優勝・得点王を選ぶと自動で保存。上の人物アイコンで仲間を切り替えられます。'}</p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <Row field="champ" label="優勝" sub="CHAMPION" color={T.gold} icon="trophy" code={pred.champion} />
@@ -345,6 +296,7 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
       </div>
 
       {/* 参加者の削除 */}
+      {!solo && (
       <div style={{ marginTop: 28, paddingTop: 18, borderTop: `1px solid ${T.line}` }}>
         {!confirm ? (
           <button onClick={() => setConfirm(true)} disabled={!canRemove} style={{
@@ -381,13 +333,14 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
             参加者が1人のときは削除できません。</p>
         )}
       </div>
+      )}
 
       <TeamPicker open={sheet === 'champ'} onClose={() => setSheet(null)} T={T} centered={wide}
         title="優勝を選ぶ" onPick={c => setPick('champion', c)} />
       <TeamPicker open={sheet === 'runner'} onClose={() => setSheet(null)} T={T} centered={wide}
         title="準優勝を選ぶ" onPick={c => setPick('runnerUp', c)} exclude={[pred.champion]} />
       <ScorerPicker open={sheet === 'scorer'} onClose={() => setSheet(null)} T={T} centered={wide}
-        value={pred.topScorer} onPick={s => setPick('topScorer', s)} />
+        title="得点王を選ぶ" onPick={v => setPick('topScorer', v)} />
     </div>
   );
 }

@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>W杯2026 予想 — 仲間内アプリ</title>
+<title>W杯2026 予想</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%86%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   body {
-    font-family: 'Zen Kaku Gothic New', -apple-system, system-ui, sans-serif;
+    font-family: 'Noto Sans JP', -apple-system, system-ui, sans-serif;
     background: #0b0d12;
     min-height: 100vh;
     min-height: 100dvh;
@@ -27,6 +27,10 @@
   @keyframes wcFade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes wcSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   @keyframes wcPop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  /* 得点王セレクト：国名(optgroup)を選手名(option)より大きく・目立たせて境目を明確に
+     ※デスクトップ/Androidで有効。iOSネイティブピッカーはCSS非対応のためラベル装飾＋インデントで補う */
+  .wc-scorer-select optgroup { font-size: 17px; font-weight: 900; color: #B6FF3C; }
+  .wc-scorer-select option { font-size: 14px; font-weight: 500; color: #F3F7F2; }
 </style>
 </head>
 <body>
@@ -36,27 +40,35 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-  <script src="data.js"></script>
+  <script src="data.js?v=3"></script>
+  <script src="identity.js?v=2"></script>
   <script type="module">
-    import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets } from './lib/bracket.js';
+    import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto } from './lib/bracket.js';
     import { SCORING, scoreMember } from './lib/scoring.js';
     import { generateFixtures, computeStandings } from './lib/standings.js';
+    import { availableCards, groupTop2, parseScorer, shareFilename, shareText } from './lib/share-model.js';
+    import { drawShareCard } from './lib/share-draw.js';
+    import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
     window.WC = window.WC || {};
-    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, SCORING, generateFixtures, computeStandings });
+    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, SCORING, generateFixtures, computeStandings });
+    Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
     // 採点は RESULT を結果として渡す薄いラッパに統一（既存呼び出し scoreMember(pred) を維持）
     window.WC.scoreMember = (pred) => scoreMember(pred, window.WC.RESULT, SCORING);
   </script>
-  <script type="text/babel" src="tweaks-panel.jsx"></script>
-  <script type="text/babel" src="ios-frame.jsx"></script>
-  <script type="text/babel" src="ui.jsx"></script>
-  <script type="text/babel" src="app-shell.jsx"></script>
-  <script type="text/babel" src="screens-core.jsx"></script>
-  <script type="text/babel" src="screens-knockout.jsx"></script>
-  <script type="text/babel" src="screens-rank.jsx"></script>
-  <script type="text/babel" src="screens-group.jsx"></script>
-  <script type="text/babel" src="screens-grouprank.jsx"></script>
-  <script type="text/babel" src="screens-thirdwild.jsx"></script>
-  <script type="text/babel" src="screens-optview.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx?v=2"></script>
+  <script type="text/babel" src="ios-frame.jsx?v=2"></script>
+  <script type="text/babel" src="ui.jsx?v=4"></script>
+  <script type="text/babel" src="app-shell.jsx?v=3"></script>
+  <script type="text/babel" src="screens-core.jsx?v=3"></script>
+  <script type="text/babel" src="screens-knockout.jsx?v=2"></script>
+  <script type="text/babel" src="screens-rank.jsx?v=3"></script>
+  <script type="text/babel" src="screens-group.jsx?v=2"></script>
+  <script type="text/babel" src="screens-grouprank.jsx?v=2"></script>
+  <script type="text/babel" src="screens-thirdwild.jsx?v=2"></script>
+  <script type="text/babel" src="screens-share.jsx?v=2"></script>
+  <script type="text/babel" src="screens-optview.jsx?v=3"></script>
+  <script type="text/babel" src="onboarding.jsx?v=2"></script>
+  <script type="text/babel" src="screens-rooms.jsx?v=1"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -75,97 +87,144 @@
       bold:    ['#FF3D8B', '#21E6C1', '#FFD23D', '#7C5Cff'],
     };
 
-    function App() {
-      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-      const [state, setState] = useState(() => window.WC.load());
-      const [tab, setTab] = useState('summary');
-      const [optScreen, setOptScreen] = useState(null); // 'grouprank' | 'thirdwild' | 'knockout' | null
-      const [viewOpt, setViewOpt] = useState(null); // 閲覧中メンバーID（オプション予想ビューア）| null
-      const [adding, setAdding] = useState(false);
-      const [newName, setNewName] = useState('');
-      const [, setCfgLoaded] = useState(0);
-      useEffect(() => {
-        let alive = true;
-        window.WC.fetchConfig().then((ok) => { if (alive && ok) setCfgLoaded((n) => n + 1); });
-        return () => { alive = false; };
-      }, []);
-
-      window.WC.MEMBERS = state.members;
-
-      // テーマ合成
+    // テーマ合成（base ＋ アクセント上書き）
+    function useTheme(t) {
       const base = window.WC.THEMES[t.theme] || window.WC.THEMES.pitch;
       const T = { ...base };
-      if (t.accent) { T.accent = t.accent;
-        const hex = t.accent.replace('#','');
-        const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
-        T.accentInk = (r*0.299+g*0.587+b*0.114) > 150 ? '#0A1410' : '#ffffff';
+      if (t.accent) {
+        T.accent = t.accent;
+        const hex = t.accent.replace('#', '');
+        const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+        T.accentInk = (r * 0.299 + g * 0.587 + b * 0.114) > 150 ? '#0A1410' : '#ffffff';
       }
+      return T;
+    }
 
-      const member = window.WC.MEMBERS.find(m => m.id === state.current) || state.members[0];
-      const pred = state.preds[state.current];
+    // ロード中プレースホルダ
+    function Splash({ T }) {
+      return (
+        <div style={{ height: '100%', display: 'grid', placeItems: 'center', background: T.bg, position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, background: T.grad, pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', textAlign: 'center' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: T.accent,
+              display: 'grid', placeItems: 'center', margin: '0 auto 14px' }}>
+              <Icon name="trophy" size={28} color={T.accentInk} />
+            </div>
+            <div style={{ color: T.sub, fontSize: 14, fontWeight: 700 }}>読み込み中…</div>
+          </div>
+        </div>
+      );
+    }
 
-      function persist(next) { setState(next); window.WC.save(next); }
-      function setCurrent(id) { setOptScreen(null); setViewOpt(null); persist({ ...state, current: id }); }
-      function commitAdd() {
-        const next = window.WC.addMember(state, newName);
-        setState(next); setNewName(''); setAdding(false); goTab('input');
+    // アカウント画面（同期コード再表示＋このブラウザのデータ削除）
+    function AccountScreen({ T, me, onSignOut }) {
+      const [copied, setCopied] = useState(false);
+      const [confirm, setConfirm] = useState(false);
+      const fmt = (c) => (c || '').replace(/(.{4})(?=.)/g, '$1-');
+      function copy() {
+        try { navigator.clipboard.writeText(me.code); setCopied(true); setTimeout(() => setCopied(false), 1600); }
+        catch (e) {}
       }
-      function removeMember(id) { setState(window.WC.removeMember(state, id)); }
-      function setPick(field, value) {
-        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, [field]: value } } });
-      }
-      function setGroupRank(groupKey, codeArray) {
-        const groupRank = { ...(pred.groupRank || {}), [groupKey]: codeArray };
-        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, groupRank } } });
-      }
-      function setThirdAssign(slotId, code) {
-        const thirdAssign = { ...(pred.thirdAssign || {}) };
-        // 一意性を保証：同じ3位チームが他枠にあれば空けてから割当
-        if (code) Object.keys(thirdAssign).forEach((s) => { if (s !== slotId && thirdAssign[s] === code) thirdAssign[s] = null; });
-        thirdAssign[slotId] = code;
-        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, thirdAssign } } });
-      }
-      function setKnockout(winners) {
-        persist({ ...state, preds: { ...state.preds, [state.current]: { ...pred, knockout: winners } } });
-      }
-      function goTab(id) { setOptScreen(null); setViewOpt(null); setTab(id); }
-      function doReset() { setOptScreen(null); setViewOpt(null); persist(window.WC.reset()); setTab('summary'); }
+      return (
+        <div style={{ padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <Eyebrow T={T}>アカウント</Eyebrow>
+            <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3 }}>{me.name}</div>
+          </div>
 
-      // ---- レスポンシブ判定（コンテナ幅基準）----
-      const appRef = useRef(null);
-      const measured = window.useContainerWidth(appRef);
-      const previewW = t.preview === 'mobile' ? 402 : t.preview === 'tablet' ? 834
-        : t.preview === 'desktop' ? 1280 : 0;
-      const contW = previewW || measured || 1200;
-      const mode = window.modeFor(contW);
-      const isDesktop = mode === 'desktop';
+          {/* 同期コード */}
+          <div style={{ background: T.card, borderRadius: 18, padding: 18, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+            <Eyebrow T={T}>同期コード</Eyebrow>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+              <div style={{ flex: 1, fontFamily: 'Archivo, monospace', fontWeight: 900, fontSize: 24,
+                letterSpacing: 3, color: T.text }}>{fmt(me.code)}</div>
+              <button onClick={copy} style={{
+                border: 'none', borderRadius: 12, padding: '10px 14px', cursor: 'pointer',
+                background: copied ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
+                fontWeight: 800, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6,
+                boxShadow: copied ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
+                <Icon name={copied ? 'check' : 'copy'} size={16} color={T.accent} sw={2.4} />
+                {copied ? 'コピー済' : 'コピー'}</button>
+            </div>
+            <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '12px 0 0' }}>
+              別の端末で予想を続けるときに使うコードです。
+              <b style={{ color: T.sub }}>このブラウザのデータを消すと予想は消えます。</b>
+              無くすと復元できません。</p>
+          </div>
 
-      const MOBILE_TABS = [
+          {/* このブラウザからサインアウト */}
+          <div style={{ marginTop: 4, paddingTop: 16, borderTop: `1px solid ${T.line}` }}>
+            {!confirm ? (
+              <button onClick={() => setConfirm(true)} style={{
+                width: '100%', border: 'none', borderRadius: 14, padding: '13px',
+                fontFamily: 'inherit', fontWeight: 800, fontSize: 14.5, cursor: 'pointer',
+                background: 'transparent', color: '#FF6B6B', boxShadow: `inset 0 0 0 1.5px #FF6B6B44`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Icon name="door" size={17} color="#FF6B6B" />
+                このブラウザからサインアウト</button>
+            ) : (
+              <div style={{ background: T.card, borderRadius: 16, padding: '14px 16px',
+                boxShadow: `inset 0 0 0 1px #FF6B6B44` }}>
+                <div style={{ fontWeight: 800, color: T.text, fontSize: 14.5, marginBottom: 3 }}>
+                  サインアウトしますか？</div>
+                <p style={{ color: T.sub, fontSize: 12.5, lineHeight: 1.5, margin: '0 0 12px' }}>
+                  この端末の予想表示が消えます。<b style={{ color: T.text }}>同期コード {fmt(me.code)}</b> を控えておけば、いつでも復元できます。</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setConfirm(false)} style={{
+                    flex: 1, border: 'none', borderRadius: 12, padding: '11px', fontFamily: 'inherit',
+                    fontWeight: 800, fontSize: 14, cursor: 'pointer', background: T.panel2, color: T.sub }}>
+                    キャンセル</button>
+                  <button onClick={onSignOut} style={{
+                    flex: 1, border: 'none', borderRadius: 12, padding: '11px', fontFamily: 'inherit',
+                    fontWeight: 800, fontSize: 14, cursor: 'pointer', background: '#FF6B6B', color: '#fff' }}>
+                    サインアウト</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ================= ホーム（単一ユーザー） =================
+    function Home({ T, t, setTweak, me, setMe, isDesktop, contW, mode, onSignOut, initialTab }) {
+      const [tab, setTab] = useState(initialTab || 'summary'); // summary | input | rooms | group | account
+      const [optScreen, setOptScreen] = useState(null);  // grouprank | thirdwild | knockout | null
+      const [viewOpt, setViewOpt] = useState(false);     // オプション予想ビューア表示中か
+      const [roomView, setRoomView] = useState(null);    // 見比べ中の部屋 {id,code,name} | null
+      const pred = me.pred || window.WC.emptyPred();
+      const member = { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' };
+
+      // 楽観更新＋debounce 保存
+      function persist(nextPred) { setMe({ ...me, pred: nextPred }); window.WC.Me.scheduleSave(nextPred); }
+      function setPick(f, v) { persist({ ...pred, [f]: v }); }
+      function setGroupRank(k, arr) { persist({ ...pred, groupRank: { ...(pred.groupRank || {}), [k]: arr } }); }
+      function setThirdAssign(slot, code) {
+        const ta = { ...(pred.thirdAssign || {}) };
+        if (code) Object.keys(ta).forEach((s) => { if (s !== slot && ta[s] === code) ta[s] = null; });
+        ta[slot] = code; persist({ ...pred, thirdAssign: ta });
+      }
+      function setKnockout(w) { persist({ ...pred, knockout: w }); }
+      function goTab(id) { setOptScreen(null); setViewOpt(false); setRoomView(null); setTab(id); }
+
+      // 既存 screens は state.members/preds を参照するため単一メンバーのシムを渡す
+      const soloState = { current: me.id, members: [member], preds: { [me.id]: pred } };
+
+      const TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
-        { id: 'input', label: '予想', icon: 'edit' },
-        { id: 'group', label: '結果', icon: 'grid' },
-        { id: 'rank', label: 'ランキング', icon: 'medal' },
-      ];
-      const DESKTOP_TABS = [
-        { id: 'summary', label: 'ホーム', icon: 'trophy' },
-        { id: 'input', label: '予想を入力', icon: 'edit' },
-        { id: 'group', label: '結果', icon: 'grid' },
-        { id: 'compare', label: '見比べ', icon: 'people' },
-        { id: 'rank', label: 'ランキング', icon: 'medal' },
+        { id: 'input',   label: '予想',   icon: 'edit' },
+        { id: 'rooms',   label: '部屋',   icon: 'people' },
+        { id: 'group',   label: '大会結果', icon: 'grid' },
+        { id: 'account', label: 'アカウント', icon: 'user' },
       ];
 
-      // 右レールの表示可否＆ブラケットの利用可能幅
-      const railShown = isDesktop && t.dtLayout === 'split' && contW >= 1180
-        && !viewOpt && (tab === 'summary' || tab === 'input');
-      const contentAvail = Math.max(360, contW - 256 - (railShown ? 300 : 0) - 72);
-      const narrowTab = tab === 'input';
-      const wrapMax = narrowTab ? 700 : 1120;
+      const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
 
       function renderScreen(wide) {
-        if (viewOpt) return <OptionViewScreen T={T} state={state} viewId={viewOpt}
-          setViewId={setViewOpt} goBack={() => setViewOpt(null)} wide={wide} availWidth={contentAvail} />;
-        if (tab === 'summary') return <SummaryScreen T={T} state={state} member={member} pred={pred}
-          goTab={goTab} goView={(id) => setViewOpt(id)} wide={wide} dashboard={wide && t.dtLayout === 'dashboard'} />;
+        if (viewOpt) return <OptionViewScreen T={T} state={soloState} viewId={me.id}
+          setViewId={() => {}} goBack={() => setViewOpt(false)} wide={wide} availWidth={contentAvail} />;
+        if (tab === 'summary') return <SummaryScreen solo T={T} state={soloState} member={member}
+          pred={pred} goTab={goTab} goView={() => setViewOpt(true)} wide={wide} />;
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
@@ -173,41 +232,41 @@
             setThirdAssign={setThirdAssign} goBack={() => setOptScreen(null)} wide={wide} />;
           if (optScreen === 'knockout') return <KnockoutScreen T={T} member={member} pred={pred}
             setKnockout={setKnockout} goBack={() => setOptScreen(null)} wide={wide} availWidth={contentAvail} />;
-          return <InputScreen T={T} member={member} pred={pred} setPick={setPick}
-            onRemove={removeMember} canRemove={state.members.length > 1} goOption={setOptScreen} wide={wide} />;
+          return <InputScreen solo T={T} member={member} pred={pred} setPick={setPick}
+            goOption={setOptScreen} wide={wide} />;
+        }
+        if (tab === 'rooms') {
+          if (roomView) return <RoomCompareScreen T={T} me={me} room={roomView}
+            goBack={() => setRoomView(null)} wide={wide} />;
+          return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={(r) => setRoomView(r)} wide={wide} />;
         }
         if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
-        if (tab === 'compare') return <CompareScreen T={T} state={state} goTab={goTab} wide={wide} />;
-        if (tab === 'rank') return <RankingScreen T={T} state={state} wide={wide} />;
+        if (tab === 'account') return <AccountScreen T={T} me={me} onSignOut={onSignOut} />;
         return null;
       }
 
-      const showSwitcher = !viewOpt && (tab === 'summary' || tab === 'input');
+      const wrapMax = tab === 'input' ? 700 : 1120;
 
-      // ================= デスクトップ shell =================
+      // ----- デスクトップ shell -----
       const desktopShell = (
-        <div style={{ display: 'flex', height: '100%', background: T.bg, position: 'relative',
-          overflow: 'hidden' }}>
+        <div style={{ display: 'flex', height: '100%', background: T.bg, position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: T.grad, pointerEvents: 'none' }} />
-          <window.Sidebar T={T} t={t} tab={tab} setTab={goTab} tabs={DESKTOP_TABS}
-            members={state.members} current={state.current} setCurrent={setCurrent}
-            onAdd={() => { setNewName(''); setAdding(true); }} onReset={doReset}
+          <window.Sidebar solo T={T} t={t} tab={tab} setTab={goTab} tabs={TABS} members={[]}
             showWordmark={t.showWordmark} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-              <div key={tab + (optScreen || '') + (viewOpt || '')} style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
+              <div key={tab + (optScreen || '') + (viewOpt ? 'v' : '') + (roomView ? roomView.id : '')}
+                style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px' }}>
                 {renderScreen(true)}
               </div>
             </div>
-            {railShown && <window.RightRail T={T} state={state} member={member} pred={pred} goTab={goTab} />}
           </div>
         </div>
       );
 
-      // ================= モバイル/タブレット shell =================
+      // ----- モバイル/タブレット shell -----
       const mobileShell = (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column',
-          background: T.bg, position: 'relative' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: T.bg, position: 'relative' }}>
           <div style={{ position: 'absolute', inset: 0, background: T.grad, pointerEvents: 'none' }} />
 
           {/* ヘッダー */}
@@ -215,7 +274,7 @@
             paddingTop: `calc(env(safe-area-inset-top, 0px) + ${mode === 'tablet' ? 22 : 18}px)`,
             position: 'relative', zIndex: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '0 16px', maxWidth: 620, margin: '0 auto' }}>
+              padding: '0 16px 12px', maxWidth: 620, margin: '0 auto' }}>
               {t.showWordmark ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 30, height: 30, borderRadius: 9, background: T.accent,
@@ -225,68 +284,40 @@
                   <div style={{ lineHeight: 1 }}>
                     <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 15,
                       color: T.text, letterSpacing: 0.3 }}>WORLD CUP 2026</div>
-                    <div style={{ fontSize: 10.5, color: T.faint, fontWeight: 700, marginTop: 1 }}>仲間内 予想バトル</div>
+                    <div style={{ fontSize: 10.5, color: T.faint, fontWeight: 700, marginTop: 1 }}>予想</div>
                   </div>
                 </div>
               ) : <div />}
-              <button onClick={doReset} title="サンプルに戻す" style={{
+              <button onClick={() => goTab('account')} title="アカウント" style={{
                 border: 'none', background: T.card, width: 34, height: 34, borderRadius: '50%',
                 display: 'grid', placeItems: 'center', cursor: 'pointer',
                 boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-                <Icon name="refresh" size={17} color={T.sub} />
+                <Icon name="people" size={17} color={tab === 'account' ? T.accent : T.sub} />
               </button>
             </div>
-
-            {showSwitcher && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '12px 16px 10px',
-                maxWidth: 620, margin: '0 auto' }}>
-                <div style={{ display: 'flex', gap: 7, overflowX: 'auto', flex: 1, minWidth: 0 }}>
-                  {state.members.map(m => {
-                    const active = m.id === state.current;
-                    return (
-                      <button key={m.id} onClick={() => setCurrent(m.id)} style={{
-                        display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
-                        border: 'none', cursor: 'pointer', borderRadius: 999,
-                        padding: active ? '5px 13px 5px 5px' : '5px',
-                        background: active ? T.card : 'transparent',
-                        boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
-                        <Avatar m={m} size={28} T={T} />
-                        {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text }}>{m.name}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button onClick={() => { setNewName(''); setAdding(true); }} title="参加者を追加" style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  width: 38, height: 38, borderRadius: '50%', cursor: 'pointer',
-                  border: 'none', background: T.card, boxShadow: `inset 0 0 0 1.5px ${T.line}` }}>
-                  <Icon name="plus" size={20} color={T.sub} sw={2.4} />
-                </button>
-              </div>
-            )}
           </div>
 
           {/* 画面 */}
-          <div key={tab + (optScreen || '') + (viewOpt || '')} style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1,
-            paddingTop: showSwitcher ? 4 : 12 }}>
+          <div key={tab + (optScreen || '') + (viewOpt ? 'v' : '') + (roomView ? roomView.id : '')}
+            style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1, paddingTop: 4 }}>
             <div style={{ maxWidth: 620, margin: '0 auto' }}>{renderScreen(false)}</div>
           </div>
 
           {/* タブバー */}
           <div style={{ flexShrink: 0, position: 'relative', zIndex: 2, display: 'flex',
-            padding: '8px 6px calc(env(safe-area-inset-bottom, 0px) + 14px)',
+            padding: '4px 6px calc(env(safe-area-inset-bottom, 0px) + 6px)',
             background: t.theme === 'classic' ? 'rgba(255,255,255,0.82)' : 'rgba(10,14,12,0.55)',
             backdropFilter: 'blur(18px) saturate(180%)', WebkitBackdropFilter: 'blur(18px) saturate(180%)',
             boxShadow: `0 -0.5px 0 ${T.line}` }}>
             <div style={{ display: 'flex', flex: 1, maxWidth: 620, margin: '0 auto', width: '100%' }}>
-              {MOBILE_TABS.map(tb => {
+              {TABS.map(tb => {
                 const active = tab === tb.id;
                 return (
                   <button key={tb.id} onClick={() => goTab(tb.id)} style={{
                     flex: 1, border: 'none', background: 'transparent', cursor: 'pointer',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '4px 2px' }}>
-                    <Icon name={tb.icon} size={23} color={active ? T.accent : T.faint} fill="none" sw={active ? 2.2 : 1.8} />
-                    <span style={{ fontSize: 9.5, fontWeight: active ? 800 : 600,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '2px 2px' }}>
+                    <Icon name={tb.icon} size={20} color={active ? T.accent : T.faint} fill="none" sw={active ? 2.2 : 1.8} />
+                    <span style={{ fontSize: 9, fontWeight: active ? 800 : 600,
                       color: active ? T.accent : T.faint, whiteSpace: 'nowrap' }}>{tb.label}</span>
                   </button>
                 );
@@ -296,11 +327,51 @@
         </div>
       );
 
-      // ---- 外側：プレビュー枠処理 ----
+      return isDesktop ? desktopShell : mobileShell;
+    }
+
+    // ================= ルート（identity ゲート） =================
+    function App() {
+      const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const T = useTheme(t);
+      const [route, setRoute] = useState(() => window.WC.Me.load() ? 'home' : 'onboarding');
+      const [me, setMe] = useState(() => window.WC.Me.cachedUser());
+      const [homeTab, setHomeTab] = useState('summary');
+
+      useEffect(() => {
+        window.WC.fetchConfig();           // チーム/結果/名簿の共有設定を取得
+        if (window.WC.Me.load()) {
+          window.WC.Me.refresh().then((u) => {
+            if (u) { setMe(u); setRoute('home'); }
+            else { setMe(null); setRoute('onboarding'); }  // 失効/未登録
+          });
+        }
+      }, []);
+
+      // レスポンシブ判定（コンテナ幅基準）
+      const appRef = useRef(null);
+      const measured = window.useContainerWidth(appRef);
+      const previewW = t.preview === 'mobile' ? 402 : t.preview === 'tablet' ? 834
+        : t.preview === 'desktop' ? 1280 : 0;
+      const contW = previewW || measured || 1200;
+      const mode = window.modeFor(contW);
+      const isDesktop = mode === 'desktop';
+
+      let inner;
+      if (route === 'onboarding') {
+        inner = <Onboarding T={T} onDone={(u, tab) => { setMe(u); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
+      } else if (!me) {
+        inner = <Splash T={T} />;
+      } else {
+        inner = <Home T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}
+          isDesktop={isDesktop} contW={contW} mode={mode} initialTab={homeTab}
+          onSignOut={() => { window.WC.Me.clear(); setMe(null); setRoute('onboarding'); }} />;
+      }
+
+      // 外側：プレビュー枠処理
       const isDevicePreview = previewW > 0 && previewW < 1100;
       const colStyle = previewW > 0
-        ? { width: previewW, height: '100%', flexShrink: 0, position: 'relative',
-            overflow: 'hidden',
+        ? { width: previewW, height: '100%', flexShrink: 0, position: 'relative', overflow: 'hidden',
             boxShadow: isDevicePreview ? '0 30px 80px rgba(0,0,0,0.45)' : 'none' }
         : { width: '100%', height: '100%', position: 'relative' };
 
@@ -308,34 +379,8 @@
         <div style={{ width: '100%', height: '100%', display: 'flex',
           justifyContent: 'center', alignItems: 'stretch',
           background: '#0b0d12', overflow: previewW > 0 ? 'auto' : 'hidden' }}>
-          <div ref={appRef} style={colStyle}>
-            {isDesktop ? desktopShell : mobileShell}
-
-            {/* 参加者を追加（共通） */}
-            <Sheet open={adding} onClose={() => setAdding(false)} T={T} title="参加者を追加" centered={isDesktop}>
-              <div style={{ padding: '4px 18px 16px' }}>
-                <input autoFocus value={newName} maxLength={12}
-                  onChange={e => setNewName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) commitAdd(); }}
-                  placeholder="名前を入力（例：たけし）"
-                  style={{ width: '100%', border: 'none', outline: 'none', boxSizing: 'border-box',
-                    background: T.panel2, color: T.text, fontSize: 17, fontFamily: 'inherit',
-                    fontWeight: 700, padding: '14px 16px', borderRadius: 14,
-                    boxShadow: `inset 0 0 0 1px ${T.line}` }} />
-                <p style={{ color: T.faint, fontSize: 12, margin: '10px 2px 0', lineHeight: 1.5 }}>
-                  追加した人は空の状態から予想を入力できます。</p>
-                <button onClick={commitAdd} disabled={!newName.trim()} style={{
-                  marginTop: 16, width: '100%', border: 'none', borderRadius: 14, padding: '14px',
-                  fontFamily: 'inherit', fontWeight: 800, fontSize: 16,
-                  cursor: newName.trim() ? 'pointer' : 'default',
-                  background: newName.trim() ? T.accent : T.card,
-                  color: newName.trim() ? T.accentInk : T.faint,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  <Icon name="plus" size={18} color={newName.trim() ? T.accentInk : T.faint} sw={2.6} />
-                  追加する
-                </button>
-              </div>
-            </Sheet>
+          <div ref={appRef} id="wc-app-root" style={colStyle}>
+            {inner}
           </div>
 
           {/* ===== Tweaks ===== */}
@@ -349,13 +394,6 @@
                 { value: 'desktop', label: 'PC' },
               ]}
               onChange={v => setTweak('preview', v)} />
-            <TweakRadio label="PCレイアウト" value={t.dtLayout}
-              options={[
-                { value: 'focused', label: '集中' },
-                { value: 'split', label: 'スプリット' },
-                { value: 'dashboard', label: 'ダッシュ' },
-              ]}
-              onChange={v => setTweak('dtLayout', v)} />
             <TweakSection label="見た目" />
             <TweakRadio label="テーマ" value={t.theme}
               options={[
@@ -369,8 +407,6 @@
               onChange={v => setTweak('accent', v)} />
             <TweakToggle label="ロゴ表示" value={t.showWordmark}
               onChange={v => setTweak('showWordmark', v)} />
-            <TweakSection label="データ" />
-            <TweakButton label="サンプル予想に戻す" onClick={doReset} />
           </TweaksPanel>
         </div>
       );

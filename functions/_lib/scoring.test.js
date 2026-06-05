@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SCORING, scoreMember } from '../../public/lib/scoring.js';
+import { DEFAULT_CONFIG } from './defaults.js';
 
 const RESULT = {
   champion: 'ARG', runnerUp: 'FRA', topScorer: 'ムバッペ',
@@ -48,6 +49,29 @@ test('グループ順位は位置ピタリで +1（1〜3位のみ）', () => {
   assert.equal(s.option.rankHits, 3);
 });
 
+test('コア不一致は0（優勝・準優勝の取り違えは加点なし）', () => {
+  // 優勝=ARG/準優勝=FRA に対し、入れ違いの予想は両方とも外れ
+  const s = scoreMember({ champion: 'FRA', runnerUp: 'ARG' }, RESULT);
+  assert.equal(s.core.champion, 0);
+  assert.equal(s.core.runnerUp, 0);
+  assert.equal(s.coreTotal, 0);
+});
+
+test('得点王は結果未入力（空文字）なら誤一致しない', () => {
+  const noScorer = { ...RESULT, topScorer: '' };
+  assert.equal(scoreMember({ topScorer: 'ムバッペ' }, noScorer).core.topScorer, 0);
+  // 予想・結果ともに空でも 0（null===null 的な誤判定をしない）
+  assert.equal(scoreMember({ topScorer: '' }, noScorer).core.topScorer, 0);
+});
+
+test('グループ順位は4位を加点しない（1〜3位のみ対象）', () => {
+  // 4位 CZE だけ的中、1〜3位は外し → 加点0（i<3 の上限を保証）
+  const pred = { groupRank: { A: ['XXX', 'YYY', 'ZZZ', 'CZE'] } };
+  const s = scoreMember(pred, RESULT);
+  assert.equal(s.option.groupRank, 0);
+  assert.equal(s.option.rankHits, 0);
+});
+
 test('ノックアウトは到達ラウンドごとに +1', () => {
   const pred = {
     knockout: {
@@ -60,6 +84,23 @@ test('ノックアウトは到達ラウンドごとに +1', () => {
   const s = scoreMember(pred, RESULT);
   assert.equal(s.option.knockout, 4);
   assert.deepEqual(s.option.koHits, { r32: 2, r16: 1, qf: 0, sf: 1 });
+});
+
+test('デフォルト結果（未確定）はサンプルを含まず、どんな予想でも0点', () => {
+  // 大会前のフォールバック設定にサンプル結果が混入していないことを保証する回帰テスト。
+  const r = DEFAULT_CONFIG.result;
+  assert.equal(r.champion, null);
+  assert.equal(r.runnerUp, null);
+  assert.equal(r.topScorer, '');
+  const pred = {
+    champion: 'ARG', runnerUp: 'FRA', topScorer: 'ムバッペ',
+    groupRank: { A: ['MEX', 'KOR', 'RSA'] },
+    knockout: { r32: ['ARG'], r16: ['ARG'], qf: ['ARG'], sf: ['ARG'] },
+  };
+  const s = scoreMember(pred, { ...r, groupResult: DEFAULT_CONFIG.groupResult });
+  assert.equal(s.coreTotal, 0);
+  assert.equal(s.optionTotal, 0);
+  assert.equal(s.grandTotal, 0);
 });
 
 test('総合は コア + オプション', () => {

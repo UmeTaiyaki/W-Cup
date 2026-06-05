@@ -30,7 +30,7 @@ function modeFor(w) {
 }
 
 // ---- デスクトップ左サイドバー ------------------------------
-function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd, onReset, showWordmark }) {
+function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd, onReset, showWordmark, solo = false }) {
   const NavItem = ({ tb }) => {
     const active = tab === tb.id;
     return (
@@ -76,6 +76,7 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
       </div>
 
       {/* メンバー */}
+      {!solo && (<React.Fragment>
       <div style={{ marginTop: 18, display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', padding: '0 10px 8px' }}>
         <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 10,
@@ -117,6 +118,7 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
         <Icon name="refresh" size={16} color={T.faint} />
         <span style={{ fontWeight: 700, fontSize: 13 }}>サンプルに戻す</span>
       </button>
+      </React.Fragment>)}
     </div>
   );
 }

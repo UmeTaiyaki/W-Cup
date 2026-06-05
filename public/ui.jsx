@@ -24,6 +24,10 @@ function Icon({ name, size = 24, color = 'currentColor', fill = 'none', sw = 1.9
     flame: <g {...p}><path d="M12 3c1 3 4 4 4 8a4 4 0 0 1-8 0c0-1 .4-2 1-2.5C9 11 12 9 12 3Z"/></g>,
     refresh: <g {...p}><path d="M4 12a8 8 0 0 1 14-5m1-3v4h-4M20 12a8 8 0 0 1-14 5m-1 3v-4h4"/></g>,
     star: <g {...p}><path d="M12 3.5l2.5 5.3 5.5.7-4 3.9 1 5.6L12 16.9 7 19l1-5.6-4-3.9 5.5-.7L12 3.5Z"/></g>,
+    share: <g {...p}><circle cx="6" cy="12" r="2.4"/><circle cx="17" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M8.2 10.9 14.8 7.1M8.2 13.1 14.8 16.9"/></g>,
+    copy: <g {...p}><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></g>,
+    door: <g {...p}><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h8M14 3l4 2v14l-4 2M14 3v18M11 12h.01"/></g>,
+    user: <g {...p}><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19c.5-3.2 3-5 6.5-5s6 1.8 6.5 5"/></g>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block', flexShrink: 0 }}>
@@ -107,9 +111,34 @@ function Card({ children, style, T, onClick }) {
 
 // ---- ボトムシート / 中央ダイアログ（モーダル） ------------
 function Sheet({ open, onClose, children, T, title, centered = false }) {
+  const overlayRef = React.useRef(null);
+  // 開いている間はアプリ枠内のスクロールを固定（シート内部は除外）
+  React.useEffect(() => {
+    if (!open) return;
+    const root = document.getElementById('wc-app-root') || document.body;
+    const sheet = overlayRef.current;
+    const locked = [];
+    root.querySelectorAll('*').forEach((el) => {
+      if (sheet && sheet.contains(el)) return; // シート内部のスクロールは保持
+      const s = window.getComputedStyle(el);
+      const oy = s.overflowY, ox = s.overflowX;
+      const scrollY = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight;
+      const scrollX = (ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth;
+      if (scrollY || scrollX) {
+        // longhand を個別に保存・復元（overflow ショートハンドで元の overflowY:auto を潰さない）
+        locked.push([el, el.style.overflowY, el.style.overflowX, el.style.overscrollBehavior]);
+        el.style.overflowY = 'hidden';
+        el.style.overflowX = 'hidden';
+        el.style.overscrollBehavior = 'contain';
+      }
+    });
+    return () => { locked.forEach(([e, oy2, ox2, ob]) => {
+      e.style.overflowY = oy2; e.style.overflowX = ox2; e.style.overscrollBehavior = ob;
+    }); };
+  }, [open]);
   if (!open) return null;
-  return (
-    <div onClick={onClose} style={{
+  const node = (
+    <div ref={overlayRef} onClick={onClose} style={{
       position: centered ? 'fixed' : 'absolute', inset: 0, zIndex: 100,
       display: 'flex', flexDirection: 'column',
       justifyContent: centered ? 'center' : 'flex-end',
@@ -143,15 +172,73 @@ function Sheet({ open, onClose, children, T, title, centered = false }) {
             }}><Icon name="close" size={18} color={T.sub} /></button>
           </div>
         )}
-        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>{children}</div>
+        <div style={{ overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain' }}>{children}</div>
       </div>
     </div>
+  );
+  // アプリ枠（非スクロールの固定枠）へ portal。スクロール位置に依らず下部固定になる。
+  const root = document.getElementById('wc-app-root');
+  return root ? ReactDOM.createPortal(node, root) : node;
+}
+
+// ---- 選手名簿シート（国名タップで表示・共有部品）-----------
+const POS_ORDER = ['GK', 'DF', 'MF', 'FW'];
+const POS_LABEL = { GK: 'ゴールキーパー', DF: 'ディフェンダー', MF: 'ミッドフィールダー', FW: 'フォワード' };
+function SquadSheet({ T, code, onClose }) {
+  const tm = (window.WC.TEAM || {})[code];
+  const list = (window.WC.SQUADS || {})[code] || [];
+  const grouped = {};
+  POS_ORDER.forEach((p) => { grouped[p] = []; });
+  const other = [];
+  list.forEach((p) => { (grouped[p.pos] || other).push(p); });
+  return (
+    <Sheet open centered onClose={onClose} T={T} title={tm ? `${tm.flag} ${tm.ja} メンバー` : 'メンバー'}>
+      <div style={{ padding: '4px 18px 16px' }}>
+        {list.length === 0 ? (
+          <div style={{ color: T.faint, fontSize: 14, padding: '22px 0', textAlign: 'center', fontWeight: 700 }}>
+            メンバーはまだ登録されていません
+          </div>
+        ) : (
+          <>
+            {POS_ORDER.map((pos) => grouped[pos].length > 0 && (
+              <div key={pos} style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, letterSpacing: 1, color: T.faint, margin: '4px 0 6px' }}>
+                  {pos} <span style={{ color: T.sub }}>{POS_LABEL[pos]}</span>
+                </div>
+                {grouped[pos].map((p, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 2px', borderBottom: `1px solid ${T.line}` }}>
+                    <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 11, color: T.accent, width: 26, flexShrink: 0 }}>{pos}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: T.text, fontSize: 15 }}>{p.name}</div>
+                      {p.club && <div style={{ fontSize: 11.5, color: T.faint, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.club}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {other.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, letterSpacing: 1, color: T.faint, margin: '4px 0 6px' }}>その他</div>
+                {other.map((p, i) => (
+                  <div key={i} style={{ padding: '7px 2px', borderBottom: `1px solid ${T.line}` }}>
+                    <div style={{ fontWeight: 700, color: T.text, fontSize: 15 }}>{p.name}</div>
+                    {p.club && <div style={{ fontSize: 11.5, color: T.faint, fontWeight: 600 }}>{p.club}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Sheet>
   );
 }
 
 // ---- チーム選択シート --------------------------------------
 function TeamPicker({ open, onClose, onPick, T, title = 'チームを選ぶ', exclude = [], centered = false }) {
   const [q, setQ] = React.useState('');
+  const [squadCode, setSquadCode] = React.useState(null);
   React.useEffect(() => { if (open) setQ(''); }, [open]);
   const list = window.WC.TEAMS.filter(t =>
     !exclude.includes(t.code) &&
@@ -173,19 +260,167 @@ function TeamPicker({ open, onClose, onPick, T, title = 'チームを選ぶ', ex
       </div>
       <div style={{ padding: '0 12px' }}>
         {list.map(t => (
-          <button key={t.code} onClick={() => { onPick(t.code); onClose(); }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-              border: 'none', background: 'transparent', cursor: 'pointer',
-              padding: '10px 8px', borderRadius: 12, textAlign: 'left',
-            }}>
-            <Flag code={t.code} size={32} T={T} />
-            <span style={{ fontWeight: 700, color: T.text, fontSize: 16, flex: 1 }}>{t.ja}</span>
-            <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 700, fontSize: 12,
-              letterSpacing: 1, color: T.faint }}>{t.code}</span>
-          </button>
+          <div key={t.code} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => { onPick(t.code); onClose(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0,
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                padding: '10px 8px', borderRadius: 12, textAlign: 'left',
+              }}>
+              <Flag code={t.code} size={32} T={T} />
+              <span style={{ fontWeight: 700, color: T.text, fontSize: 16, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.ja}</span>
+              <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 700, fontSize: 12,
+                letterSpacing: 1, color: T.faint }}>{t.code}</span>
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); setSquadCode(t.code); }} title="メンバーを見る"
+              style={{
+                flexShrink: 0, border: `1px solid ${T.line}`, background: 'transparent',
+                color: T.sub, cursor: 'pointer', borderRadius: 999, padding: '6px 11px',
+                fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+              }}>メンバー</button>
+          </div>
         ))}
         {list.length === 0 && (
+          <div style={{ padding: 24, textAlign: 'center', color: T.faint }}>該当なし</div>
+        )}
+      </div>
+      {squadCode && <SquadSheet T={T} code={squadCode} onClose={() => setSquadCode(null)} />}
+    </Sheet>
+  );
+}
+
+// ---- 得点王セレクト（国別 optgroup・全選手。web=プルダウン/モバイル=ロール）----
+// 保存値は `NAME (CODE)` 形式（一意・採点の文字列一致と互換）。
+function scorerOptionGroups(teams, groups, squads) {
+  const TEAM = {}; (teams || []).forEach((t) => { TEAM[t.code] = t; });
+  const KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  const seen = new Set();
+  const out = [];
+  const pushTeam = (code) => {
+    if (!code || seen.has(code)) return;
+    const tm = TEAM[code]; if (!tm) return;
+    const players = ((squads || {})[code] || []).filter((p) => p && p.name);
+    if (!players.length) return;
+    seen.add(code);
+    out.push({ code, label: `${tm.flag} ${tm.ja}`, players });
+  };
+  KEYS.forEach((k) => ((groups || {})[k] || []).filter(Boolean).forEach(pushTeam));
+  (teams || []).forEach((t) => pushTeam(t.code)); // グループ未所属も拾う
+  return out;
+}
+const scorerValue = (name, code) => `${name} (${code})`;
+// 選択肢の表示テキスト: 選手名のみ（ポジション・クラブは出さない）
+const scorerText = (p) => p.name;
+// 国横断の得点王候補（よく挙がる注目選手。背番号名で名簿と一致）
+const SCORER_FAVORITES = [
+  ['FRA', 'MBAPPE'], ['NOR', 'BRAUT HAALAND'], ['ENG', 'KANE'], ['BRA', 'VINI JR.'],
+  ['ESP', 'LAMINE YAMAL'], ['ARG', 'MESSI'], ['ARG', 'J. ALVAREZ'], ['ARG', 'L. MARTINEZ'],
+  ['BRA', 'RAPHINHA'], ['ENG', 'BELLINGHAM'], ['FRA', 'DEMBELE'], ['POR', 'RONALDO'],
+];
+function scorerFavorites(teams, squads) {
+  const TEAM = {}; (teams || []).forEach((t) => { TEAM[t.code] = t; });
+  const out = [];
+  SCORER_FAVORITES.forEach(([code, name]) => {
+    const p = ((squads || {})[code] || []).find((x) => x.name === name);
+    if (!p) return;
+    out.push({ value: scorerValue(name, code), label: `${TEAM[code] ? TEAM[code].flag + ' ' : ''}${scorerText(p)}` });
+  });
+  return out;
+}
+
+function ScorerSelect({ value, onChange, T, teams, groups, squads }) {
+  const d = window.WC || {};
+  const TEAMS = teams || d.TEAMS, GROUPS = groups || d.GROUPS, SQUADS = squads || d.SQUADS;
+  const og = scorerOptionGroups(TEAMS, GROUPS, SQUADS);
+  const favs = scorerFavorites(TEAMS, SQUADS);
+  return (
+    <select className="wc-scorer-select" value={value || ''} onChange={(e) => onChange(e.target.value)}
+      style={{
+        width: '100%', boxSizing: 'border-box', fontFamily: 'inherit', fontSize: 16, fontWeight: 700,
+        padding: '13px 14px', borderRadius: 14, cursor: 'pointer',
+        background: T ? T.panel2 : '#0f1a15', color: T ? T.text : '#fff',
+        border: `1px solid ${T ? T.line : '#333'}`,
+      }}>
+      <option value="">選手を選ぶ</option>
+      {favs.length > 0 && (
+        <optgroup label="⭐ 得点王候補">
+          {favs.map((f, i) => <option key={'fav' + i} value={f.value}>{'　' + f.label}</option>)}
+        </optgroup>
+      )}
+      {og.map((g) => (
+        <optgroup key={g.code} label={g.label}>
+          {g.players.map((p, i) => <option key={g.code + i} value={scorerValue(p.name, g.code)}>{'　' + scorerText(p)}</option>)}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+// ---- 得点王ピッカー（優勝/準優勝と同じシート選択方式）------
+// 検索付き。⭐候補→国別グループの順で全選手を一覧。保存値は `NAME (CODE)`。
+function ScorerPicker({ open, onClose, onPick, T, title = '得点王を選ぶ', centered = false, teams, groups, squads }) {
+  const [q, setQ] = React.useState('');
+  React.useEffect(() => { if (open) setQ(''); }, [open]);
+  const d = window.WC || {};
+  const TEAMS = teams || d.TEAMS, GROUPS = groups || d.GROUPS, SQUADS = squads || d.SQUADS;
+  const og = scorerOptionGroups(TEAMS, GROUPS, SQUADS);
+  const favs = scorerFavorites(TEAMS, SQUADS);
+  const nq = q.trim().toLowerCase();
+  const sectionStyle = {
+    fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 11, letterSpacing: 1,
+    color: T.faint, padding: '12px 10px 4px',
+  };
+  const rowBtn = {
+    display: 'flex', alignItems: 'center', gap: 12, width: '100%', minWidth: 0,
+    border: 'none', background: 'transparent', cursor: 'pointer',
+    padding: '10px 8px', borderRadius: 12, textAlign: 'left', fontFamily: 'inherit',
+  };
+  const Player = ({ value, flag, name, pos }) => (
+    <button onClick={() => { onPick(value); onClose(); }} style={rowBtn}>
+      {flag && <span style={{ fontSize: 24, flexShrink: 0 }}>{flag}</span>}
+      <span style={{ fontWeight: 700, color: T.text, fontSize: 16, flex: 1, whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</span>
+      {pos && <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 700, fontSize: 11,
+        letterSpacing: 1, color: T.faint, flexShrink: 0 }}>{pos}</span>}
+    </button>
+  );
+  const matched = og
+    .map((g) => ({ g, players: g.players.filter((p) =>
+      nq === '' || p.name.toLowerCase().includes(nq) || g.label.toLowerCase().includes(nq)) }))
+    .filter((x) => x.players.length > 0);
+  const showFavs = nq === '' && favs.length > 0;
+  return (
+    <Sheet open={open} onClose={onClose} T={T} title={title} centered={centered}>
+      <div style={{ padding: '4px 18px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.panel2,
+          borderRadius: 12, padding: '9px 12px' }}>
+          <Icon name="search" size={18} color={T.faint} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="選手名・国名で検索"
+            style={{ border: 'none', outline: 'none', background: 'transparent',
+              color: T.text, fontSize: 16, flex: 1, fontFamily: 'inherit' }} />
+        </div>
+      </div>
+      <div style={{ padding: '0 12px' }}>
+        {showFavs && (
+          <div>
+            <div style={sectionStyle}>⭐ 得点王候補</div>
+            {favs.map((f, i) => {
+              const m = /^(.*)\s+\(([A-Za-z]{2,3})\)$/.exec(f.value) || [];
+              const tm = m[2] ? (window.WC.TEAM[m[2]] || {}) : {};
+              return <Player key={'fav' + i} value={f.value} flag={tm.flag} name={m[1] || f.label} />;
+            })}
+          </div>
+        )}
+        {matched.map(({ g, players }) => (
+          <div key={g.code}>
+            <div style={sectionStyle}>{g.label}</div>
+            {players.map((p, i) => (
+              <Player key={g.code + i} value={scorerValue(p.name, g.code)}
+                flag={(window.WC.TEAM[g.code] || {}).flag} name={scorerText(p)} pos={p.pos} />
+            ))}
+          </div>
+        ))}
+        {matched.length === 0 && !showFavs && (
           <div style={{ padding: 24, textAlign: 'center', color: T.faint }}>該当なし</div>
         )}
       </div>
@@ -193,42 +428,35 @@ function TeamPicker({ open, onClose, onPick, T, title = 'チームを選ぶ', ex
   );
 }
 
-// ---- 得点王（自由入力）シート ------------------------------
-function ScorerPicker({ open, onClose, onPick, T, value, centered = false }) {
-  const [v, setV] = React.useState(value || '');
-  React.useEffect(() => { if (open) setV(value || ''); }, [open, value]);
+// ---- オプション予想の保存バー（最下部・押して確定＆戻る）------
+// 入力はタップごとに自動保存済み。ボタンは明示的な「保存しました」確認＋予想ハブへ戻る役割。
+function OptionSaveBar({ T, onSave, hint, style }) {
+  const [saved, setSaved] = React.useState(false);
+  const timer = React.useRef(null);
+  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  function handle() {
+    if (saved) return;
+    setSaved(true);
+    timer.current = setTimeout(() => { onSave && onSave(); }, 650);
+  }
   return (
-    <Sheet open={open} onClose={onClose} T={T} title="得点王を予想" centered={centered}>
-      <div style={{ padding: '4px 18px 14px' }}>
-        <input autoFocus value={v} onChange={e => setV(e.target.value)}
-          placeholder="選手名を入力"
-          style={{
-            width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none',
-            background: T.panel2, borderRadius: 14, padding: '14px 16px',
-            color: T.text, fontSize: 18, fontWeight: 700, fontFamily: 'inherit',
-          }} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 14 }}>
-          {window.WC.SCORER_SUGGEST.map(s => (
-            <button key={s} onClick={() => setV(s)} style={{
-              border: `1px solid ${T.line}`, background: v === s ? T.accent : 'transparent',
-              color: v === s ? T.accentInk : T.sub, borderRadius: 999,
-              padding: '7px 13px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}>{s}</button>
-          ))}
-        </div>
-        <button onClick={() => { onPick(v.trim()); onClose(); }} disabled={!v.trim()}
-          style={{
-            marginTop: 18, width: '100%', border: 'none', borderRadius: 14,
-            padding: '15px', fontSize: 17, fontWeight: 800, cursor: 'pointer',
-            background: v.trim() ? T.accent : T.panel2,
-            color: v.trim() ? T.accentInk : T.faint, fontFamily: 'inherit',
-          }}>決定</button>
-      </div>
-    </Sheet>
+    <div style={{ marginTop: 18, ...style }}>
+      <button onClick={handle} disabled={saved} style={{
+        width: '100%', border: 'none', borderRadius: 16, padding: '15px',
+        cursor: saved ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 16,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+        background: saved ? T.card : T.accent, color: saved ? T.accent : T.accentInk,
+        boxShadow: saved ? `inset 0 0 0 1.5px ${T.accent}` : 'none', transition: '.18s' }}>
+        <Icon name="check" size={19} color={saved ? T.accent : T.accentInk} sw={2.6} />
+        {saved ? '保存しました' : '保存する'}
+      </button>
+      {hint && (
+        <p style={{ color: T.faint, fontSize: 11.5, textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}>{hint}</p>
+      )}
+    </div>
   );
 }
 
 Object.assign(window, {
-  Icon, Flag, TeamLine, Avatar, Eyebrow, Card, Sheet, TeamPicker, ScorerPicker,
+  Icon, Flag, TeamLine, Avatar, Eyebrow, Card, Sheet, SquadSheet, TeamPicker, ScorerSelect, ScorerPicker, OptionSaveBar,
 });

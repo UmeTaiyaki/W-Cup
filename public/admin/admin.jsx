@@ -8,6 +8,43 @@ const KNOCKOUT_ROUNDS = [
   { key: 'sf', label: '準決勝（勝者2）', cap: 2 },
 ];
 
+const POS_OPTIONS = ['GK', 'DF', 'MF', 'FW'];
+
+// 得点王セレクト用：国別(optgroup)・全選手。値は `NAME (CODE)`（ui.jsx と同形式）。
+const scorerText = (p) => p.name;
+const SCORER_FAVORITES = [
+  ['FRA', 'MBAPPE'], ['NOR', 'BRAUT HAALAND'], ['ENG', 'KANE'], ['BRA', 'VINI JR.'],
+  ['ESP', 'LAMINE YAMAL'], ['ARG', 'MESSI'], ['ARG', 'J. ALVAREZ'], ['ARG', 'L. MARTINEZ'],
+  ['BRA', 'RAPHINHA'], ['ENG', 'BELLINGHAM'], ['FRA', 'DEMBELE'], ['POR', 'RONALDO'],
+];
+function scorerFavorites(cfg) {
+  const TEAM = {}; (cfg.teams || []).forEach((t) => { TEAM[t.code] = t; });
+  const out = [];
+  SCORER_FAVORITES.forEach(([code, name]) => {
+    const p = ((cfg.squads || {})[code] || []).find((x) => x.name === name);
+    if (!p) return;
+    out.push({ value: `${name} (${code})`, label: `${TEAM[code] ? TEAM[code].flag + ' ' : ''}${scorerText(p)}` });
+  });
+  return out;
+}
+function scorerGroups(cfg) {
+  const TEAM = {}; (cfg.teams || []).forEach((t) => { TEAM[t.code] = t; });
+  const KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
+  const seen = new Set();
+  const out = [];
+  const push = (code) => {
+    if (!code || seen.has(code)) return;
+    const tm = TEAM[code]; if (!tm) return;
+    const players = ((cfg.squads || {})[code] || []).filter((p) => p && p.name);
+    if (!players.length) return;
+    seen.add(code);
+    out.push({ code, label: `${tm.flag} ${tm.ja}`, players });
+  };
+  KEYS.forEach((k) => ((cfg.groups || {})[k] || []).filter(Boolean).forEach(push));
+  (cfg.teams || []).forEach((t) => push(t.code));
+  return out;
+}
+
 function api(path, opts) {
   return fetch(path, { cache: 'no-store', ...opts });
 }
@@ -135,10 +172,21 @@ function Editor({ password, initial }) {
   function setScorer(i, patch) { setCfg((c) => ({ ...c, scorers: c.scorers.map((s, j) => (j === i ? { ...s, ...patch } : s)) })); }
   function delScorer(i) { setCfg((c) => ({ ...c, scorers: c.scorers.filter((_, j) => j !== i) })); }
 
-  // scorerSuggest chips
-  const [chip, setChip] = useState('');
-  function addChip() { const v = chip.trim(); if (v && !cfg.scorerSuggest.includes(v)) up({ scorerSuggest: [...cfg.scorerSuggest, v] }); setChip(''); }
-  function delChip(v) { up({ scorerSuggest: cfg.scorerSuggest.filter((s) => s !== v) }); }
+  // ---- 国別選手名簿 ----
+  const squads = cfg.squads || {};
+  const [openSquad, setOpenSquad] = useState(null); // 展開中の国コード
+  function setSquadPlayer(code, i, patch) {
+    setCfg((c) => {
+      const list = (c.squads?.[code] || []).map((p, j) => (j === i ? { ...p, ...patch } : p));
+      return { ...c, squads: { ...c.squads, [code]: list } };
+    });
+  }
+  function addSquadPlayer(code) {
+    setCfg((c) => ({ ...c, squads: { ...c.squads, [code]: [...(c.squads?.[code] || []), { name: '', pos: '', club: '' }] } }));
+  }
+  function delSquadPlayer(code, i) {
+    setCfg((c) => ({ ...c, squads: { ...c.squads, [code]: (c.squads?.[code] || []).filter((_, j) => j !== i) } }));
+  }
 
   // schedule
   const sched = cfg.schedule || [];
@@ -156,6 +204,14 @@ function Editor({ password, initial }) {
     } catch (e) { setMsg('❌ 通信エラー'); }
     setBusy(false);
   }
+
+  // 得点王・得点ランキング共通の選手選択肢（名簿の全選手から）
+  const scorerFavs = scorerFavorites(cfg);
+  const scorerGrps = scorerGroups(cfg);
+  const knownScorerValues = new Set([
+    ...scorerFavs.map((f) => f.value),
+    ...scorerGrps.flatMap((g) => g.players.map((p) => `${p.name} (${g.code})`)),
+  ]);
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 18px 80px' }}>
@@ -208,9 +264,6 @@ function Editor({ password, initial }) {
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
           <label>優勝 <TeamSelect teams={teams} value={cfg.result.champion} onChange={(c) => upResult({ champion: c })} /></label>
           <label>準優勝 <TeamSelect teams={teams} value={cfg.result.runnerUp} onChange={(c) => upResult({ runnerUp: c })} /></label>
-          <label>得点王 <input list="scorers" value={cfg.result.topScorer} onChange={(e) => upResult({ topScorer: e.target.value })} style={inputStyle} />
-            <datalist id="scorers">{cfg.scorerSuggest.map((s) => <option key={s} value={s} />)}</datalist>
-          </label>
         </div>
         <p style={{ fontSize: 12, color: '#9aa', margin: '4px 0 10px' }}>ノックアウトはベスト32から。各ラウンドの勝者を選択（採点はこの集合との一致で加点）。</p>
         {KNOCKOUT_ROUNDS.map((r) => {
@@ -253,10 +306,46 @@ function Editor({ password, initial }) {
         </div>
       </Section>
 
-      <Section title="得点ランキング（実際の得点数）">
+      <Section title="得点王">
+        <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>得点王（正解・採点対象 ＋20点）</div>
+        <p style={{ fontSize: 12, color: '#9aa', margin: '0 0 8px' }}>選手名簿の全選手から選択（⭐は注目候補）。予想がこの選手と一致すると加点されます。</p>
+        <select className="wc-scorer-select" value={cfg.result.topScorer || ''} onChange={(e) => upResult({ topScorer: e.target.value })} style={{ ...inputStyle, maxWidth: 320 }}>
+          <option value="">未選択</option>
+          {cfg.result.topScorer && !knownScorerValues.has(cfg.result.topScorer) && (
+            <option value={cfg.result.topScorer}>{cfg.result.topScorer}（旧データ）</option>
+          )}
+          {scorerFavs.length > 0 && (
+            <optgroup label="⭐ 得点王候補">
+              {scorerFavs.map((f, i) => <option key={'fav' + i} value={f.value}>{'　' + f.label}</option>)}
+            </optgroup>
+          )}
+          {scorerGrps.map((g) => (
+            <optgroup key={g.code} label={g.label}>
+              {g.players.map((p, i) => <option key={g.code + i} value={`${p.name} (${g.code})`}>{'　' + scorerText(p)}</option>)}
+            </optgroup>
+          ))}
+        </select>
+
+        <div style={{ fontWeight: 800, fontSize: 13, margin: '20px 0 4px', borderTop: '1px solid #222', paddingTop: 16 }}>得点ランキング（実際の得点数）</div>
+        <p style={{ fontSize: 12, color: '#9aa', margin: '0 0 8px' }}>選手名簿の全選手から選択。予想アプリのグループ画面に表示される、実際の得点者一覧。</p>
         {cfg.scorers.map((s, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
-            <input value={s.name} placeholder="選手名" onChange={(e) => setScorer(i, { name: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
+            <select className="wc-scorer-select" value={s.name || ''} onChange={(e) => setScorer(i, { name: e.target.value })} style={{ ...inputStyle, flex: 1 }}>
+              <option value="">選手を選択</option>
+              {s.name && !knownScorerValues.has(s.name) && (
+                <option value={s.name}>{s.name}（旧データ）</option>
+              )}
+              {scorerFavs.length > 0 && (
+                <optgroup label="⭐ 得点王候補">
+                  {scorerFavs.map((f, j) => <option key={'fav' + j} value={f.value}>{'　' + f.label}</option>)}
+                </optgroup>
+              )}
+              {scorerGrps.map((g) => (
+                <optgroup key={g.code} label={g.label}>
+                  {g.players.map((p, j) => <option key={g.code + j} value={`${p.name} (${g.code})`}>{'　' + scorerText(p)}</option>)}
+                </optgroup>
+              ))}
+            </select>
             <input type="number" min="0" value={s.goals} onChange={(e) => setScorer(i, { goals: Math.max(0, parseInt(e.target.value, 10) || 0) })} style={{ ...inputStyle, width: 70, textAlign: 'center' }} />
             <span style={{ fontSize: 12, color: '#9aa' }}>点</span>
             <button onClick={() => delScorer(i)} style={{ ...inputStyle, cursor: 'pointer', color: '#FF6B6B' }}>削除</button>
@@ -265,14 +354,43 @@ function Editor({ password, initial }) {
         <button onClick={addScorer} style={{ ...inputStyle, cursor: 'pointer', marginTop: 6 }}>＋ 得点者を追加</button>
       </Section>
 
-      <Section title="得点王候補（将来の選手名簿の足場）">
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {cfg.scorerSuggest.map((s) => (
-            <span key={s} style={{ ...inputStyle, display: 'inline-flex', gap: 6 }}>{s}<a onClick={() => delChip(s)} style={{ cursor: 'pointer' }}>×</a></span>
-          ))}
-        </div>
-        <input value={chip} placeholder="名前を追加" onChange={(e) => setChip(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addChip(); }} style={inputStyle} />
-        <button onClick={addChip} style={{ ...inputStyle, cursor: 'pointer', marginLeft: 6 }}>追加</button>
+      <Section title="選手名簿（国別）">
+        <p style={{ fontSize: 12, color: '#9aa', margin: '0 0 12px' }}>
+          国をタップして展開し、選手名とポジション（GK/DF/MF/FW）を登録します。予想アプリのグループ表で国名をタップすると表示されます。
+        </p>
+        {teams.map((t) => {
+          const list = squads[t.code] || [];
+          const open = openSquad === t.code;
+          return (
+            <div key={t.code} style={{ marginBottom: 8, border: '1px solid #222', borderRadius: 10, overflow: 'hidden' }}>
+              <button
+                onClick={() => setOpenSquad(open ? null : t.code)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: open ? '#16271E' : '#0f1a15', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14, textAlign: 'left' }}>
+                <span style={{ fontSize: 18 }}>{t.flag}</span>
+                <span style={{ fontWeight: 700, flex: 1 }}>{t.ja} <span style={{ color: '#6a7', fontWeight: 400 }}>({t.code})</span></span>
+                <span style={{ fontSize: 12, color: '#9aa' }}>{list.length}名</span>
+                <span style={{ color: '#9aa' }}>{open ? '▲' : '▼'}</span>
+              </button>
+              {open && (
+                <div style={{ padding: '10px 12px', background: '#0b1410' }}>
+                  {list.map((p, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ width: 22, textAlign: 'right', fontSize: 12, color: '#6a7' }}>{i + 1}</span>
+                      <select value={p.pos || ''} onChange={(e) => setSquadPlayer(t.code, i, { pos: e.target.value })} style={{ ...inputStyle, width: 70 }}>
+                        <option value="">—</option>
+                        {POS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                      <input value={p.name} placeholder="選手名" onChange={(e) => setSquadPlayer(t.code, i, { name: e.target.value })} style={{ ...inputStyle, flex: '1 1 120px', minWidth: 100 }} />
+                      <input value={p.club || ''} placeholder="所属クラブ" onChange={(e) => setSquadPlayer(t.code, i, { club: e.target.value })} style={{ ...inputStyle, flex: '2 1 180px', minWidth: 120 }} />
+                      <button onClick={() => delSquadPlayer(t.code, i)} style={{ ...inputStyle, cursor: 'pointer', color: '#FF6B6B' }}>削除</button>
+                    </div>
+                  ))}
+                  <button onClick={() => addSquadPlayer(t.code)} style={{ ...inputStyle, cursor: 'pointer', marginTop: 4 }}>＋ 選手を追加</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </Section>
 
       <Section title="試合日程（参考）">
@@ -317,12 +435,12 @@ function Admin() {
       const cfg = {
         ...raw,
         result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', knockout, thirdAssign },
-        scorerSuggest: Array.isArray(raw.scorerSuggest) ? raw.scorerSuggest : [],
         schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
         groups: raw.groups && typeof raw.groups === 'object' ? raw.groups : {},
         groupResult: raw.groupResult && typeof raw.groupResult === 'object' ? raw.groupResult : {},
         groupMatches: raw.groupMatches && typeof raw.groupMatches === 'object' ? raw.groupMatches : {},
         scorers: Array.isArray(raw.scorers) ? raw.scorers : [],
+        squads: raw.squads && typeof raw.squads === 'object' ? raw.squads : {},
       };
       setCfg(cfg);
     } catch (e) { setLoadError('設定の取得に失敗しました。もう一度お試しください'); }
