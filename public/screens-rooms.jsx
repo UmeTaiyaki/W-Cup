@@ -6,6 +6,117 @@
 
 const roomFmtCode = (c) => (c || '').replace(/(.{4})(?=.)/g, '$1-');
 
+// 招待シート: リンク（ネイティブ共有＋LINE/X＋コピー）/ 参加コード を切替表示
+function InviteSheet({ T, room, onClose }) {
+  const { useState } = React;
+  const [view, setView] = useState('link');   // 'link' | 'code'
+  const [copied, setCopied] = useState('');    // '' | 'url' | 'code'
+  const url = window.WC.roomInviteURL(room.code);
+  const text = `「${room.name || '部屋'}」の予想に参加しよう！`;
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  function flash(kind) { setCopied(kind); setTimeout(() => setCopied(''), 1600); }
+  function copy(kind, value) {
+    try { navigator.clipboard.writeText(value); flash(kind); } catch (e) {}
+  }
+  function openWin(href) { try { window.open(href, '_blank', 'noopener'); } catch (e) {} }
+  async function nativeShare() {
+    try { await navigator.share({ title: 'W杯予想 部屋への招待', text, url }); }
+    catch (e) { /* キャンセル等は無視 */ }
+  }
+  const shareLine = () => openWin('https://line.me/R/share?text=' + encodeURIComponent(text + '\n' + url));
+  const shareX = () => openWin('https://x.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url));
+
+  const tile = (label, bg, glyph, onClick) => (
+    <button onClick={onClick} style={{
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+      border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+      <span style={{ width: 52, height: 52, borderRadius: 16, background: bg,
+        display: 'grid', placeItems: 'center', boxShadow: `inset 0 0 0 1px ${T.line}` }}>{glyph}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: T.sub }}>{label}</span>
+    </button>
+  );
+  const brand = (txt, color) => (
+    <span style={{ fontFamily: 'Archivo, sans-serif', fontWeight: 900, fontSize: 16, color, letterSpacing: -0.5 }}>{txt}</span>
+  );
+
+  const seg = (id, label) => {
+    const active = view === id;
+    return (
+      <button key={id} onClick={() => setView(id)} style={{
+        flex: 1, border: 'none', borderRadius: 9, padding: '9px', cursor: 'pointer',
+        fontFamily: 'inherit', fontWeight: 800, fontSize: 14,
+        background: active ? T.accent : 'transparent', color: active ? T.accentInk : T.sub }}>{label}</button>
+    );
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.55)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 460, background: T.bg, borderRadius: '22px 22px 0 0',
+        padding: `18px 18px calc(env(safe-area-inset-bottom, 0px) + 22px)`,
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.45)', position: 'relative' }}>
+        <div style={{ width: 38, height: 4, borderRadius: 2, background: T.line, margin: '0 auto 14px' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+          <div style={{ fontWeight: 800, color: T.text, fontSize: 17 }}>仲間を招待</div>
+          <button onClick={onClose} style={{
+            marginLeft: 'auto', border: 'none', background: T.panel2, width: 30, height: 30,
+            borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
+            <Icon name="close" size={16} color={T.sub} /></button>
+        </div>
+        <p style={{ color: T.faint, fontSize: 12.5, lineHeight: 1.5, margin: '0 0 14px' }}>
+          「{room.name || '部屋'}」に招待して、予想を見比べましょう。</p>
+
+        <div style={{ display: 'flex', gap: 6, background: T.panel2, borderRadius: 12, padding: 4, marginBottom: 16 }}>
+          {seg('link', 'リンク')}{seg('code', '参加コード')}
+        </div>
+
+        {view === 'link' ? (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: T.card,
+              borderRadius: 14, padding: '12px 14px', boxShadow: `inset 0 0 0 1px ${T.line}`, marginBottom: 16 }}>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: T.sub, fontWeight: 600,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{url}</div>
+              <button onClick={() => copy('url', url)} style={{
+                border: 'none', borderRadius: 10, padding: '8px 12px', cursor: 'pointer',
+                background: copied === 'url' ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
+                fontWeight: 800, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                boxShadow: copied === 'url' ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
+                <Icon name={copied === 'url' ? 'check' : 'copy'} size={14} color={T.accent} sw={2.4} />
+                {copied === 'url' ? 'コピー済' : 'コピー'}</button>
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {tile('LINE', '#06C755', brand('LINE', '#fff'), shareLine)}
+              {tile('X', '#000', brand('X', '#fff'), shareX)}
+              {canNativeShare && tile('その他', T.panel2, <Icon name="share" size={22} color={T.text} />, nativeShare)}
+              {tile('コピー', T.panel2,
+                <Icon name={copied === 'url' ? 'check' : 'copy'} size={21} color={copied === 'url' ? T.accent : T.text} sw={2.2} />,
+                () => copy('url', url))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '4px 0 4px' }}>
+            <div style={{ fontFamily: 'Archivo, monospace', fontWeight: 900, fontSize: 30,
+              letterSpacing: 4, color: T.text }}>{roomFmtCode(room.code)}</div>
+            <button onClick={() => copy('code', room.code)} style={{
+              margin: '16px auto 0', border: 'none', borderRadius: 12, padding: '11px 18px', cursor: 'pointer',
+              background: copied === 'code' ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
+              fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', gap: 7,
+              boxShadow: copied === 'code' ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
+              <Icon name={copied === 'code' ? 'check' : 'copy'} size={16} color={T.accent} sw={2.4} />
+              {copied === 'code' ? 'コピー済' : 'コードをコピー'}</button>
+            <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.5, margin: '14px 0 0' }}>
+              アプリの「部屋」→「コードで参加」にこのコードを入力すると参加できます。</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // me.rooms に部屋参照を重複なく足した新しい me を返す
 function withRoom(me, room) {
   const rooms = Array.isArray(me.rooms) ? me.rooms : [];
@@ -183,7 +294,7 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
   const [err, setErr] = useState('');
   const [view, setView] = useState('members'); // 'members' | 'compare' | 'rank'
   const [sel, setSel] = useState(me.id);       // 選択中メンバー
-  const [copied, setCopied] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const COLORS = window.WC.MEMBER_COLORS || ['#FF8A3D', '#34D399', '#60A5FA', '#F472B6', '#A78BFA', '#22D3EE'];
 
   function load() {
@@ -194,16 +305,14 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
   // room 切替 or プル更新(refreshKey)で再取得
   useEffect(() => { let alive = true; load().then(() => { if (!alive) setData(null); }); return () => { alive = false; }; }, [room.id, refreshKey]);
 
-  function copyCode() {
-    try { navigator.clipboard.writeText(room.code); setCopied(true); setTimeout(() => setCopied(false), 1600); }
-    catch (e) {}
-  }
-
   // publicUser[] → 既存 screens 用の state（members に色/イニシャルを付与。自分を先頭に）
+  // 自分のアバターは常にアクセント色（右上のアイコンと一致）。他メンバーはパレット色を順に割当。
   const state = data ? (() => {
     const ordered = [...data.members].sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : 0));
-    const members = ordered.map((u, i) => ({
-      id: u.id, name: u.name || '名無し', c: COLORS[i % COLORS.length],
+    let oi = 0;
+    const members = ordered.map((u) => ({
+      id: u.id, name: u.name || '名無し',
+      c: u.id === me.id ? T.accent : COLORS[oi++ % COLORS.length],
       initial: Array.from(u.name || '?')[0] || '?',
     }));
     const preds = {};
@@ -220,7 +329,7 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
 
   return (
     <div style={{ padding: pad }}>
-      {/* 控えめなヘッダー: 一覧へ / 部屋名 / 参加コード（タップでコピー） */}
+      {/* 控えめなヘッダー: 一覧へ / 部屋名 / 招待ボタン */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <button onClick={goBack} style={{
           border: 'none', background: 'transparent', color: T.sub, fontFamily: 'inherit',
@@ -229,13 +338,15 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
         <span style={{ color: T.line }}>|</span>
         <span style={{ color: T.sub, fontWeight: 700, fontSize: 12.5, maxWidth: 150,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || '部屋'}</span>
-        <button onClick={copyCode} title="参加コードをコピー" style={{
-          marginLeft: 'auto', border: 'none', background: 'transparent', color: T.faint,
-          fontFamily: 'Archivo, monospace', fontWeight: 700, fontSize: 11.5, letterSpacing: 1,
-          cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
-          <Icon name={copied ? 'check' : 'copy'} size={12} color={T.faint} sw={2.2} />
-          {copied ? 'コピー済' : roomFmtCode(room.code)}</button>
+        <button onClick={() => setShowInvite(true)} title="仲間を招待" style={{
+          marginLeft: 'auto', border: 'none', borderRadius: 999, padding: '6px 13px',
+          background: `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
+          fontWeight: 800, fontSize: 12.5, cursor: 'pointer', display: 'inline-flex',
+          alignItems: 'center', gap: 5 }}>
+          <Icon name="share" size={14} color={T.accent} sw={2.2} />招待</button>
       </div>
+
+      {showInvite && <InviteSheet T={T} room={room} onClose={() => setShowInvite(false)} />}
 
       {err && <div style={{ color: '#FF6B6B', fontSize: 14, fontWeight: 700, padding: '12px 0' }}>{err}</div>}
       {!data && !err && <div style={{ color: T.faint, fontSize: 14, padding: '20px 0', textAlign: 'center' }}>読み込み中…</div>}

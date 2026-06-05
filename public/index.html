@@ -42,7 +42,7 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script src="data.js?v=3"></script>
-  <script src="identity.js?v=2"></script>
+  <script src="identity.js?v=3"></script>
   <script type="module">
     import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto } from './lib/bracket.js';
     import { SCORING, scoreMember } from './lib/scoring.js';
@@ -69,7 +69,7 @@
   <script type="text/babel" src="screens-share.jsx?v=2"></script>
   <script type="text/babel" src="screens-optview.jsx?v=4"></script>
   <script type="text/babel" src="onboarding.jsx?v=2"></script>
-  <script type="text/babel" src="screens-rooms.jsx?v=4"></script>
+  <script type="text/babel" src="screens-rooms.jsx?v=5"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -424,6 +424,61 @@
       return isDesktop ? desktopShell : mobileShell;
     }
 
+    // 招待リンク(?join=CODE)を読み取り、URLからは除去して返す（初回のみ）
+    function readPendingJoin() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const raw = (params.get('join') || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        if (raw) {
+          params.delete('join');
+          const qs = params.toString();
+          history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+        }
+        return raw || null;
+      } catch (e) { return null; }
+    }
+
+    // 招待リンクで開いた相手に参加を促すモーダル
+    function JoinInviteModal({ T, code, onJoin, onDismiss }) {
+      const [busy, setBusy] = useState(false);
+      const [err, setErr] = useState('');
+      const fmt = (c) => (c || '').replace(/(.{4})(?=.)/g, '$1-');
+      async function go() {
+        if (busy) return;
+        setBusy(true); setErr('');
+        try { await onJoin(code); }
+        catch (e) {
+          setErr(e && e.status === 404 ? 'コードに該当する部屋がありません' : (e && e.message) || '参加に失敗しました');
+          setBusy(false);
+        }
+      }
+      return (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ width: '100%', maxWidth: 380, background: T.bg, borderRadius: 20,
+            padding: '22px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 13, background: `${T.accent}1F`,
+              display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+              <Icon name="people" size={24} color={T.accent} />
+            </div>
+            <div style={{ fontWeight: 800, color: T.text, fontSize: 18 }}>部屋に招待されています</div>
+            <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '8px 0 4px' }}>
+              招待コード <b style={{ color: T.text, fontFamily: 'Archivo, monospace', letterSpacing: 1 }}>{fmt(code)}</b> の部屋に参加しますか？</p>
+            {err && <p style={{ color: '#FF6B6B', fontSize: 13, fontWeight: 700, margin: '8px 0 0' }}>{err}</p>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+              <button onClick={onDismiss} disabled={busy} style={{
+                flex: 1, border: 'none', borderRadius: 13, padding: '13px', fontFamily: 'inherit',
+                fontWeight: 800, fontSize: 14.5, cursor: 'pointer', background: T.panel2, color: T.sub }}>あとで</button>
+              <button onClick={go} disabled={busy} style={{
+                flex: 1.4, border: 'none', borderRadius: 13, padding: '13px', fontFamily: 'inherit',
+                fontWeight: 800, fontSize: 14.5, cursor: busy ? 'default' : 'pointer',
+                background: T.accent, color: T.accentInk }}>{busy ? '参加中…' : '参加する'}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // ================= ルート（identity ゲート） =================
     function App() {
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
@@ -431,6 +486,20 @@
       const [route, setRoute] = useState(() => window.WC.Me.load() ? 'home' : 'onboarding');
       const [me, setMe] = useState(() => window.WC.Me.cachedUser());
       const [homeTab, setHomeTab] = useState('summary');
+      const [homeKey, setHomeKey] = useState(0);          // 参加後に Home を再マウントして部屋を開く
+      const [pendingJoin, setPendingJoin] = useState(readPendingJoin); // 招待リンクの参加コード
+
+      // 招待リンク → 参加 → 自動で部屋を開く
+      async function handleJoinInvite(code) {
+        const out = await window.WC.Rooms.join(me.id, code);
+        const rooms = Array.isArray(me.rooms) ? me.rooms : [];
+        const nextRooms = rooms.some((r) => r && r.id === out.room.id)
+          ? rooms : [...rooms, { id: out.room.id, code: out.room.code, name: out.room.name }];
+        const nextMe = { ...me, rooms: nextRooms };
+        setMe(nextMe); window.WC.Me.cacheUser(nextMe);
+        try { localStorage.setItem('wc2026_last_room_v1', out.room.id); } catch (e) {}
+        setHomeTab('rooms'); setHomeKey((k) => k + 1); setPendingJoin(null);
+      }
 
       useEffect(() => {
         window.WC.fetchConfig();           // チーム/結果/名簿の共有設定を取得
@@ -457,7 +526,7 @@
       } else if (!me) {
         inner = <Splash T={T} />;
       } else {
-        inner = <Home T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}
+        inner = <Home key={homeKey} T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}
           isDesktop={isDesktop} contW={contW} mode={mode} initialTab={homeTab}
           onSignOut={() => { window.WC.Me.clear(); setMe(null); setRoute('onboarding'); }} />;
       }
@@ -475,6 +544,9 @@
           background: '#0b0d12', overflow: previewW > 0 ? 'auto' : 'hidden' }}>
           <div ref={appRef} id="wc-app-root" style={colStyle}>
             {inner}
+            {route === 'home' && me && pendingJoin &&
+              <JoinInviteModal T={T} code={pendingJoin}
+                onJoin={handleJoinInvite} onDismiss={() => setPendingJoin(null)} />}
           </div>
 
           {/* ===== Tweaks ===== */}

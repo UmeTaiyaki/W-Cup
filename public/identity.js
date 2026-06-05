@@ -152,4 +152,8 @@
     scheduleSave, flushSave, flushBeacon, cacheUser,
   };
   window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };
+
+  // 招待URL（?join=CODE）。受け取った端末は起動時に参加を促される。
+  window.WC.roomInviteURL = (code) =>
+    `${location.origin}/?join=${encodeURIComponent((code || '').replace(/-/g, ''))}`;
 })();
