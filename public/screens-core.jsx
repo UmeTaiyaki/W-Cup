@@ -7,8 +7,8 @@
 function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
-  const done = (pred.champion ? 1 : 0) + (pred.runnerUp ? 1 : 0) + (pred.topScorer ? 1 : 0);
   const M = state.members;
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   // 大きな表彰台カード
   const PodiumHero = () => (
@@ -68,13 +68,12 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
           {member.name}の予想</div>
       </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, background: T.card,
-        padding: '7px 12px', borderRadius: 999, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-        <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 18,
-          color: done === 3 ? T.accent : T.text }}>{done}</span>
-        <span style={{ color: T.faint, fontSize: 13, fontWeight: 700 }}>/3 完了</span>
-      </div>
+      <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
+        cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
+        display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
+        fontWeight: 800, fontSize: 13.5 }}>
+        <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
+      </button>
     </div>
   );
 
@@ -158,6 +157,11 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
       boxShadow: `inset 0 0 0 1px ${T.line}` }}>{children}</div>
   );
 
+  const shareSheet = (
+    <ShareSheet T={T} member={member} pred={pred} open={shareOpen}
+      onClose={() => setShareOpen(false)} />
+  );
+
   // ----- ダッシュボード（デスクトップ・リッチ） -----
   if (wide && dashboard) {
     return (
@@ -176,6 +180,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
             </div>
           )}
         </div>
+        {shareSheet}
       </div>
     );
   }
@@ -197,6 +202,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
             </div>
           )}
         </div>
+        {shareSheet}
       </div>
     );
   }
@@ -209,6 +215,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
       <Picks />
       <Options />
       {!solo && <Everyone />}
+      {shareSheet}
     </div>
   );
 }
