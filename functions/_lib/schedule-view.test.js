@@ -21,6 +21,11 @@ test('roundLabel: 不明値はそのまま返す', () => {
   assert.equal(roundLabel(''), '');
 });
 
+test('roundLabel: null / undefined は空文字', () => {
+  assert.equal(roundLabel(null), '');
+  assert.equal(roundLabel(undefined), '');
+});
+
 test('formatMatchTeam: 既知チームコードは確定扱い', () => {
   const teamMap = { MEX: { ja: 'メキシコ', flag: '🇲🇽' } };
   assert.deepEqual(formatMatchTeam('MEX', teamMap), {

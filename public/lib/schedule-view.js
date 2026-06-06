@@ -7,13 +7,13 @@ const ROUND_NAMES = {
 
 // round 記号 → 章ラベル
 export function roundLabel(round) {
-  if (round == null) return '';
+  if (round == null || round === '') return ''; // null / undefined / 空文字
   if (ROUND_NAMES[round]) return ROUND_NAMES[round];
   if (/^[A-L]$/.test(round)) return `グループ${round}`;
   return round;
 }
 
-// a/b の表記（確定コード or スロット）を表示用に正規化
+// 試合の a/b フィールド（確定チームコード or スロット表記）を表示用オブジェクトに変換
 export function formatMatchTeam(code, teamMap = {}) {
   const c = code || '';
   const team = teamMap[c];
