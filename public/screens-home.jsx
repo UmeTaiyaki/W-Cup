@@ -43,8 +43,58 @@ function MatchRow({ T, match, last }) {
   );
 }
 
+// 日本語の曜日付き日付表記（'2026-06-13' → '6月13日(土)'）
+function formatDateJa(dateStr) {
+  if (!dateStr) return '日付未定';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const wd = ['日', '月', '火', '水', '木', '金', '土'][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${m}月${d}日(${wd})`;
+}
+
+// 翌日以降の日付グループを順に表示
+function DayTimeline({ T, groups }) {
+  if (!groups.length) return null;
+  return (
+    <div>
+      {groups.map((g) => (
+        <div key={g.date || 'tbd'}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 4px 8px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: 3, background: T.accent }} />
+            <span style={{ fontWeight: 800, fontSize: 13, color: T.text }}>{formatDateJa(g.date)}</span>
+            <span style={{ fontSize: 11, color: T.faint }}>{g.matches.length}試合</span>
+          </div>
+          <Card T={T} style={{ padding: '4px 12px' }}>
+            {g.matches.map((m, i) => (
+              <MatchRow key={i} T={T} match={m} last={i === g.matches.length - 1} />
+            ))}
+          </Card>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function HomeScreen({ T }) {
-  return <div style={{ color: T.text }}>準備中</div>;
+  const schedule = window.WC.SCHEDULE || [];
+  const groups = window.WC.groupByDate(schedule);
+
+  if (!groups.length) {
+    return (
+      <div style={{ padding: '40px 8px', textAlign: 'center', color: T.sub }}>
+        日程は準備中です
+      </div>
+    );
+  }
+
+  const focusDate = window.WC.pickFocusDate(groups.map((g) => g.date), window.WC.jstToday());
+  const focusIdx = groups.findIndex((g) => g.date === focusDate);
+  const rest = groups.slice(focusIdx + 1);
+
+  return (
+    <div>
+      <DayTimeline T={T} groups={rest} />
+    </div>
+  );
 }
 
 Object.assign(window, { HomeScreen, MatchRow });
