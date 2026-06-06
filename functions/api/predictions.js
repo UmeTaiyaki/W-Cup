@@ -1,8 +1,13 @@
 import { json } from '../_lib/http.js';
 import { seedPredictions, validatePred, makeMember, emptyPred, LIMITS } from '../_lib/predictions.js';
+import { createRateLimiter } from '../_lib/ratelimit.js';
 
 // 予想データは config と同じ CONFIG ネームスペースの別キーに保存する（インフラ追加不要）。
 const KEY = 'predictions:v1';
+
+// アイソレート内 soft レートリミッタ（KVを消費しない連打抑制）。
+const limiter = createRateLimiter({ capacity: 30, refillPerSec: 1 });
+const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 
 async function readDoc(env) {
   let stored = null;
@@ -34,6 +39,9 @@ export async function onRequestGet({ env }) {
 // 競合対策: メンバー単位マージ。書き込みごとに最新ドキュメントを読み、対象部分だけ更新する。
 // 認証なし（仲間内アプリ・各自が自分の予想を入力する想定）。
 export async function onRequestPost({ request, env }) {
+  if (!limiter(clientIp(request))) {
+    return json(429, { error: '操作が多すぎます。少し待って再度お試しください' });
+  }
   // 認証なしのため、巨大payloadによるKV肥大化を入口で早期拒否。
   const cl = Number(request.headers.get('content-length') || 0);
   if (cl > LIMITS.postBytes) return json(413, { error: 'データが大きすぎます' });

@@ -2,10 +2,16 @@ import { json } from '../_lib/http.js';
 import { makeRoom, addMember, ROOM_LIMITS } from '../_lib/rooms.js';
 import { validateUser, publicUser, addRoomToUser } from '../_lib/users.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
+import { createStore } from '../_lib/store.js';
+import { createRateLimiter } from '../_lib/ratelimit.js';
 
 const rKey = (id) => `room:${id}`;
 const rcKey = (code) => `roomcode:${code}`;
 const uKey = (id) => `user:${id}`;
+
+// アイソレート内 soft レートリミッタ（書き込み系の連打抑制。KVを消費しない）。
+const limiter = createRateLimiter({ capacity: 20, refillPerSec: 0.5 });
+const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 
 async function readRoom(env, id) {
   if (!id) return null;
@@ -78,6 +84,9 @@ export async function onRequestGet({ request, env }) {
 
 // POST /api/room  { op: 'create' | 'join', ... }
 export async function onRequestPost({ request, env }) {
+  if (!limiter(clientIp(request))) {
+    return json(429, { error: '操作が多すぎます。少し待って再度お試しください' });
+  }
   const cl = Number(request.headers.get('content-length') || 0);
   if (cl > ROOM_LIMITS.postBytes) return json(413, { error: 'データが大きすぎます' });
 
@@ -122,18 +131,33 @@ export async function onRequestPost({ request, env }) {
       console.error('room join: KV read failed', e);
       return json(500, { error: '読み込みに失敗しました' });
     }
-    const room = await readRoom(env, roomId);
-    if (!room) return json(404, { error: 'コードに該当する部屋がありません' });
-    const res = addMember(room, input.userId);
-    if (!res.ok) return json(409, { error: '部屋が満員です' });
+    if (!roomId) return json(404, { error: 'コードに該当する部屋がありません' });
+
+    // 楽観ロックで参加を反映。同時参加でメンバーが取りこぼされないよう、書き込み直前に
+    // 読み直して競合を検知・再適用する（store.update が担保）。
+    let result;
     try {
-      await env.CONFIG.put(rKey(room.id), JSON.stringify(res.room));
+      const store = createStore(env.CONFIG);
+      result = await store.update(rKey(roomId), (cur) => {
+        if (!cur || !Array.isArray(cur.members)) return { ok: false, reason: 'gone' };
+        const r = addMember(cur, input.userId);
+        if (!r.ok) return { ok: false, reason: r.reason };       // full / invalid
+        if (r.room === cur) return { ok: true, changed: false, value: cur }; // 既に参加済み
+        return { ok: true, changed: true, value: r.room };
+      });
     } catch (e) {
       console.error('room join: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
     }
-    await attachRoomToUser(env, input.userId, res.room);
-    return json(200, { roomId: room.id, room: res.room });
+    if (!result.ok) {
+      if (result.reason === 'full') return json(409, { error: '部屋が満員です' });
+      if (result.reason === 'gone') return json(404, { error: 'コードに該当する部屋がありません' });
+      if (result.reason === 'contended') return json(503, { error: '混み合っています。もう一度お試しください' });
+      return json(400, { error: '参加に失敗しました' });
+    }
+    const room = result.value;
+    await attachRoomToUser(env, input.userId, room);
+    return json(200, { roomId: room.id, room });
   }
 
   return json(400, { error: '不明な操作です' });

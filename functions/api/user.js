@@ -2,9 +2,14 @@ import { json } from '../_lib/http.js';
 import { makeUser, validateUser, publicUser, normalizeName, USER_LIMITS } from '../_lib/users.js';
 import { validatePred } from '../_lib/predictions.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
+import { createRateLimiter } from '../_lib/ratelimit.js';
 
 const uKey = (id) => `user:${id}`;
 const ucKey = (code) => `usercode:${code}`;
+
+// アイソレート内 soft レートリミッタ（KVを消費しない連打抑制）。
+const limiter = createRateLimiter({ capacity: 30, refillPerSec: 1 });
+const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 
 async function readUser(env, id) {
   if (!id) return null;
@@ -49,6 +54,9 @@ export async function onRequestGet({ request, env }) {
 
 // POST /api/user  { op: 'create' | 'setPred' | 'sync', ... }
 export async function onRequestPost({ request, env }) {
+  if (!limiter(clientIp(request))) {
+    return json(429, { error: '操作が多すぎます。少し待って再度お試しください' });
+  }
   const cl = Number(request.headers.get('content-length') || 0);
   if (cl > USER_LIMITS.postBytes) return json(413, { error: 'データが大きすぎます' });
 
