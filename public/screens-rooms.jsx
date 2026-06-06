@@ -395,7 +395,7 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
                 })}
               </div>
 
-              <SummaryScreen solo T={T} state={state} member={curMember} pred={curPred} wide={wide} />
+              <SummaryScreen solo hideShare T={T} state={state} member={curMember} pred={curPred} wide={wide} />
             </div>
           )}
 

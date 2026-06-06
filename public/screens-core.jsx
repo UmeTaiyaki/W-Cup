@@ -4,7 +4,7 @@
    ============================================================ */
 
 // ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false }) {
+function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false, hideShare = false }) {
   const champ = window.WC.TEAM[pred.champion];
   const runner = window.WC.TEAM[pred.runnerUp];
   const M = state.members;
@@ -68,12 +68,14 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
           {member.name}の予想</div>
       </div>
-      <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
-        cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
-        display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
-        fontWeight: 800, fontSize: 13.5 }}>
-        <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
-      </button>
+      {!hideShare && (
+        <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
+          cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
+          display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
+          fontWeight: 800, fontSize: 13.5 }}>
+          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
+        </button>
+      )}
     </div>
   );
 
