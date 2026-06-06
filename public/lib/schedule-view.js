@@ -40,6 +40,7 @@ export function groupByDate(schedule) {
   const list = Array.isArray(schedule) ? schedule : [];
   const byDate = new Map();
   const undated = [];
+  // byDate/undated はローカルの集計用（入力は不変、戻り値は新規配列）
   for (const m of list) {
     if (!m) continue;
     if (m.date) {
@@ -51,10 +52,11 @@ export function groupByDate(schedule) {
   }
   const dates = [...byDate.keys()].sort();
   const byTime = (x, y) => (x.time || '').localeCompare(y.time || '');
-  const out = dates.map((date) => ({
-    date,
-    matches: byDate.get(date).slice().sort(byTime),
-  }));
-  if (undated.length) out.push({ date: null, matches: undated.slice().sort(byTime) });
-  return out;
+  return [
+    ...dates.map((date) => ({
+      date,
+      matches: byDate.get(date).slice().sort(byTime),
+    })),
+    ...(undated.length ? [{ date: null, matches: undated.slice().sort(byTime) }] : []),
+  ];
 }

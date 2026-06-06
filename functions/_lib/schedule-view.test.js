@@ -94,6 +94,11 @@ test('groupByDate: date 欠落要素は末尾「日付未定」グループへ',
   assert.equal(out[out.length - 1].matches.length, 1);
 });
 
+test('groupByDate: date 空文字は日付未定グループへ', () => {
+  const out = groupByDate([{ date: '', time: '04:00', round: 'F', a: 'W1', b: 'W2' }]);
+  assert.equal(out[0].date, null);
+});
+
 test('groupByDate: 空配列は空配列', () => {
   assert.deepEqual(groupByDate([]), []);
   assert.deepEqual(groupByDate(null), []);
