@@ -49,26 +49,76 @@ function api(path, opts) {
   return fetch(path, { cache: 'no-store', ...opts });
 }
 
+const loginInputStyle = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #333', background: '#13241C', color: '#fff', fontSize: 16 };
+const loginButtonStyle = { marginTop: 14, width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#B6FF3C', color: '#0A1410', fontWeight: 800, fontSize: 15, cursor: 'pointer' };
+
+// 2段階ログイン: ① パスワード → ② メール宛OTP。
+// ① 成功時はトークンを発行せず challengeId を受け取り OTP 入力へ遷移。
+// ② OTP 照合成功で初めてセッショントークンを受け取り onOk(token)。
 function Login({ onOk, externalError }) {
+  const [stage, setStage] = useState('password'); // 'password' | 'otp'
   const [pw, setPw] = useState('');
+  const [code, setCode] = useState('');
+  const [challengeId, setChallengeId] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
-  async function submit() {
+
+  async function submitPassword() {
     setBusy(true); setErr('');
     try {
       const r = await api('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: pw }) });
-      if (r.ok) { onOk(pw); } else { setErr('パスワードが違います'); }
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.requiresOtp && data.challengeId) {
+        setChallengeId(data.challengeId); setCode(''); setStage('otp');
+      } else if (r.status === 429) {
+        setErr(data.error || '試行が多すぎます。少し待って再度お試しください');
+      } else if (r.status === 503 || r.status === 502) {
+        setErr(data.error || '認証コードを送信できませんでした。時間をおいて再度お試しください');
+      } else {
+        setErr('パスワードが違います');
+      }
     } catch (e) { setErr('通信エラー'); }
     setBusy(false);
   }
+
+  function backToPassword(message) { setStage('password'); setChallengeId(''); setCode(''); setErr(message || ''); }
+
+  async function submitOtp() {
+    setBusy(true); setErr('');
+    try {
+      const r = await api('/api/auth-verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ challengeId, code }) });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.token) { onOk(data.token); return; }
+      if (data.reason === 'expired' || data.reason === 'too_many_attempts') { backToPassword(data.error); }
+      else if (r.status === 429) { setErr(data.error || '試行が多すぎます。少し待って再度お試しください'); }
+      else { setErr(data.error || 'コードが違います'); }
+    } catch (e) { setErr('通信エラー'); }
+    setBusy(false);
+  }
+
+  if (stage === 'otp') {
+    return (
+      <div style={{ maxWidth: 360, margin: '80px auto', padding: 24 }}>
+        <h1 style={{ fontSize: 20 }}>認証コード入力</h1>
+        <p style={{ fontSize: 13, color: '#9fb' }}>登録メールに送信した6桁のコードを入力してください。</p>
+        <input type="text" inputMode="numeric" autoComplete="one-time-code" value={code} autoFocus placeholder="123456"
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={(e) => { if (e.key === 'Enter') submitOtp(); }}
+          style={{ ...loginInputStyle, letterSpacing: 6, fontSize: 22, textAlign: 'center' }} />
+        {(err || externalError) && <p style={{ color: '#FF6B6B', fontSize: 13 }}>{err || externalError}</p>}
+        <button onClick={submitOtp} disabled={busy || code.length < 6} style={loginButtonStyle}>{busy ? '確認中…' : '認証する'}</button>
+        <p style={{ marginTop: 14 }}><a href="#" onClick={(e) => { e.preventDefault(); backToPassword(); }}>← 最初からやり直す</a></p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 360, margin: '80px auto', padding: 24 }}>
       <h1 style={{ fontSize: 20 }}>管理ログイン</h1>
       <input type="password" value={pw} autoFocus placeholder="管理パスワード"
-        onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-        style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #333', background: '#13241C', color: '#fff', fontSize: 16 }} />
+        onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submitPassword(); }}
+        style={loginInputStyle} />
       {(err || externalError) && <p style={{ color: '#FF6B6B', fontSize: 13 }}>{err || externalError}</p>}
-      <button onClick={submit} disabled={busy || !pw} style={{ marginTop: 14, width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#B6FF3C', color: '#0A1410', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>ログイン</button>
+      <button onClick={submitPassword} disabled={busy || !pw} style={loginButtonStyle}>{busy ? '送信中…' : 'ログイン'}</button>
       <p style={{ marginTop: 18 }}><a href="/">← 予想アプリに戻る</a></p>
     </div>
   );
@@ -94,7 +144,7 @@ function TeamSelect({ teams, value, onChange, allowEmpty = true }) {
   );
 }
 
-function Editor({ password, initial }) {
+function Editor({ token, onAuthExpired, initial }) {
   const [cfg, setCfg] = useState(initial);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -158,12 +208,18 @@ function Editor({ password, initial }) {
     });
   }
 
-  // ---- 実際の3位枠割当 ----
-  function setThird(slot, code) {
+  // ---- 実際に3位通過した8組（FIFA Annex C で枠へ自動割当）----
+  function toggleThirdGroup(g) {
     setCfg((c) => {
-      const ta = { ...c.result.thirdAssign };
-      if (code) ta[slot] = code; else delete ta[slot];
-      return { ...c, result: { ...c.result, thirdAssign: ta } };
+      const cur = c.result.thirdGroups || [];
+      const next = cur.includes(g)
+        ? cur.filter((x) => x !== g)
+        : (cur.length < 8 ? [...cur, g].sort() : cur);
+      // 派生: 各組3位(groupResult[g][2])を Annex C で枠へ割り当てて materialize
+      const alloc = window.WC?.resolveThirdAssign ? window.WC.resolveThirdAssign(c.groupResult, next) : {};
+      const ta = {};
+      Object.keys(alloc).forEach((s) => { if (alloc[s]) ta[s] = alloc[s]; });
+      return { ...c, result: { ...c.result, thirdGroups: next, thirdAssign: ta } };
     });
   }
 
@@ -191,15 +247,16 @@ function Editor({ password, initial }) {
   // schedule
   const sched = cfg.schedule || [];
   function setSched(i, patch) { up({ schedule: sched.map((s, j) => (j === i ? { ...s, ...patch } : s)) }); }
-  function addSched() { up({ schedule: [...sched, { date: '', round: '', a: '', b: '', note: '' }] }); }
+  function addSched() { up({ schedule: [...sched, { date: '', time: '', round: '', a: '', b: '', note: '' }] }); }
   function delSched(i) { up({ schedule: sched.filter((_, j) => j !== i) }); }
 
   async function save() {
     setBusy(true); setMsg('');
     try {
-      const r = await api('/api/config', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + password }, body: JSON.stringify(cfg) });
+      const r = await api('/api/config', { method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token }, body: JSON.stringify(cfg) });
       const data = await r.json().catch(() => ({}));
       if (r.ok) setMsg('✅ 保存しました（' + data.updatedAt + '）');
+      else if (r.status === 401) { setMsg('❌ セッションの有効期限が切れました。再ログインします'); if (onAuthExpired) onAuthExpired(); }
       else setMsg('❌ ' + (data.error || '保存失敗'));
     } catch (e) { setMsg('❌ 通信エラー'); }
     setBusy(false);
@@ -285,25 +342,49 @@ function Editor({ password, initial }) {
             </div>
           );
         })}
-        <div style={{ fontSize: 13, color: '#9aa', margin: '14px 0 6px', fontWeight: 800 }}>実際の3位枠割当（ノックアウト表の対戦カード用）</div>
-        <p style={{ fontSize: 12, color: '#6a7', margin: '0 0 8px' }}>各スロットに、許可グループの実際の3位チームを割り当てます（未割当可）。</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          {(window.WC?.WILDCARD_SLOTS || []).map((slot) => {
-            const permitted = (window.WC?.PERMITTED || {})[slot] || [];
-            const opts = teams.filter((t) => {
-              const g = Object.keys(cfg.groups).find((gk) => (cfg.groups[gk] || []).includes(t.code));
-              return g && permitted.includes(g);
-            });
+        <div style={{ fontSize: 13, color: '#9aa', margin: '14px 0 6px', fontWeight: 800 }}>3位通過した8組（ノックアウト表の対戦カード用）</div>
+        <p style={{ fontSize: 12, color: '#6a7', margin: '0 0 8px' }}>
+          実際に3位で勝ち上がった8組を選択。ベスト32のどの枠に入るかは FIFA 公式の組み合わせ表（Annex C）で自動決定されます（{(cfg.result.thirdGroups || []).length}/8組）。</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {['A','B','C','D','E','F','G','H','I','J','K','L'].map((g) => {
+            const code = (cfg.groupResult[g] || [])[2] || '';
+            const tm = teams.find((t) => t.code === code);
+            const on = (cfg.result.thirdGroups || []).includes(g);
+            const blocked = !on && (cfg.result.thirdGroups || []).length >= 8;
             return (
-              <label key={slot} style={{ fontSize: 12 }}>{slot} <span style={{ color: '#6a7' }}>({permitted.join('/')})</span><br />
-                <select value={cfg.result.thirdAssign[slot] || ''} onChange={(e) => setThird(slot, e.target.value)} style={inputStyle}>
-                  <option value="">—</option>
-                  {opts.map((t) => <option key={t.code} value={t.code}>{t.flag} {t.ja}</option>)}
-                </select>
-              </label>
+              <button key={g} onClick={() => toggleThirdGroup(g)} disabled={blocked}
+                style={{ ...inputStyle, cursor: blocked ? 'default' : 'pointer', opacity: blocked ? 0.4 : 1,
+                  background: on ? '#B6FF3C' : '#0f1a15', color: on ? '#0A1410' : '#ccc', fontWeight: on ? 800 : 400 }}>
+                {g}: {tm ? `${tm.flag} ${tm.code}` : '3位未確定'}
+              </button>
             );
           })}
         </div>
+        {(cfg.result.thirdGroups || []).length === 8 && window.WC?.resolveThirdAssign && (() => {
+          const alloc = window.WC.resolveThirdAssign(cfg.groupResult, cfg.result.thirdGroups);
+          const struct = (window.WC.BRACKET_STRUCTURE || {}).r32 || [];
+          const winnerSeed = {};
+          struct.forEach((m) => { if (Array.isArray(m.bottom?.wc)) winnerSeed[m.id] = m.top; });
+          return (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, color: '#6a7', marginBottom: 4 }}>自動割当プレビュー</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {(window.WC.WILDCARD_SLOTS || []).map((slot) => {
+                  const ws = winnerSeed[slot] || '';
+                  const wg = ws[0] || '?';
+                  const tcode = alloc[slot];
+                  const ttm = teams.find((t) => t.code === tcode);
+                  return (
+                    <span key={slot} style={{ fontSize: 11, color: '#cde', background: '#0f1a15',
+                      borderRadius: 6, padding: '4px 7px' }}>
+                      {slot} {wg}1 vs {ttm ? `${ttm.flag}${ttm.code}` : '—'}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </Section>
 
       <Section title="得点王">
@@ -397,6 +478,7 @@ function Editor({ password, initial }) {
         {sched.map((s, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <input type="date" value={s.date} onChange={(e) => setSched(i, { date: e.target.value })} style={inputStyle} />
+            <input type="time" value={s.time || ''} onChange={(e) => setSched(i, { time: e.target.value })} style={{ ...inputStyle, width: 110 }} title="日本時間(JST)" />
             <input value={s.round} placeholder="GL/R16..." onChange={(e) => setSched(i, { round: e.target.value })} style={{ ...inputStyle, width: 90 }} />
             <input value={s.a} placeholder="A" onChange={(e) => setSched(i, { a: e.target.value })} style={{ ...inputStyle, width: 80 }} />
             <span>vs</span>
@@ -417,13 +499,16 @@ function Editor({ password, initial }) {
 }
 
 function Admin() {
-  const [password, setPassword] = useState('');
+  const [token, setToken] = useState('');
   const [cfg, setCfg] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
 
-  async function afterLogin(pw) {
-    setPassword(pw); setLoading(true); setLoadError('');
+  // セッション失効時はトークンと設定を破棄してログイン画面へ戻す。
+  function logout() { setToken(''); setCfg(null); setLoadError('セッションの有効期限が切れました。再度ログインしてください'); }
+
+  async function afterLogin(tok) {
+    setToken(tok); setLoading(true); setLoadError('');
     try {
       const r = await api('/api/config');
       const raw = await r.json();
@@ -432,9 +517,10 @@ function Admin() {
       const rawKo = baseResult.knockout && typeof baseResult.knockout === 'object' ? baseResult.knockout : {};
       const knockout = { r32: rawKo.r32 || [], r16: rawKo.r16 || [], qf: rawKo.qf || [], sf: rawKo.sf || [] };
       const thirdAssign = baseResult.thirdAssign && typeof baseResult.thirdAssign === 'object' ? baseResult.thirdAssign : {};
+      const thirdGroups = Array.isArray(baseResult.thirdGroups) ? baseResult.thirdGroups : [];
       const cfg = {
         ...raw,
-        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', knockout, thirdAssign },
+        result: { champion: baseResult.champion ?? null, runnerUp: baseResult.runnerUp ?? null, topScorer: baseResult.topScorer ?? '', knockout, thirdAssign, thirdGroups },
         schedule: Array.isArray(raw.schedule) ? raw.schedule : [],
         groups: raw.groups && typeof raw.groups === 'object' ? raw.groups : {},
         groupResult: raw.groupResult && typeof raw.groupResult === 'object' ? raw.groupResult : {},
@@ -449,7 +535,7 @@ function Admin() {
 
   if (!cfg) return <Login onOk={afterLogin} externalError={loadError} />;
   if (loading) return <p style={{ padding: 40 }}>読み込み中…</p>;
-  return <Editor password={password} initial={cfg} />;
+  return <Editor token={token} onAuthExpired={logout} initial={cfg} />;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Admin />);

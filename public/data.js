@@ -129,7 +129,7 @@
     return {
       champion: null, runnerUp: null, topScorer: '',
       groupRank: { A: [], B: [], C: [], D: [], E: [], F: [], G: [], H: [], I: [], J: [], K: [], L: [] },
-      thirdAssign: { M1: null, M2: null, M7: null, M8: null, M11: null, M12: null, M15: null, M16: null },
+      thirdGroups: [], // 3位通過すると予想する8グループ（FIFA Annex C でベスト32の枠へ自動割当）
       knockout: { r32: [], r16: [], qf: [], sf: [] },
     };
   }

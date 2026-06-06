@@ -1,6 +1,8 @@
 // ベスト32トーナメント構造と対戦表導出（純ロジック / ESM）
 // seed: 'X1'|'X2'（グループX 1位/2位）または { wc: ['A',...] }（3位ワイルドカード枠）
 
+import { thirdAllocation } from './third-allocation.js';
+
 export const BRACKET_STRUCTURE = {
   r32: [
     { id: 'M1',  top: 'E1', bottom: { wc: ['A', 'B', 'C', 'D', 'F'] } },
@@ -38,6 +40,19 @@ export function seedLabel(seed) {
   if (typeof seed === 'string') return `${seed[0]}組 ${seed[1]}位`;
   if (seed && Array.isArray(seed.wc)) return `3位 (${seed.wc.join('/')})`;
   return '';
+}
+
+// 「3位通過する8グループの選択」→ FIFA Annex C で各ワイルドカード枠に割り当てる
+// 実チームコードを算出する。{ slotId: teamCode }。表に無い/未確定の組は対象枠を null。
+// thirdGroups: 8グループの配列（例 ['A','C','E',...]）。groupRank[g][2] が各組の3位コード。
+export function resolveThirdAssign(groupRank = {}, thirdGroups = []) {
+  const alloc = thirdAllocation(thirdGroups); // { slotId: groupLetter } or null
+  const out = {};
+  for (const slot of WILDCARD_SLOTS) {
+    const g = alloc ? alloc[slot] : null;
+    out[slot] = g ? (groupRank[g] || [])[2] || null : null;
+  }
+  return out;
 }
 
 // seed トークン → チームコード

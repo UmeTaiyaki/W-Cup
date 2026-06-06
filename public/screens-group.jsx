@@ -129,8 +129,13 @@ function KnockoutResults({ T }) {
   const TEAM = window.WC.TEAM || {};
   const ROUNDS = ['r32', 'r16', 'qf', 'sf'];
   const LABELS = { r32: 'ベスト32', r16: 'ベスト16', qf: '準々決勝', sf: '準決勝' };
+  // 3位枠は thirdGroups（実際に通過した8組）から FIFA Annex C で自動割当。
+  // 旧データ（手動 thirdAssign）も後方互換で温存。
+  const ta = (R.thirdGroups && R.thirdGroups.length && window.WC.resolveThirdAssign)
+    ? window.WC.resolveThirdAssign(gr, R.thirdGroups)
+    : (R.thirdAssign || {});
   const der = window.WC.deriveKnockoutFromSets
-    ? window.WC.deriveKnockoutFromSets(gr, R.thirdAssign || {}, R.knockout || {})
+    ? window.WC.deriveKnockoutFromSets(gr, ta, R.knockout || {})
     : null;
   const champ = R.champion ? TEAM[R.champion] : null;
 

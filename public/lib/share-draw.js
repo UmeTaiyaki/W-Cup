@@ -344,7 +344,7 @@ function drawKnockoutCard(ctx, pal, pred, W, H) {
 
   const der = window.WC.deriveKnockout(
     pred.groupRank || {},
-    pred.thirdAssign || {},
+    window.WC.resolveThirdAssign(pred.groupRank || {}, pred.thirdGroups || []),
     pred.knockout || {},
   );
   const wr = der.winners; // { r32:[16], r16:[8], qf:[4], sf:[2] }

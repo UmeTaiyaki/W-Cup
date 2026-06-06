@@ -83,12 +83,7 @@ function Onboarding({ T, onDone, siteKey }) {
   function setGroupRank(k, arr) {
     persistPred({ ...pred, groupRank: { ...(pred.groupRank || {}), [k]: arr } });
   }
-  function setThirdAssign(slot, code) {
-    const ta = { ...(pred.thirdAssign || {}) };
-    if (code) Object.keys(ta).forEach((s) => { if (s !== slot && ta[s] === code) ta[s] = null; });
-    ta[slot] = code;
-    persistPred({ ...pred, thirdAssign: ta });
-  }
+  function setThirdGroups(arr) { persistPred({ ...pred, thirdGroups: arr }); }
   function setKnockout(w) { persistPred({ ...pred, knockout: w }); }
 
   async function commitName() {
@@ -294,17 +289,16 @@ function Onboarding({ T, onDone, siteKey }) {
     }
     if (optScreen === 'thirdwild') {
       return frame(<ThirdWildScreen T={T} member={member} pred={pred}
-        setThirdAssign={setThirdAssign} goBack={() => setOptScreen(null)} />);
+        setThirdGroups={setThirdGroups} goBack={() => setOptScreen(null)} />);
     }
     if (optScreen === 'knockout') {
       return frame(<KnockoutScreen T={T} member={member} pred={pred}
         setKnockout={setKnockout} goBack={() => setOptScreen(null)} availWidth={520} />);
     }
     const gr = pred.groupRank || {};
-    const ta = pred.thirdAssign || {};
     const grDone = ['A','B','C','D','E','F','G','H','I','J','K','L'].filter((k) => (gr[k] || []).length >= 3).length;
-    const wcCount = (window.WC.WILDCARD_SLOTS || []).length || 8;
-    const taDone = (window.WC.WILDCARD_SLOTS || []).filter((s) => ta[s]).length;
+    const wcCount = 8; // 3位通過する8組
+    const taDone = (pred.thirdGroups || []).length;
     const koReady = grDone === 12 && taDone === wcCount;
     return frame(
       <div>
@@ -317,7 +311,7 @@ function Onboarding({ T, onDone, siteKey }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <OptMenuRow T={T} emoji="📊" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
             onClick={() => setOptScreen('grouprank')} />
-          <OptMenuRow T={T} emoji="🎯" title="3位ワイルドカード" sub={`${wcCount}枠に3位を割当 · ${taDone}/${wcCount}枠`}
+          <OptMenuRow T={T} emoji="🎯" title="3位ワイルドカード" sub={`通過する8組を選択 · ${taDone}/${wcCount}組`}
             onClick={() => setOptScreen('thirdwild')} />
           <OptMenuRow T={T} emoji="🏟" title="ノックアウト予想" sub={koReady ? 'ベスト32→決勝' : '先にグループ順位予想を'}
             onClick={() => koReady && setOptScreen('knockout')} disabled={!koReady} />

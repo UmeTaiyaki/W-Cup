@@ -246,3 +246,23 @@ test('result.thirdAssign: 不正スロットキーは失敗', () => {
   assert.equal(r.ok, false);
   assert.match(r.error, /thirdAssign/);
 });
+
+test('result.thirdGroups: A〜L の重複なしは妥当・大文字化', () => {
+  const r = validateConfig({
+    ...DEFAULT_CONFIG,
+    result: { ...DEFAULT_CONFIG.result, thirdGroups: ['e', 'f', 'g'] },
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.result.thirdGroups, ['E', 'F', 'G']);
+});
+
+test('result.thirdGroups: 重複・不正グループ・9組超は失敗', () => {
+  for (const tg of [['A', 'A'], ['Z'], ['A','B','C','D','E','F','G','H','I']]) {
+    const r = validateConfig({
+      ...DEFAULT_CONFIG,
+      result: { ...DEFAULT_CONFIG.result, thirdGroups: tg },
+    });
+    assert.equal(r.ok, false, `${tg} は失敗すべき`);
+    assert.match(r.error, /thirdGroups/);
+  }
+});

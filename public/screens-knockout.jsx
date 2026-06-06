@@ -13,15 +13,17 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
   // 優勝・準優勝は各ラウンドで自動的に勝ち上がる（先頭=優勝が最優先）
   const forced = [pred.champion, pred.runnerUp].filter(Boolean);
   const forcedSet = new Set(forced);
-  const der = window.WC.deriveKnockoutAuto(pred.groupRank || {}, pred.thirdAssign || {}, pred.knockout || {}, forced);
+  // 3位枠は thirdGroups（通過8組の選択）から FIFA Annex C で対戦相手を導出
+  const ta = window.WC.resolveThirdAssign(pred.groupRank || {}, pred.thirdGroups || []);
+  const der = window.WC.deriveKnockoutAuto(pred.groupRank || {}, ta, pred.knockout || {}, forced);
   const champ = pred.champion ? window.WC.TEAM[pred.champion] : null;
 
   // 入室時／優勝・準優勝の変更時に、自動勝ち上がりを予想（pred.knockout）へ反映して保存する。
   React.useEffect(() => {
     if (!forced.length) return;
-    const d = window.WC.deriveKnockoutAuto(pred.groupRank || {}, pred.thirdAssign || {}, pred.knockout || {}, forced);
+    const d = window.WC.deriveKnockoutAuto(pred.groupRank || {}, ta, pred.knockout || {}, forced);
     if (JSON.stringify(d.winners) !== JSON.stringify(pred.knockout || {})) setKnockout(d.winners);
-  }, [pred.champion, pred.runnerUp, JSON.stringify(pred.groupRank), JSON.stringify(pred.thirdAssign), JSON.stringify(pred.knockout)]);
+  }, [pred.champion, pred.runnerUp, JSON.stringify(pred.groupRank), JSON.stringify(pred.thirdGroups), JSON.stringify(pred.knockout)]);
 
   // 勝者を選んで整合を取り直して保存（優勝・準優勝が含まれるカードは自動勝ち上がりで固定）
   function pick(round, matchIdx, team) {
@@ -34,7 +36,7 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
       while (ko[r].length < LENS[r]) ko[r].push(null);
     });
     ko[round][matchIdx] = team;
-    const d = window.WC.deriveKnockoutAuto(pred.groupRank || {}, pred.thirdAssign || {}, ko, forced);
+    const d = window.WC.deriveKnockoutAuto(pred.groupRank || {}, ta, ko, forced);
     setKnockout(d.winners);
   }
 

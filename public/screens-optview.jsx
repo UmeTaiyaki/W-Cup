@@ -15,7 +15,8 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const GK = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
   const gr = pred.groupRank || {};
-  const ta = pred.thirdAssign || {};
+  // 3位枠は thirdGroups（通過8組）から FIFA Annex C で自動割当
+  const ta = window.WC.resolveThirdAssign(gr, pred.thirdGroups || []);
   const grDone = GK.filter((k) => (gr[k] || []).length >= 3).length;
   const taDone = SLOTS.filter((s) => ta[s]).length;
   const der = window.WC.deriveKnockout(gr, ta, pred.knockout || {});

@@ -2,7 +2,6 @@
 // 単一の真実はここ。public/data.js のフォールバック用シードと値を一致させること。
 
 const GROUP_KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
-const WILDCARD_SLOTS = ['M1', 'M2', 'M7', 'M8', 'M11', 'M12', 'M15', 'M16'];
 const KO_ROUNDS = ['r32', 'r16', 'qf', 'sf'];
 
 const isStr = (v) => typeof v === 'string';
@@ -21,7 +20,7 @@ export function emptyPred() {
     runnerUp: null,
     topScorer: '',
     groupRank: GROUP_KEYS.reduce((o, k) => { o[k] = []; return o; }, {}),
-    thirdAssign: WILDCARD_SLOTS.reduce((o, s) => { o[s] = null; return o; }, {}),
+    thirdGroups: [], // 3位通過すると予想する8グループ（FIFA Annex C でベスト32の枠へ自動割当）
     knockout: { r32: [], r16: [], qf: [], sf: [] },
   };
 }
@@ -36,9 +35,15 @@ export function validatePred(input) {
   const gr = isObj(p.groupRank) ? p.groupRank : {};
   for (const k of GROUP_KEYS) groupRank[k] = codeArr(gr[k], LIMITS.groupRank);
 
-  const thirdAssign = {};
-  const ta = isObj(p.thirdAssign) ? p.thirdAssign : {};
-  for (const s of WILDCARD_SLOTS) thirdAssign[s] = toCode(ta[s]);
+  // thirdGroups: A〜L の重複なし、最大8グループ。FIFA Annex C でベスト32の枠へ自動割当される。
+  const tg = Array.isArray(p.thirdGroups) ? p.thirdGroups : [];
+  const thirdGroups = [];
+  for (const g of tg) {
+    if (!isStr(g)) continue;
+    const gu = g.toUpperCase();
+    if (GROUP_KEYS.includes(gu) && !thirdGroups.includes(gu)) thirdGroups.push(gu);
+    if (thirdGroups.length >= 8) break;
+  }
 
   const knockout = {};
   const ko = isObj(p.knockout) ? p.knockout : {};
@@ -51,7 +56,7 @@ export function validatePred(input) {
       runnerUp: toCode(p.runnerUp),
       topScorer: isStr(p.topScorer) ? p.topScorer.trim().slice(0, LIMITS.topScorer) : base.topScorer,
       groupRank,
-      thirdAssign,
+      thirdGroups,
       knockout,
     },
   };

@@ -1,55 +1,62 @@
 /* ============================================================
-   画面: 3位ワイルドカード割当（オプション）
-   props: T, member, pred, setThirdAssign(slotId, code|null), goBack
+   画面: 3位ワイルドカード（オプション）
+   12組のうち「3位で勝ち上がる」と予想する8組を選ぶ。
+   ベスト32のどの枠に入るかは FIFA Annex C（公式組み合わせ表）で自動決定。
+   props: T, member, pred, setThirdGroups(arr), goBack
    ============================================================ */
-function ThirdWildScreen({ T, member, pred, setThirdAssign, goBack, wide = false }) {
-  const SLOTS = window.WC.WILDCARD_SLOTS || [];
-  const PERMITTED = window.WC.PERMITTED || {};
+function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false }) {
+  const GROUPS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
   const TEAM = window.WC.TEAM || {};
+  const STRUCT = (window.WC.BRACKET_STRUCTURE || {}).r32 || [];
   const gr = pred.groupRank || {};
-  const ta = pred.thirdAssign || {};
-  const [openSlot, setOpenSlot] = React.useState(null);
+  const selected = pred.thirdGroups || [];
+  const doneCount = selected.length;
+  const FULL = 8;
 
-  const usedCodes = SLOTS.map((s) => ta[s]).filter(Boolean);
-  const doneCount = usedCodes.length;
+  const thirdCode = (g) => (gr[g] || [])[2] || null;
 
-  // ある枠で選べる候補：許可グループの3位コード（存在するもの）
-  function candidates(slot) {
-    return (PERMITTED[slot] || [])
-      .map((g) => ({ g, code: (gr[g] || [])[2] || null }))
-      .filter((x) => x.code);
+  function toggle(g) {
+    if (selected.includes(g)) {
+      setThirdGroups(selected.filter((x) => x !== g));
+    } else if (selected.length < FULL) {
+      setThirdGroups([...selected, g].sort());
+    }
   }
 
-  function choose(slot, code) {
-    setThirdAssign(slot, code);
-    setOpenSlot(null);
-  }
+  // 8組確定時：各ワイルドカード枠に入る実チームを Annex C で算出してプレビュー
+  const assign = doneCount === FULL && window.WC.resolveThirdAssign
+    ? window.WC.resolveThirdAssign(gr, selected)
+    : null;
+  // スロットID → 対戦相手のグループ1位 seed（例 M1→'E1'）
+  const winnerSeedOf = {};
+  STRUCT.forEach((m) => { if (Array.isArray(m.bottom?.wc)) winnerSeedOf[m.id] = m.top; });
 
-  const Slot = ({ slot }) => {
-    const code = ta[slot];
+  const Chip = ({ g }) => {
+    const code = thirdCode(g);
     const tm = code ? TEAM[code] : null;
+    const on = selected.includes(g);
+    const blocked = !on && selected.length >= FULL;
     return (
-      <button onClick={() => setOpenSlot(slot)} style={{
-        display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-        border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-        background: T.card, borderRadius: 16, padding: '12px 14px',
-        boxShadow: `inset 0 0 0 1px ${code ? T.accent + '55' : T.line}` }}>
-        <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 12, color: T.faint, width: 30 }}>{slot}</span>
+      <button onClick={() => toggle(g)} disabled={blocked} style={{
+        display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+        border: 'none', cursor: blocked ? 'default' : 'pointer', fontFamily: 'inherit',
+        background: on ? T.accent : T.card, borderRadius: 13, padding: '11px 12px',
+        opacity: blocked ? 0.4 : 1,
+        boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.line}` }}>
+        <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 13, width: 16,
+          color: on ? T.accentInk : T.accent }}>{g}</span>
+        <span style={{ fontSize: 19 }}>{tm ? tm.flag : '⚪️'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: T.faint, fontFamily: 'Archivo', letterSpacing: 0.5 }}>
-            {(PERMITTED[slot] || []).join('/')} の3位</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-            <span style={{ fontSize: 20 }}>{tm ? tm.flag : '⚪️'}</span>
-            <span style={{ fontWeight: 800, fontSize: 15, color: code ? T.text : T.faint }}>
-              {tm ? tm.ja : 'タップして選ぶ'}</span>
-          </div>
+          <div style={{ fontWeight: 800, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden',
+            textOverflow: 'ellipsis', color: on ? T.accentInk : (tm ? T.text : T.faint) }}>
+            {tm ? tm.ja : '3位未予想'}</div>
+          <div style={{ fontSize: 10.5, fontFamily: 'Archivo', letterSpacing: 0.4,
+            color: on ? T.accentInk + 'cc' : T.faint }}>{g}組 3位</div>
         </div>
-        <Icon name="chevron" size={18} color={T.faint} />
+        {on && <Icon name="check" size={15} color={T.accentInk} sw={2.6} />}
       </button>
     );
   };
-
-  const cand = openSlot ? candidates(openSlot) : [];
 
   return (
     <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px' }}>
@@ -62,53 +69,51 @@ function ThirdWildScreen({ T, member, pred, setThirdAssign, goBack, wide = false
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 3, marginBottom: 4 }}>
         <div style={{ fontSize: wide ? 26 : 22, fontWeight: 800, color: T.text }}>3位ワイルドカード</div>
         <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 15,
-          color: doneCount === 8 ? T.accent : T.text }}>{doneCount}<span style={{ color: T.faint, fontSize: 12 }}>/8枠</span></span>
+          color: doneCount === FULL ? T.accent : T.text }}>{doneCount}<span style={{ color: T.faint, fontSize: 12 }}>/8組</span></span>
       </div>
       <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.55, margin: '0 0 14px' }}>
-        ベスト32の8枠に、各グループ3位のうち1チームを割り当てます。各チームは1枠だけ。先にグループ順位予想で3位を決めておく必要があります。</p>
-      <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(260px, 1fr))' : '1fr', gap: 10 }}>
-        {SLOTS.map((s) => <Slot key={s} slot={s} />)}
-      </div>
-      <OptionSaveBar T={T} onSave={goBack}
-        hint="入力はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
+        各組3位のうち、成績上位8組がベスト32へ進みます。<b>勝ち上がると思う8組</b>を選んでください。
+        対戦カードは FIFA 公式の組み合わせ表（Annex C）に従って自動で決まります。</p>
 
-      {/* 選択シート */}
-      {openSlot && (
-        <div onClick={() => setOpenSlot(null)} style={{ position: 'fixed', inset: 0, zIndex: 50,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520,
-            background: T.panel, borderRadius: '20px 20px 0 0', padding: 18, maxHeight: '70vh', overflowY: 'auto' }}>
-            <div style={{ fontWeight: 800, fontSize: 16, color: T.text, marginBottom: 4 }}>
-              {openSlot}：{(PERMITTED[openSlot] || []).join('/')} の3位</div>
-            <p style={{ color: T.faint, fontSize: 12.5, margin: '0 0 12px' }}>使用済み・3位未予想のチームは選べません。</p>
-            {ta[openSlot] && (
-              <button onClick={() => choose(openSlot, null)} style={{ width: '100%', border: 'none',
-                borderRadius: 12, padding: '11px', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800,
-                fontSize: 14, background: T.panel2, color: T.sub, marginBottom: 8 }}>この枠を空にする</button>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {cand.map(({ g, code }) => {
-                const tm = TEAM[code];
-                const usedElsewhere = usedCodes.includes(code) && ta[openSlot] !== code;
-                return (
-                  <button key={code} onClick={() => !usedElsewhere && choose(openSlot, code)} disabled={usedElsewhere}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                      border: 'none', cursor: usedElsewhere ? 'default' : 'pointer', fontFamily: 'inherit',
-                      background: T.card, borderRadius: 12, padding: '11px 13px', opacity: usedElsewhere ? 0.4 : 1,
-                      boxShadow: ta[openSlot] === code ? `inset 0 0 0 1px ${T.accent}` : `inset 0 0 0 1px ${T.line}` }}>
-                    <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 12, color: T.accent, width: 18 }}>{g}</span>
-                    <span style={{ fontSize: 20 }}>{tm ? tm.flag : '🏳️'}</span>
-                    <span style={{ fontWeight: 700, color: T.text, fontSize: 14, flex: 1 }}>{tm ? tm.ja : code}</span>
-                    {usedElsewhere && <span style={{ fontSize: 11, color: T.faint }}>使用済み</span>}
-                  </button>
-                );
-              })}
-              {cand.length === 0 && <div style={{ color: T.faint, fontSize: 13, padding: '8px 0' }}>
-                このグループ群の3位がまだ予想されていません。先にグループ順位予想を進めてください。</div>}
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: 9 }}>
+        {GROUPS.map((g) => <Chip key={g} g={g} />)}
+      </div>
+
+      {/* プレビュー：8組確定時に対戦カードを表示 */}
+      {assign && (
+        <div style={{ marginTop: 18 }}>
+          <Eyebrow T={T}>自動割当（公式組み合わせ表）</Eyebrow>
+          <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(2, 1fr)' : '1fr', gap: 8, marginTop: 8 }}>
+            {(window.WC.WILDCARD_SLOTS || []).map((slot) => {
+              const wseed = winnerSeedOf[slot] || ''; // 'E1'
+              const wg = wseed[0] || '?';
+              const wcode = wseed ? (gr[wseed[0]] || [])[0] : null;
+              const wtm = wcode ? TEAM[wcode] : null;
+              const tcode = assign[slot];
+              const ttm = tcode ? TEAM[tcode] : null;
+              return (
+                <div key={slot} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                  background: T.card, borderRadius: 12, padding: '10px 12px',
+                  boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+                  <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, color: T.faint, width: 26 }}>{slot}</span>
+                  <span style={{ fontSize: 16 }}>{wtm ? wtm.flag : '🏳️'}</span>
+                  <span style={{ fontWeight: 700, fontSize: 12.5, color: T.text, flex: 1, minWidth: 0,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {wtm ? wtm.ja : `${wg}組1位`}</span>
+                  <span style={{ fontSize: 11, color: T.faint, fontWeight: 800 }}>vs</span>
+                  <span style={{ fontSize: 16 }}>{ttm ? ttm.flag : '⚪️'}</span>
+                  <span style={{ fontWeight: 800, fontSize: 12.5, color: T.accent, flex: 1, minWidth: 0,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {ttm ? ttm.ja : '3位未予想'}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
+
+      <OptionSaveBar T={T} onSave={goBack}
+        hint="選択はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
     </div>
   );
 }

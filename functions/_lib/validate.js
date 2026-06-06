@@ -68,8 +68,19 @@ export function validateConfig(input) {
     }
     thirdAssign[k] = v.toUpperCase();
   }
+  // thirdGroups（3位通過した8グループの選択。A〜L の重複なし、最大8。thirdAssign の出自。空可）
+  const tgi = Array.isArray(ri.thirdGroups) ? ri.thirdGroups : [];
+  const thirdGroups = [];
+  for (const g of tgi) {
+    if (!isStr(g)) return { ok: false, error: `result.thirdGroups に不正な値: ${g}` };
+    const gu = g.toUpperCase();
+    if (!/^[A-L]$/.test(gu)) return { ok: false, error: `result.thirdGroups に不正なグループ: ${g}` };
+    if (thirdGroups.includes(gu)) return { ok: false, error: `result.thirdGroups にグループ重複: ${gu}` };
+    thirdGroups.push(gu);
+  }
+  if (thirdGroups.length > 8) return { ok: false, error: 'result.thirdGroups は最大8グループです' };
   const topScorer = isStr(ri.topScorer) ? ri.topScorer.trim() : '';
-  const result = { champion, runnerUp, topScorer, bracket, knockout, thirdAssign };
+  const result = { champion, runnerUp, topScorer, bracket, knockout, thirdAssign, thirdGroups };
 
   // schedule（緩め）
   let schedule = [];
@@ -77,6 +88,7 @@ export function validateConfig(input) {
     if (!Array.isArray(input.schedule)) return { ok: false, error: 'schedule は配列が必要です' };
     schedule = input.schedule.map((s) => ({
       date: isStr(s?.date) ? s.date : '',
+      time: isStr(s?.time) ? s.time : '',
       round: isStr(s?.round) ? s.round : '',
       a: isStr(s?.a) ? s.a : '',
       b: isStr(s?.b) ? s.b : '',
