@@ -149,6 +149,9 @@
       const [busy, setBusy] = useState(false);
       const [err, setErr] = useState('');
       const [done, setDone] = useState(false);
+      const previewRef = useRef(preview);
+      previewRef.current = preview;
+      useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); }, []);
       const MAX = 1000;
       const remain = MAX - Array.from(text).length;
 
