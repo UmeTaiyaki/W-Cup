@@ -2,6 +2,10 @@ name = "wcup2026-yosou"
 pages_build_output_dir = "public"
 compatibility_date = "2026-01-01"
 
+# 公開設定（バージョン管理してよい値のみ）。秘密値は wrangler pages secret put で別管理。
+[vars]
+TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
+
 [[kv_namespaces]]
 binding = "CONFIG"
 id = "8c9c431e2ee146a5a8ebafed58758a45"
