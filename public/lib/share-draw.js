@@ -83,6 +83,20 @@ function fitText(ctx, text, maxW) {
   return s.slice(0, lo) + ell;
 }
 
+// 幅に収まるよう、まずフォントサイズを縮めて全文表示を試みる。最小サイズでも収まらない
+// 場合のみ末尾を「…」で省略する。ctx.font を最終サイズに設定し、描画文字列を返す。
+// fontFn は jp / arc。
+function fitTextScaled(ctx, text, maxW, fontFn, weight, baseSize, minSize) {
+  const s = String(text == null ? '' : text);
+  let size = baseSize;
+  ctx.font = fontFn(weight, size);
+  while (size > minSize && ctx.measureText(s).width > maxW) {
+    size -= 2;
+    ctx.font = fontFn(weight, size);
+  }
+  return ctx.measureText(s).width <= maxW ? s : fitText(ctx, s, maxW);
+}
+
 // 絵文字フラグを描画し、視覚的中心を cy に合わせる（視覚的な幅を返す）。
 // iOS Safari と Chrome で絵文字のメトリクスが異なるため、固定baselineや advance幅
 // ではなく、縦横とも実測のバウンディングボックスで位置合わせする。
@@ -231,11 +245,10 @@ function drawGroupRow(ctx, pal, entry, rank, color, bx, cy, colW) {
     ctx.fillStyle = pal.text;
     const fw = drawFlag(ctx, flagOf(code), fx, cy, 25, 'left');
     const nx = fx + fw + 8;
-    ctx.font = jp(700, 20);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = pal.text;
-    ctx.fillText(fitText(ctx, nameOf(code), bx + colW - pad - nx), nx, cy + 1);
+    ctx.fillText(fitTextScaled(ctx, nameOf(code), bx + colW - pad - nx, jp, 700, 20, 13), nx, cy + 1);
   } else {
     ctx.font = jp(700, 18);
     ctx.fillStyle = pal.faint;
@@ -262,14 +275,8 @@ function drawCoreCard(ctx, pal, pred, W, H) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const champName = champ ? nameOf(champ) : '未予想';
-  let ns = 84;
-  ctx.font = arc(900, ns);
-  while (ctx.measureText(champName).width > W - 140 && ns > 44) {
-    ns -= 4;
-    ctx.font = arc(900, ns);
-  }
   ctx.fillStyle = champ ? pal.text : pal.faint;
-  ctx.fillText(fitText(ctx, champName, W - 100), cx, 540);
+  ctx.fillText(fitTextScaled(ctx, champName, W - 100, arc, 900, 84, 38), cx, 540);
 
   // 準優勝
   const runner = pred.runnerUp;
@@ -309,16 +316,13 @@ function drawCoreRow(ctx, pal, label, labelColor, flag, main, sub, empty, x, y, 
     ctx.fillStyle = pal.faint;
     ctx.fillText('未予想', tx, cyc);
   } else if (sub) {
-    ctx.font = arc(900, 40);
     ctx.fillStyle = pal.text;
-    ctx.fillText(fitText(ctx, main, maxW), tx, cyc - 15);
-    ctx.font = jp(700, 23);
+    ctx.fillText(fitTextScaled(ctx, main, maxW, arc, 900, 40, 24), tx, cyc - 15);
     ctx.fillStyle = pal.sub;
-    ctx.fillText(fitText(ctx, sub, maxW), tx, cyc + 23);
+    ctx.fillText(fitTextScaled(ctx, sub, maxW, jp, 700, 23, 15), tx, cyc + 23);
   } else {
-    ctx.font = jp(800, 42);
     ctx.fillStyle = pal.text;
-    ctx.fillText(fitText(ctx, main, maxW), tx, cyc);
+    ctx.fillText(fitTextScaled(ctx, main, maxW, jp, 800, 42, 24), tx, cyc);
   }
 }
 
@@ -448,9 +452,13 @@ function drawKnockoutCard(ctx, pal, pred, W, H) {
   drawFlag(ctx, champ ? flagOf(champ) : '🏆', W / 2, chY + 48, 54, 'center');
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = jp(900, 30);
   ctx.fillStyle = champ ? pal.text : pal.faint;
-  ctx.fillText(champ ? fitText(ctx, nameOf(champ), champW - 28) : '優勝予想', W / 2, chY + 100);
+  if (champ) {
+    ctx.fillText(fitTextScaled(ctx, nameOf(champ), champW - 28, jp, 900, 30, 18), W / 2, chY + 100);
+  } else {
+    ctx.font = jp(900, 30);
+    ctx.fillText('優勝予想', W / 2, chY + 100);
+  }
 
   // 決勝カード（左finalist v. 右finalist）
   const fy = chY + chH + 44;
@@ -502,9 +510,9 @@ function drawR32Team(ctx, pal, code, winner, seed, x, y, w, h, isLeft) {
     ctx.fillStyle = flagColor;
     const fw = drawFlag(ctx, flag, flagX, cy, 24, 'left');
     const nameX = flagX + fw + 8;
-    ctx.font = jp(700, 19); ctx.fillStyle = nameColor;
+    ctx.fillStyle = nameColor;
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(fitText(ctx, code ? nameOf(code) : '未定', x + w - pad - nameX), nameX, cy);
+    ctx.fillText(fitTextScaled(ctx, code ? nameOf(code) : '未定', x + w - pad - nameX, jp, 700, 19, 12), nameX, cy);
   } else {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
@@ -514,9 +522,9 @@ function drawR32Team(ctx, pal, code, winner, seed, x, y, w, h, isLeft) {
     ctx.fillStyle = flagColor;
     const fw = drawFlag(ctx, flag, flagRight, cy, 24, 'right');
     const nameRight = flagRight - fw - 8;
-    ctx.font = jp(700, 19); ctx.fillStyle = nameColor;
+    ctx.fillStyle = nameColor;
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    ctx.fillText(fitText(ctx, code ? nameOf(code) : '未定', nameRight - (x + pad)), nameRight, cy);
+    ctx.fillText(fitTextScaled(ctx, code ? nameOf(code) : '未定', nameRight - (x + pad), jp, 700, 19, 12), nameRight, cy);
   }
   ctx.globalAlpha = 1;
 }

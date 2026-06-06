@@ -36,9 +36,9 @@ function PodiumHero({ T, champ, onEdit }) {
           fontSize: 40, background: 'rgba(255,255,255,0.06)',
           boxShadow: `0 0 0 2px ${T.gold}66`,
         }}>{champ ? champ.flag : '🏳️'}</div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 30, fontWeight: 800, color: T.text, lineHeight: 1.05,
-            letterSpacing: -0.5 }}>{champ ? champ.ja : '未選択'}</div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <FitText text={champ ? champ.ja : '未選択'} max={30} min={16} weight={800}
+            color={T.text} lineHeight={1.05} letterSpacing={-0.5} />
           <div style={{ fontFamily: 'Archivo, system-ui', fontWeight: 700, fontSize: 13,
             letterSpacing: 2, color: T.faint, marginTop: 3 }}>{champ ? champ.code : '—'}</div>
         </div>
@@ -73,9 +73,9 @@ function MiniPick({ T, label, sub, code, scorer, color, icon, onEdit }) {
           : <div style={{ width: 38, height: 38, borderRadius: 10, display: 'grid',
               placeItems: 'center', background: T.panel2, fontSize: 20 }}>⚽️</div>}
       </div>
-      <div style={{ fontSize: 17, fontWeight: 800, color: T.text, marginTop: 8,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {code ? window.WC.TEAM[code]?.ja : (scorer || '未選択')}
+      <div style={{ marginTop: 8 }}>
+        <FitText text={code ? window.WC.TEAM[code]?.ja : (scorer || '未選択')}
+          max={17} min={11} weight={800} color={T.text} />
       </div>
       <div style={{ fontSize: 11.5, color: T.faint, marginTop: 1 }}>{sub}</div>
     </div>

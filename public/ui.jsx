@@ -498,6 +498,38 @@ function OptionSaveBar({ T, onSave, hint, style }) {
   );
 }
 
+// 1行に収まるよう文字サイズを自動で縮める（省略しない）。max から min まで段階縮小。
+// 長い国名（例: ボスニア・ヘルツェゴビナ）を「…」省略せず全文表示するために使う。
+function FitText({ text, max, min = 12, weight = 800, color, lineHeight, letterSpacing, style }) {
+  const ref = React.useRef(null);
+  const [size, setSize] = React.useState(max);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      let s = max;
+      el.style.fontSize = s + 'px';
+      let guard = 120;
+      while (s > min && el.scrollWidth > el.clientWidth && guard-- > 0) {
+        s -= 1;
+        el.style.fontSize = s + 'px';
+      }
+      setSize(s);
+    };
+    measure();
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+    }
+    return () => { if (ro) ro.disconnect(); };
+  }, [text, max, min]);
+  return (
+    <div ref={ref} style={{ whiteSpace: 'nowrap', overflow: 'hidden', fontSize: size,
+      fontWeight: weight, color, lineHeight, letterSpacing, ...style }}>{text}</div>
+  );
+}
+
 Object.assign(window, {
-  Icon, Flag, TeamLine, Avatar, Eyebrow, Card, Sheet, SquadSheet, TeamPicker, ScorerSelect, ScorerPicker, OptionSaveBar,
+  Icon, Flag, TeamLine, Avatar, Eyebrow, Card, Sheet, SquadSheet, TeamPicker, ScorerSelect, ScorerPicker, OptionSaveBar, FitText,
 });

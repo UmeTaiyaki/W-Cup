@@ -250,6 +250,39 @@ function Editor({ token, onAuthExpired, initial }) {
   function addSched() { up({ schedule: [...sched, { date: '', time: '', round: '', a: '', b: '', note: '' }] }); }
   function delSched(i) { up({ schedule: sched.filter((_, j) => j !== i) }); }
 
+  // ノックアウト日程の自動解決: 上部で入力した結果(グループ順位・3位割当・到達チーム)から
+  // 各試合の実チームを deriveKnockoutFromSets で算出し、日程行にライブ表示する。
+  // FIFA 試合番号(#73-104) → deriveKnockout の matches 配列内位置 [round, index] の対応表。
+  const KO_SLOT = {
+    73: ['r32', 2], 74: ['r32', 0], 75: ['r32', 3], 76: ['r32', 8], 77: ['r32', 1], 78: ['r32', 9],
+    79: ['r32', 10], 80: ['r32', 11], 81: ['r32', 6], 82: ['r32', 7], 83: ['r32', 4], 84: ['r32', 5],
+    85: ['r32', 14], 86: ['r32', 12], 87: ['r32', 15], 88: ['r32', 13],
+    89: ['r16', 0], 90: ['r16', 1], 91: ['r16', 4], 92: ['r16', 5], 93: ['r16', 2], 94: ['r16', 3], 95: ['r16', 6], 96: ['r16', 7],
+    97: ['qf', 0], 98: ['qf', 1], 99: ['qf', 2], 100: ['qf', 3],
+    101: ['sf', 0], 102: ['sf', 1],
+  };
+  const der = window.WC?.deriveKnockoutFromSets
+    ? window.WC.deriveKnockoutFromSets(cfg.groupResult || {}, cfg.result?.thirdAssign || {}, cfg.result?.knockout || {})
+    : null;
+  // 日程1行 → [teamA, teamB]（未確定は null）。ノックアウト行(note の #番号)のみ対象。
+  function resolveSchedTeams(s) {
+    if (!der) return null;
+    const m = /^#(\d+)/.exec(s.note || '');
+    if (!m) return null;
+    const n = Number(m[1]);
+    if (n === 104) { const f = der.winners?.sf || []; return [f[0] || null, f[1] || null]; } // 決勝＝両準決勝の勝者
+    if (n === 103) { // 3位決定戦＝両準決勝の敗者（勝者が確定している試合のみ）
+      const sfm = der.matches?.sf || []; const sfw = der.winners?.sf || [];
+      const loser = (i) => (sfw[i] ? (sfm[i] || []).find((t) => t && t !== sfw[i]) || null : null);
+      return [loser(0), loser(1)];
+    }
+    const slot = KO_SLOT[n];
+    if (!slot) return null;
+    const pair = (der.matches?.[slot[0]] || [])[slot[1]] || [];
+    return [pair[0] || null, pair[1] || null];
+  }
+  const teamName = (c) => (c ? `${window.WC.TEAM?.[c]?.flag || ''}${window.WC.TEAM?.[c]?.ja || c}` : '未定');
+
   async function save() {
     setBusy(true); setMsg('');
     try {
@@ -475,8 +508,15 @@ function Editor({ token, onAuthExpired, initial }) {
       </Section>
 
       <Section title="試合日程（参考）">
-        {sched.map((s, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <p style={{ fontSize: 12, color: '#9aa', margin: '0 0 12px' }}>
+          ノックアウト（R32以降）の行は、上部で入力した結果（グループ順位・3位通過・各ラウンド到達チーム）から
+          実際の対戦国を自動表示します（緑字）。スロット表記（1A＝A組1位 等）はそのまま保持されます。
+        </p>
+        {sched.map((s, i) => {
+          const resolved = resolveSchedTeams(s);
+          return (
+          <div key={i} style={{ marginBottom: 6 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <input type="date" value={s.date} onChange={(e) => setSched(i, { date: e.target.value })} style={inputStyle} />
             <input type="time" value={s.time || ''} onChange={(e) => setSched(i, { time: e.target.value })} style={{ ...inputStyle, width: 110 }} title="日本時間(JST)" />
             <input value={s.round} placeholder="GL/R16..." onChange={(e) => setSched(i, { round: e.target.value })} style={{ ...inputStyle, width: 90 }} />
@@ -485,8 +525,15 @@ function Editor({ token, onAuthExpired, initial }) {
             <input value={s.b} placeholder="B" onChange={(e) => setSched(i, { b: e.target.value })} style={{ ...inputStyle, width: 80 }} />
             <input value={s.note} placeholder="メモ" onChange={(e) => setSched(i, { note: e.target.value })} style={{ ...inputStyle, flex: 1 }} />
             <button onClick={() => delSched(i)} style={{ ...inputStyle, cursor: 'pointer', color: '#FF6B6B' }}>削除</button>
+            </div>
+            {resolved && (resolved[0] || resolved[1]) && (
+              <div style={{ fontSize: 13, color: '#B6FF3C', margin: '2px 0 0 4px' }}>
+                → {teamName(resolved[0])} vs {teamName(resolved[1])}
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
         <button onClick={addSched} style={{ ...inputStyle, cursor: 'pointer', marginTop: 6 }}>＋ 試合を追加</button>
       </Section>
 
