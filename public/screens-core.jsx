@@ -251,13 +251,13 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
 }
 
 // ===== 予想入力画面 =========================================
-function InputScreen({ T, state, member, pred, setPick, onRemove, canRemove, goOption, wide = false, solo = false }) {
+function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, canRemove = false, goOption, wide = false, solo = false }) {
   const champ = pred.champion ? window.WC.TEAM[pred.champion] : null;
   const [sheet, setSheet] = React.useState(null); // 'champ' | 'runner' | 'scorer'
   const [confirm, setConfirm] = React.useState(false);
   React.useEffect(() => { setConfirm(false); }, [member.id]);
 
-  // OptionViewScreen は state.members/preds を参照するため単一メンバーのシムを渡す
+  // 通常は呼び出し側が state を渡す。未指定時のフォールバックとして単一メンバーのシムを使う
   const viewState = state || { current: member.id, members: [member], preds: { [member.id]: pred } };
 
   return (
