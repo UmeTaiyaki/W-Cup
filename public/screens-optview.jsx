@@ -4,7 +4,7 @@
    編集はしない。上部のメンバーチップで閲覧対象を切り替えられる。
    props: T, state, viewId, setViewId, goBack, wide, availWidth
    ============================================================ */
-function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0, backLabel = 'ホームに戻る', embedded = false }) {
+function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0, backLabel = 'ホームに戻る', embedded = false, editable = false, onEdit }) {
   const members = state.members;
   const viewed = members.find((m) => m.id === viewId) || members[0];
   const pred = (viewed && state.preds[viewed.id]) || {};
@@ -112,12 +112,21 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   );
 
   // ---- 小見出し（グループステージ内の区切り）----
-  const SubHead = ({ emoji, text, note }) => (
+  const SubHead = ({ emoji, text, note, editId }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '0 0 10px' }}>
       <span style={{ fontSize: 14 }}>{emoji}</span>
       <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1,
         color: T.sub }}>{text}</span>
       {note && <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.faint }}>{note}</span>}
+      {editable && onEdit && editId && (
+        <button onClick={() => onEdit(editId)} style={{
+          marginLeft: note ? 8 : 'auto', flexShrink: 0, border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', borderRadius: 999, padding: '5px 11px', display: 'flex',
+          alignItems: 'center', gap: 5, background: T.panel2, color: T.accent, fontWeight: 800,
+          fontSize: 12, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+          <Icon name="edit" size={13} color={T.accent} sw={2} />編集
+        </button>
+      )}
     </div>
   );
 
@@ -245,7 +254,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         {section === 'group' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <SubHead emoji="📊" text="グループ順位" note={`${grDone}/12組`} />
+              <SubHead emoji="📊" text="グループ順位" note={`${grDone}/12組`} editId="grouprank" />
               {GK.some((k) => (gr[k] || []).filter(Boolean).length > 0) ? (
                 <div style={{ display: 'grid',
                   gridTemplateColumns: wide ? '1fr 1fr' : '1fr', gap: 8, alignItems: 'start' }}>
@@ -254,6 +263,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
               ) : <MiniEmpty text="グループ順位予想はまだありません" />}
             </div>
             <div>
+              <SubHead emoji="🥉" text="3位ワイルドカード" note={`${taDone}組`} editId="thirdwild" />
               {taDone > 0
                 ? <WildcardAccordion />
                 : <MiniEmpty text="3位ワイルドカードはまだ割り当てられていません" />}
@@ -263,9 +273,14 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
 
         {/* ノックアウト */}
         {section === 'ko' && (
-          koAny ? (
-            <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
-          ) : <EmptyHint text="ノックアウト予想はまだありません" />
+          <div>
+            {editable && onEdit && (
+              <SubHead emoji="🏟" text="ノックアウト" editId="knockout" />
+            )}
+            {koAny ? (
+              <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
+            ) : <EmptyHint text="ノックアウト予想はまだありません" />}
+          </div>
         )}
       </div>
     </React.Fragment>
