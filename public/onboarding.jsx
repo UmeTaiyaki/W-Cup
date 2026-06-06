@@ -362,9 +362,8 @@ function Onboarding({ T, onDone, siteKey }) {
             {copied ? 'コピー済' : 'コピー'}</button>
         </div>
         <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '12px 0 0' }}>
-          ⚠️ このコードは別の端末で予想を続けるために使います。<br />
-          <b style={{ color: T.sub }}>このブラウザのデータを消すと予想は消えます。</b>
-          コードを無くすと復元できません。スクショ等で保管してください。</p>
+          別の端末で予想を続けるときに使います。
+          <b style={{ color: T.sub }}>無くすと復元できません</b>ので、スクショなどで保管してください。</p>
       </div>
 
       <div style={{ marginTop: 20 }}>

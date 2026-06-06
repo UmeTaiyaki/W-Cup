@@ -68,14 +68,14 @@
   <script type="text/babel" src="app-shell.jsx?v=4"></script>
   <script type="text/babel" src="screens-core.jsx?v=12"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=4"></script>
-  <script type="text/babel" src="screens-rank.jsx?v=4"></script>
+  <script type="text/babel" src="screens-rank.jsx?v=5"></script>
   <script type="text/babel" src="screens-group.jsx?v=4"></script>
   <script type="text/babel" src="screens-grouprank.jsx?v=4"></script>
   <script type="text/babel" src="screens-thirdwild.jsx?v=4"></script>
   <script type="text/babel" src="screens-share.jsx?v=3"></script>
   <script type="text/babel" src="screens-optview.jsx?v=9"></script>
-  <script type="text/babel" src="onboarding.jsx?v=6"></script>
-  <script type="text/babel" src="screens-rooms.jsx?v=7"></script>
+  <script type="text/babel" src="onboarding.jsx?v=7"></script>
+  <script type="text/babel" src="screens-rooms.jsx?v=8"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -346,9 +346,8 @@
                 {copied ? 'コピー済' : 'コピー'}</button>
             </div>
             <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '12px 0 0' }}>
-              別の端末で予想を続けるときに使うコードです。
-              <b style={{ color: T.sub }}>このブラウザのデータを消すと予想は消えます。</b>
-              無くすと復元できません。</p>
+              別の端末で予想を続けるときに使います。
+              <b style={{ color: T.sub }}>無くすと復元できません</b>ので大切に保管してください。</p>
           </div>
 
           {/* フィードバック */}

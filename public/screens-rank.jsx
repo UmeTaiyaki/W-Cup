@@ -127,29 +127,21 @@ function RankingScreen({ T, state, wide = false }) {
     </div>
   );
 
-  // ----- 集計状況バナー（確定結果 or 大会開始前を正直に表示）-----
+  // ----- 集計状況バナー（大会中のみ確定結果を表示。大会前は非表示）-----
   const Banner = () => {
+    if (!resultsLive) return null;
     const champ = R.champion ? window.WC.TEAM[R.champion] : null;
     const runner = R.runnerUp ? window.WC.TEAM[R.runnerUp] : null;
     const scorer = (R.topScorer || '').trim();
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: T.panel2,
         borderRadius: 14, padding: '11px 13px', margin: '12px 0 16px' }}>
-        <Icon name={resultsLive ? 'flame' : 'trophy'} size={17}
-          color={resultsLive ? T.accent : T.faint} />
+        <Icon name="flame" size={17} color={T.accent} />
         <div style={{ fontSize: 13, color: T.sub, lineHeight: 1.45 }}>
-          {resultsLive ? (
-            <React.Fragment>
-              <b style={{ color: T.text }}>確定結果</b>で集計中 ·{' '}
-              優勝 {champ ? `${champ.flag}${champ.ja}` : '—'} /{' '}
-              準優勝 {runner ? `${runner.flag}${runner.ja}` : '—'} /{' '}
-              得点王 {scorer || '—'}
-            </React.Fragment>
-          ) : (
-            <React.Fragment>
-              <b style={{ color: T.text }}>大会開始前</b> · 結果が確定すると自動でここに集計されます
-            </React.Fragment>
-          )}
+          <b style={{ color: T.text }}>確定結果</b>で集計中 ·{' '}
+          優勝 {champ ? `${champ.flag}${champ.ja}` : '—'} /{' '}
+          準優勝 {runner ? `${runner.flag}${runner.ja}` : '—'} /{' '}
+          得点王 {scorer || '—'}
         </div>
       </div>
     );
@@ -162,10 +154,9 @@ function RankingScreen({ T, state, wide = false }) {
       padding: '26px 18px', margin: wide ? '0 auto 4px' : '0 0 18px',
       maxWidth: wide ? 460 : 'none' }}>
       <Icon name="trophy" size={26} color={T.faint} />
-      <div style={{ fontWeight: 800, fontSize: 15, color: T.text }}>順位はまだ確定していません</div>
+      <div style={{ fontWeight: 800, fontSize: 15, color: T.text }}>まだ順位はつきません</div>
       <div style={{ fontSize: 13, color: T.sub, textAlign: 'center', lineHeight: 1.5 }}>
-        {M.length}人が予想を登録済み。<br />
-        試合結果が入力されると、ここに的中ポイントのランキングが表示されます。
+        {M.length}人が予想を登録済み。試合結果が出ると順位が表示されます。
       </div>
     </div>
   );
