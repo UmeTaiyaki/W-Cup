@@ -36,7 +36,7 @@ function CompareScreen({ T, state, goTab, wide = false }) {
                 <Avatar m={m} size={30} T={T} />
                 <span style={{ fontWeight: 700, color: T.sub, fontSize: 14, width: 52 }}>{m.name}</span>
                 <span style={{ fontSize: 22 }}>{isTeam ? (team ? team.flag : '🏳️') : '⚽️'}</span>
-                <span style={{ fontWeight: 800, color: T.text, fontSize: 15.5, flex: 1,
+                <span style={{ fontWeight: 800, color: T.text, fontSize: 16, flex: 1,
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {isTeam ? (team ? team.ja : '未選択') : (v || '未選択')}</span>
                 {agree && (
@@ -137,7 +137,7 @@ function RankingScreen({ T, state, wide = false }) {
         borderRadius: 14, padding: '11px 13px', margin: '12px 0 16px' }}>
         <Icon name={resultsLive ? 'flame' : 'trophy'} size={17}
           color={resultsLive ? T.accent : T.faint} />
-        <div style={{ fontSize: 12.5, color: T.sub, lineHeight: 1.45 }}>
+        <div style={{ fontSize: 13, color: T.sub, lineHeight: 1.45 }}>
           {resultsLive ? (
             <React.Fragment>
               <b style={{ color: T.text }}>確定結果</b>で集計中 ·{' '}
@@ -163,7 +163,7 @@ function RankingScreen({ T, state, wide = false }) {
       maxWidth: wide ? 460 : 'none' }}>
       <Icon name="trophy" size={26} color={T.faint} />
       <div style={{ fontWeight: 800, fontSize: 15, color: T.text }}>順位はまだ確定していません</div>
-      <div style={{ fontSize: 12.5, color: T.sub, textAlign: 'center', lineHeight: 1.5 }}>
+      <div style={{ fontSize: 13, color: T.sub, textAlign: 'center', lineHeight: 1.5 }}>
         {M.length}人が予想を登録済み。<br />
         試合結果が入力されると、ここに的中ポイントのランキングが表示されます。
       </div>
@@ -255,7 +255,7 @@ function RankingScreen({ T, state, wide = false }) {
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 21,
                   color: T.text }}>{keyOf(item.s)}</span>
-                <span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}> pt</span>
+                <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}> pt</span>
               </div>
             </div>
           );
@@ -339,7 +339,7 @@ function RankingScreen({ T, state, wide = false }) {
                     color: T.text }}>{keyOf(item.s)}</span>
                   <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}> pt</span>
                 </div>
-                <div style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: '.2s' }}>
+                <div style={{ transform: isOpen ? 'rotate(90deg)' : 'none', transition: '.2s ease' }}>
                   <Icon name="chevron" size={16} color={T.faint} />
                 </div>
               </button>
@@ -352,7 +352,7 @@ function RankingScreen({ T, state, wide = false }) {
                       label={`得点王 +${item.s.core.topScorer}`} />
                   </div>
                   {division === 'grand' && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 12.5, color: T.sub }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 13, color: T.sub }}>
                       <span>順位的中 <b style={{ color: T.text }}>+{item.s.option.groupRank}</b>（{item.s.option.rankHits}）</span>
                       <span>ノックアウト <b style={{ color: T.text }}>+{item.s.option.knockout}</b>
                         <span style={{ color: T.faint }}>（16強{item.s.option.koHits.r32}・8強{item.s.option.koHits.r16}・4強{item.s.option.koHits.qf}・決勝{item.s.option.koHits.sf}）</span></span>

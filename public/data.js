@@ -102,7 +102,8 @@
       text: '#F3F7F2', sub: 'rgba(226,240,228,0.62)', faint: 'rgba(226,240,228,0.4)',
       accent: '#B6FF3C', accentInk: '#0A1410',
       gold: '#F6C744', silver: '#C9D2DA', boot: '#FF8A3D',
-      grad: 'radial-gradient(120% 80% at 50% -10%, #16382650 0%, transparent 60%)',
+      danger: '#FF6B6B', dangerSoft: 'rgba(255,107,107,0.27)', onSolid: '#FFFFFF',
+      grad: 'radial-gradient(120% 80% at 50% -10%, #16382650 0%, transparent 60%), radial-gradient(90% 55% at 105% 108%, rgba(182,255,60,0.06) 0%, transparent 55%)',
     },
     classic: {
       label: 'クラシック',
@@ -111,7 +112,8 @@
       text: '#141B2E', sub: 'rgba(20,27,46,0.58)', faint: 'rgba(20,27,46,0.4)',
       accent: '#1E50E6', accentInk: '#FFFFFF',
       gold: '#E4A413', silver: '#8A97A6', boot: '#E2582B',
-      grad: 'radial-gradient(120% 80% at 50% -10%, #1E50E60D 0%, transparent 55%)',
+      danger: '#E5484D', dangerSoft: 'rgba(229,72,77,0.27)', onSolid: '#FFFFFF',
+      grad: 'radial-gradient(120% 80% at 50% -10%, #1E50E60D 0%, transparent 55%), radial-gradient(90% 55% at 105% 108%, rgba(30,80,230,0.05) 0%, transparent 55%)',
     },
     bold: {
       label: 'ボールド',
@@ -120,7 +122,8 @@
       text: '#F6F1FF', sub: 'rgba(232,221,255,0.62)', faint: 'rgba(232,221,255,0.42)',
       accent: '#FF3D8B', accentInk: '#FFFFFF',
       gold: '#FFD23D', silver: '#C7CBE0', boot: '#21E6C1',
-      grad: 'radial-gradient(120% 80% at 50% -10%, #FF3D8B22 0%, transparent 58%)',
+      danger: '#FF6B6B', dangerSoft: 'rgba(255,107,107,0.27)', onSolid: '#FFFFFF',
+      grad: 'radial-gradient(120% 80% at 50% -10%, #FF3D8B22 0%, transparent 58%), radial-gradient(90% 55% at 105% 108%, rgba(33,230,193,0.06) 0%, transparent 55%)',
     },
   };
 

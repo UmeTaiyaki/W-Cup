@@ -47,10 +47,10 @@ function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false
           color: on ? T.accentInk : T.accent }}>{g}</span>
         <span style={{ fontSize: 19 }}>{tm ? tm.flag : '⚪️'}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden',
+          <div style={{ fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden',
             textOverflow: 'ellipsis', color: on ? T.accentInk : (tm ? T.text : T.faint) }}>
             {tm ? tm.ja : '3位未予想'}</div>
-          <div style={{ fontSize: 10.5, fontFamily: 'Archivo', letterSpacing: 0.4,
+          <div style={{ fontSize: 11, fontFamily: 'Archivo', letterSpacing: 0.4,
             color: on ? T.accentInk + 'cc' : T.faint }}>{g}組 3位</div>
         </div>
         {on && <Icon name="check" size={15} color={T.accentInk} sw={2.6} />}
@@ -61,7 +61,7 @@ function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false
   return (
     <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px' }}>
       <button onClick={goBack} style={{ border: 'none', background: 'transparent', color: T.accent,
-        fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
+        fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
         display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', marginBottom: 6 }}>
         <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><Icon name="chevron" size={15} color={T.accent} /></span>予想ハブに戻る
       </button>
@@ -97,12 +97,12 @@ function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false
                   boxShadow: `inset 0 0 0 1px ${T.line}` }}>
                   <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, color: T.faint, width: 26 }}>{slot}</span>
                   <span style={{ fontSize: 16 }}>{wtm ? wtm.flag : '🏳️'}</span>
-                  <span style={{ fontWeight: 700, fontSize: 12.5, color: T.text, flex: 1, minWidth: 0,
+                  <span style={{ fontWeight: 700, fontSize: 13, color: T.text, flex: 1, minWidth: 0,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {wtm ? wtm.ja : `${wg}組1位`}</span>
                   <span style={{ fontSize: 11, color: T.faint, fontWeight: 800 }}>vs</span>
                   <span style={{ fontSize: 16 }}>{ttm ? ttm.flag : '⚪️'}</span>
-                  <span style={{ fontWeight: 800, fontSize: 12.5, color: T.accent, flex: 1, minWidth: 0,
+                  <span style={{ fontWeight: 800, fontSize: 13, color: T.accent, flex: 1, minWidth: 0,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {ttm ? ttm.ja : '3位未予想'}</span>
                 </div>

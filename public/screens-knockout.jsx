@@ -58,7 +58,7 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
   const Header = () => (
     <div style={{ padding: wide ? '4px 0 12px' : '4px 16px 12px' }}>
       <button onClick={goBack} style={{ border: 'none', background: 'transparent', color: T.accent,
-        fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
+        fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
         display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', marginBottom: 6 }}>
         <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><Icon name="chevron" size={15} color={T.accent} /></span>予想ハブに戻る
       </button>
@@ -83,7 +83,7 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
           <div style={{ display: 'flex', gap: 5 }}>
             {ROUNDS.map((r, i) => (
               <div key={r} onClick={() => setRi(i)} style={{ width: i === ri ? 18 : 7, height: 7, borderRadius: 4,
-                background: i === ri ? T.accent : T.line, cursor: 'pointer', transition: '.2s' }} />
+                background: i === ri ? T.accent : T.line, cursor: 'pointer', transition: '.2s ease' }} />
             ))}
           </div>
         </div>

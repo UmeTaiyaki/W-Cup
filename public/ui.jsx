@@ -69,6 +69,11 @@ function Icon({ name, size = 24, color = 'currentColor', fill = 'none', sw = 1.9
     user: <g {...p}><circle cx="12" cy="8.5" r="3.4"/><path d="M5.5 19c.5-3.2 3-5 6.5-5s6 1.8 6.5 5"/></g>,
     chat: <g {...p}><path d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></g>,
     image: <g {...p}><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5L5 19"/></g>,
+    chart: <g {...p}><path d="M4 20V11M9.5 20V5M15 20v-6M20.5 20V8M3 20h18"/></g>,
+    target: <g {...p}><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></g>,
+    stadium: <g {...p}><rect x="2.5" y="6" width="19" height="12" rx="6"/><path d="M12 6.4v11.2"/><circle cx="12" cy="12" r="2.1"/></g>,
+    award: <g {...p}><circle cx="12" cy="9" r="5"/><path d="M9.2 13.3 7.4 21l4.6-2.6L16.6 21l-1.8-7.7"/></g>,
+    party: <g {...p}><path d="M4 20l4.2-11.2 7 7L4 20Z"/><path d="M9.3 8.2 11 6M14.2 9.4 16 8.2M16.4 13.2 18.6 13M13.6 4.2 14 2.2M19.5 6.5 21.5 6"/></g>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block', flexShrink: 0 }}>
@@ -132,7 +137,7 @@ function Avatar({ m, size = 36, active = false, T }) {
 function Eyebrow({ children, color, T }) {
   return (
     <div style={{
-      fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 11.5,
+      fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 12,
       letterSpacing: 2.2, textTransform: 'uppercase',
       color: color || T.accent,
     }}>{children}</div>
@@ -252,7 +257,7 @@ function SquadSheet({ T, code, onClose }) {
                     <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 11, color: T.accent, width: 26, flexShrink: 0 }}>{pos}</span>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontWeight: 700, color: T.text, fontSize: 15 }}>{p.name}</div>
-                      {p.club && <div style={{ fontSize: 11.5, color: T.faint, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.club}</div>}
+                      {p.club && <div style={{ fontSize: 12, color: T.faint, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.club}</div>}
                     </div>
                   </div>
                 ))}
@@ -264,7 +269,7 @@ function SquadSheet({ T, code, onClose }) {
                 {other.map((p, i) => (
                   <div key={i} style={{ padding: '7px 2px', borderBottom: `1px solid ${T.line}` }}>
                     <div style={{ fontWeight: 700, color: T.text, fontSize: 15 }}>{p.name}</div>
-                    {p.club && <div style={{ fontSize: 11.5, color: T.faint, fontWeight: 600 }}>{p.club}</div>}
+                    {p.club && <div style={{ fontSize: 12, color: T.faint, fontWeight: 600 }}>{p.club}</div>}
                   </div>
                 ))}
               </div>
@@ -444,7 +449,8 @@ function ScorerPicker({ open, onClose, onPick, T, title = '得点王を選ぶ', 
       <div style={{ padding: '0 12px' }}>
         {showFavs && (
           <div>
-            <div style={sectionStyle}>⭐ 得点王候補</div>
+            <div style={{ ...sectionStyle, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Icon name="star" size={13} color={T.gold} fill="solid" /> 得点王候補</div>
             {favs.map((f, i) => {
               const m = /^(.*)\s+\(([A-Za-z]{2,3})\)$/.exec(f.value) || [];
               const tm = m[2] ? (window.WC.TEAM[m[2]] || {}) : {};
@@ -487,12 +493,12 @@ function OptionSaveBar({ T, onSave, hint, style }) {
         cursor: saved ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 16,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
         background: saved ? T.card : T.accent, color: saved ? T.accent : T.accentInk,
-        boxShadow: saved ? `inset 0 0 0 1.5px ${T.accent}` : 'none', transition: '.18s' }}>
+        boxShadow: saved ? `inset 0 0 0 1.5px ${T.accent}` : 'none', transition: '.18s ease' }}>
         <Icon name="check" size={19} color={saved ? T.accent : T.accentInk} sw={2.6} />
         {saved ? '保存しました' : '保存する'}
       </button>
       {hint && (
-        <p style={{ color: T.faint, fontSize: 11.5, textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}>{hint}</p>
+        <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}>{hint}</p>
       )}
     </div>
   );

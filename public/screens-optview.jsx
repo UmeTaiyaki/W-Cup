@@ -39,7 +39,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   const Header = () => (
     <div style={{ padding: wide ? '4px 0 0' : '4px 16px 0' }}>
       <button onClick={goBack} style={{ border: 'none', background: 'transparent', color: T.accent,
-        fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
+        fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
         display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', marginBottom: 6 }}>
         <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
           <Icon name="chevron" size={15} color={T.accent} /></span>{backLabel}
@@ -68,9 +68,9 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
               border: 'none', cursor: 'pointer', borderRadius: 999, fontFamily: 'inherit',
               padding: active ? '5px 13px 5px 5px' : '5px',
               background: active ? T.card : 'transparent',
-              boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
+              boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s ease' }}>
               <Avatar m={m} size={28} T={T} />
-              {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text }}>{m.name}</span>}
+              {active && <span style={{ fontWeight: 800, fontSize: 14, color: T.text }}>{m.name}</span>}
             </button>
           );
         })}
@@ -90,10 +90,10 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         return (
           <button key={tb.id} onClick={() => setSection(tb.id)} style={{
             border: 'none', cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999,
-            padding: '8px 16px', fontWeight: 800, fontSize: 13.5,
+            padding: '8px 16px', fontWeight: 800, fontSize: 14,
             background: active ? T.accent : T.card,
             color: active ? T.accentInk : T.sub,
-            boxShadow: active ? 'none' : `inset 0 0 0 1px ${T.line}`, transition: '.15s' }}>
+            boxShadow: active ? 'none' : `inset 0 0 0 1px ${T.line}`, transition: '.15s ease' }}>
             {tb.label}
           </button>
         );
@@ -106,17 +106,17 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
     <div style={{ background: T.card, borderRadius: 16, padding: '22px 18px',
       boxShadow: `inset 0 0 0 1px ${T.line}`, textAlign: 'center' }}>
       <div style={{ fontSize: 28, marginBottom: 8 }}>🗒️</div>
-      <div style={{ fontWeight: 800, color: T.text, fontSize: 14.5 }}>{text}</div>
+      <div style={{ fontWeight: 800, color: T.text, fontSize: 15 }}>{text}</div>
       <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '6px 0 0' }}>
         {viewed ? viewed.name : 'この人'}は「予想」タブでまだ入力していないようです。</p>
     </div>
   );
 
   // ---- 小見出し（グループステージ内の区切り）----
-  const SubHead = ({ emoji, text, note, editId }) => (
+  const SubHead = ({ icon, text, note, editId }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '0 0 10px' }}>
-      <span style={{ fontSize: 14 }}>{emoji}</span>
-      <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1,
+      <Icon name={icon} size={15} color={T.accent} sw={2} />
+      <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 12, letterSpacing: 1,
         color: T.sub }}>{text}</span>
       {note && <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: T.faint }}>{note}</span>}
       {editable && onEdit && editId && (
@@ -134,7 +134,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
   // ---- 軽量な空表示（小見出し直下に置く一行）----
   const MiniEmpty = ({ text }) => (
     <div style={{ background: T.card, borderRadius: 14, padding: '14px 16px',
-      boxShadow: `inset 0 0 0 1px ${T.line}`, color: T.faint, fontSize: 12.5, fontWeight: 600 }}>{text}</div>
+      boxShadow: `inset 0 0 0 1px ${T.line}`, color: T.faint, fontSize: 13, fontWeight: 600 }}>{text}</div>
   );
 
   // ---- グループ順位（読み取り専用・アコーディオン）----
@@ -152,7 +152,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           width: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
           fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px' }}>
           <span style={{ display: 'inline-flex', flexShrink: 0,
-            transform: open ? 'rotate(90deg)' : 'none', transition: '.18s' }}>
+            transform: open ? 'rotate(90deg)' : 'none', transition: '.18s ease' }}>
             <Icon name="chevron" size={15} color={T.faint} />
           </span>
           <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 14, color: T.accent, flexShrink: 0 }}>
@@ -168,7 +168,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         </button>
         {open && (
           ranked.length === 0 ? (
-            <div style={{ color: T.faint, fontSize: 12.5, padding: '0 14px 13px' }}>未予想</div>
+            <div style={{ color: T.faint, fontSize: 13, padding: '0 14px 13px' }}>未予想</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '0 11px 12px' }}>
               {ranked.map((code, i) => {
@@ -223,11 +223,11 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
           width: '100%', border: 'none', background: 'transparent', cursor: 'pointer',
           fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 9, padding: '12px 13px' }}>
           <span style={{ display: 'inline-flex', flexShrink: 0,
-            transform: wcOpen ? 'rotate(90deg)' : 'none', transition: '.18s' }}>
+            transform: wcOpen ? 'rotate(90deg)' : 'none', transition: '.18s ease' }}>
             <Icon name="chevron" size={15} color={T.faint} />
           </span>
-          <span style={{ fontSize: 14 }}>🎯</span>
-          <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text, flexShrink: 0 }}>3位ワイルドカード</span>
+          <Icon name="target" size={15} color={T.accent} sw={2} />
+          <span style={{ fontWeight: 800, fontSize: 14, color: T.text, flexShrink: 0 }}>3位ワイルドカード</span>
           {!wcOpen && flags.length > 0 && (
             <span style={{ display: 'flex', gap: 1, fontSize: 15, minWidth: 0, overflow: 'hidden',
               whiteSpace: 'nowrap' }}>
@@ -255,7 +255,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         {section === 'group' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <SubHead emoji="📊" text="グループ順位" note={`${grDone}/12組`} editId="grouprank" />
+              <SubHead icon="chart" text="グループ順位" note={`${grDone}/12組`} editId="grouprank" />
               {GK.some((k) => (gr[k] || []).filter(Boolean).length > 0) ? (
                 <div style={{ display: 'grid',
                   gridTemplateColumns: wide ? '1fr 1fr' : '1fr', gap: 8, alignItems: 'start' }}>
@@ -265,7 +265,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
             </div>
             <div>
               {editable && onEdit && (
-                <SubHead emoji="🥉" text="3位ワイルドカード" editId="thirdwild" />
+                <SubHead icon="award" text="3位ワイルドカード" editId="thirdwild" />
               )}
               {taDone > 0
                 ? <WildcardAccordion />
@@ -278,7 +278,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
         {section === 'ko' && (
           <div>
             {editable && onEdit && (
-              <SubHead emoji="🏟" text="ノックアウト" editId="knockout" />
+              <SubHead icon="stadium" text="ノックアウト" editId="knockout" />
             )}
             {koAny ? (
               <KnockoutView T={T} der={der} champ={champ} ROUNDS={ROUNDS} LABELS={LABELS} />
@@ -374,7 +374,7 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS, champEmptyLabel = '優勝
     <div>
       {needsScroll && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          fontSize: 11.5, color: T.faint, fontWeight: 700, marginBottom: 8 }}>
+          fontSize: 12, color: T.faint, fontWeight: 700, marginBottom: 8 }}>
           <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
             <Icon name="chevron" size={13} color={T.faint} /></span>
           横スクロールで全体表示
@@ -387,10 +387,10 @@ function KnockoutView({ T, der, champ, ROUNDS, LABELS, champEmptyLabel = '優勝
           transform: `scale(${fitScale})`, transformOrigin: 'top left' }}>
           {ROUNDS.map((r, i) => (
             <div key={r} style={{ position: 'absolute', top: 4, left: colX(i), width: colW, textAlign: 'center',
-              fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1.2, color: T.sub }}>{LABELS[r]}</div>
+              fontFamily: 'Archivo', fontWeight: 800, fontSize: 12, letterSpacing: 1.2, color: T.sub }}>{LABELS[r]}</div>
           ))}
           <div style={{ position: 'absolute', top: 4, left: champX, width: colW, textAlign: 'center',
-            fontFamily: 'Archivo', fontWeight: 800, fontSize: 11.5, letterSpacing: 1.2, color: T.gold }}>優勝</div>
+            fontFamily: 'Archivo', fontWeight: 800, fontSize: 12, letterSpacing: 1.2, color: T.gold }}>優勝</div>
           <div style={{ position: 'absolute', top: LABEL_H, left: 0, width: contentW, height: canvasH }}>
             <svg width={contentW} height={canvasH} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
               {connectors.map((d, i) => <path key={i} d={d} fill="none" stroke={T.line} strokeWidth="1.5" />)}

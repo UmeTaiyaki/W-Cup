@@ -40,7 +40,7 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
         padding: '11px 13px', borderRadius: 13,
         background: active ? `${T.accent}1A` : 'transparent',
         boxShadow: active ? `inset 0 0 0 1px ${T.accent}3D` : 'none',
-        color: active ? T.accent : T.sub, transition: '.15s' }}>
+        color: active ? T.accent : T.sub, transition: '.15s ease' }}>
         <Icon name={tb.icon} size={21} color={active ? T.accent : T.faint} sw={active ? 2.2 : 1.9} />
         <span style={{ fontWeight: active ? 800 : 700, fontSize: 15 }}>{tb.label}</span>
       </button>
@@ -63,9 +63,9 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
         </div>
         {showWordmark && (
           <div style={{ lineHeight: 1 }}>
-            <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 15.5,
+            <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 16,
               color: T.text, letterSpacing: 0.3 }}>WORLD CUP 2026</div>
-            <div style={{ fontSize: 10.5, color: T.faint, fontWeight: 700, marginTop: 2 }}>仲間内 予想バトル</div>
+            <div style={{ fontSize: 11, color: T.faint, fontWeight: 700, marginTop: 2 }}>仲間内 予想バトル</div>
           </div>
         )}
       </div>
@@ -98,7 +98,7 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
               border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
               padding: '7px 9px', borderRadius: 11,
               background: active ? T.card : 'transparent',
-              boxShadow: active ? `inset 0 0 0 1px ${m.c}59` : 'none', transition: '.15s' }}>
+              boxShadow: active ? `inset 0 0 0 1px ${m.c}59` : 'none', transition: '.15s ease' }}>
               <Avatar m={m} size={28} T={T} />
               <span style={{ fontWeight: active ? 800 : 600, fontSize: 14,
                 color: active ? T.text : T.sub, flex: 1, whiteSpace: 'nowrap',
@@ -134,7 +134,7 @@ function RightRail({ T, state, member, pred, goTab }) {
   const PickLine = ({ icon, color, label, code, scorer }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <Icon name={icon} size={16} color={color} />
-      <span style={{ fontSize: 12.5, color: T.faint, width: 48, fontWeight: 700 }}>{label}</span>
+      <span style={{ fontSize: 13, color: T.faint, width: 48, fontWeight: 700 }}>{label}</span>
       <span style={{ fontSize: 18 }}>{code ? (window.WC.TEAM[code]?.flag) : (scorer ? '⚽️' : '—')}</span>
       <span style={{ fontWeight: 700, color: T.text, fontSize: 14, flex: 1, whiteSpace: 'nowrap',
         overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -153,7 +153,7 @@ function RightRail({ T, state, member, pred, goTab }) {
           marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <Avatar m={member} size={28} T={T} />
-            <span style={{ fontWeight: 800, fontSize: 14.5, color: T.text }}>{member.name}の予想</span>
+            <span style={{ fontWeight: 800, fontSize: 15, color: T.text }}>{member.name}の予想</span>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -164,7 +164,7 @@ function RightRail({ T, state, member, pred, goTab }) {
         <button onClick={() => goTab('input')} style={{
           marginTop: 16, width: '100%', border: 'none', borderRadius: 12, padding: '11px',
           cursor: 'pointer', background: `${T.accent}1A`, color: T.accent, fontWeight: 800,
-          fontSize: 13.5, fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+          fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: 7 }}>
           <Icon name="edit" size={16} color={T.accent} />予想を編集
         </button>
@@ -175,9 +175,9 @@ function RightRail({ T, state, member, pred, goTab }) {
         boxShadow: `inset 0 0 0 1px ${T.line}` }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 12 }}>
-          <span style={{ fontWeight: 800, fontSize: 14.5, color: T.text }}>ランキング</span>
+          <span style={{ fontWeight: 800, fontSize: 15, color: T.text }}>ランキング</span>
           <button onClick={() => goTab('rank')} style={{ border: 'none', background: 'transparent',
-            color: T.accent, fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+            color: T.accent, fontWeight: 700, fontSize: 13, cursor: 'pointer',
             fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 1 }}>
             全部見る<Icon name="chevron" size={13} color={T.accent} /></button>
         </div>
@@ -187,11 +187,11 @@ function RightRail({ T, state, member, pred, goTab }) {
               <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 15,
                 color: rankColor(i), width: 16 }}>{i + 1}</span>
               <Avatar m={x.m} size={26} T={T} />
-              <span style={{ fontWeight: 700, color: T.sub, fontSize: 13.5, flex: 1,
+              <span style={{ fontWeight: 700, color: T.sub, fontSize: 14, flex: 1,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{x.m.name}</span>
               <span style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 16,
                 color: T.text }}>{x.s.grandTotal}</span>
-              <span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}>pt</span>
+              <span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}>pt</span>
             </div>
           ))}
         </div>

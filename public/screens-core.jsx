@@ -9,7 +9,7 @@ function EditBtn({ T, onClick, label = '編集' }) {
     <button onClick={onClick} style={{
       flexShrink: 0, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
       borderRadius: 999, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 5,
-      background: T.panel2, color: T.accent, fontWeight: 800, fontSize: 12.5,
+      background: T.panel2, color: T.accent, fontWeight: 800, fontSize: 13,
       boxShadow: `inset 0 0 0 1px ${T.line}` }}>
       <Icon name="edit" size={14} color={T.accent} sw={2} />{label}
     </button>
@@ -56,7 +56,7 @@ function MiniPick({ T, label, sub, code, scorer, color, icon, onEdit }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
           <Icon name={icon} size={17} color={color} />
-          <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 10.5,
+          <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 11,
             letterSpacing: 1.6, color: color }}>{label}</span>
         </div>
         {onEdit && (
@@ -71,13 +71,13 @@ function MiniPick({ T, label, sub, code, scorer, color, icon, onEdit }) {
         {code
           ? <div style={{ fontSize: 30 }}>{window.WC.TEAM[code]?.flag}</div>
           : <div style={{ width: 38, height: 38, borderRadius: 10, display: 'grid',
-              placeItems: 'center', background: T.panel2, fontSize: 20 }}>⚽️</div>}
+              placeItems: 'center', background: T.panel2 }}><Icon name={icon} size={20} color={T.faint} /></div>}
       </div>
       <div style={{ marginTop: 8 }}>
         <FitText text={code ? window.WC.TEAM[code]?.ja : (scorer || '未選択')}
           max={17} min={11} weight={800} color={T.text} />
       </div>
-      <div style={{ fontSize: 11.5, color: T.faint, marginTop: 1 }}>{sub}</div>
+      <div style={{ fontSize: 12, color: T.faint, marginTop: 1 }}>{sub}</div>
     </div>
   );
 }
@@ -100,7 +100,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
           cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
           display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
-          fontWeight: 800, fontSize: 13.5 }}>
+          fontWeight: 800, fontSize: 14 }}>
           <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
         </button>
       )}
@@ -127,7 +127,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <span style={{ fontWeight: 800, fontSize: 16, color: T.text }}>みんなの優勝予想</span>
         <button onClick={() => goTab('rank')} style={{
           border: 'none', background: 'transparent', color: T.accent, fontWeight: 700,
-          fontSize: 13.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2,
+          fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2,
           fontFamily: 'inherit' }}>
           ランキング<Icon name="chevron" size={15} color={T.accent} />
         </button>
@@ -273,7 +273,7 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
         <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
           cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
           display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
-          fontWeight: 800, fontSize: 13.5 }}>
+          fontWeight: 800, fontSize: 14 }}>
           <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
         </button>
       </div>
@@ -297,20 +297,20 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
         {!confirm ? (
           <button onClick={() => setConfirm(true)} disabled={!canRemove} style={{
             width: '100%', border: 'none', borderRadius: 14, padding: '13px',
-            fontFamily: 'inherit', fontWeight: 800, fontSize: 14.5,
+            fontFamily: 'inherit', fontWeight: 800, fontSize: 15,
             cursor: canRemove ? 'pointer' : 'default',
-            background: 'transparent', color: canRemove ? '#FF6B6B' : T.faint,
-            boxShadow: `inset 0 0 0 1.5px ${canRemove ? '#FF6B6B44' : T.line}`,
+            background: 'transparent', color: canRemove ? T.danger : T.faint,
+            boxShadow: `inset 0 0 0 1.5px ${canRemove ? T.dangerSoft : T.line}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <Icon name="trash" size={17} color={canRemove ? '#FF6B6B' : T.faint} />
+            <Icon name="trash" size={17} color={canRemove ? T.danger : T.faint} />
             {member.name}を削除
           </button>
         ) : (
           <div style={{ background: T.card, borderRadius: 16, padding: '14px 16px',
-            boxShadow: `inset 0 0 0 1px #FF6B6B44` }}>
-            <div style={{ fontWeight: 800, color: T.text, fontSize: 14.5, marginBottom: 3 }}>
+            boxShadow: `inset 0 0 0 1px ${T.dangerSoft}` }}>
+            <div style={{ fontWeight: 800, color: T.text, fontSize: 15, marginBottom: 3 }}>
               「{member.name}」を削除しますか？</div>
-            <p style={{ color: T.sub, fontSize: 12.5, lineHeight: 1.5, margin: '0 0 12px' }}>
+            <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>
               この参加者の予想データも消えます。元に戻せません。</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setConfirm(false)} style={{
@@ -320,12 +320,12 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
               <button onClick={() => onRemove(member.id)} style={{
                 flex: 1, border: 'none', borderRadius: 12, padding: '11px',
                 fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-                background: '#FF6B6B', color: '#fff' }}>削除する</button>
+                background: T.danger, color: '#fff' }}>削除する</button>
             </div>
           </div>
         )}
         {!canRemove && (
-          <p style={{ color: T.faint, fontSize: 11.5, textAlign: 'center', margin: '8px 0 0' }}>
+          <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '8px 0 0' }}>
             参加者が1人のときは削除できません。</p>
         )}
       </div>

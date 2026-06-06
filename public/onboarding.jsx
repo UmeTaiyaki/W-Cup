@@ -24,7 +24,7 @@ function CoreRow({ T, label, sub, color, icon, code, scorer, onClick }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontWeight: 800, fontSize: 15.5, color: T.text }}>{label}</span>
+          <span style={{ fontWeight: 800, fontSize: 16, color: T.text }}>{label}</span>
           <span style={{ fontFamily: 'Archivo', fontWeight: 700, fontSize: 10,
             letterSpacing: 1.4, color: T.faint }}>{sub}</span>
         </div>
@@ -42,17 +42,20 @@ function CoreRow({ T, label, sub, color, icon, code, scorer, onClick }) {
 }
 
 // オプション予想メニューの 1 行
-function OptMenuRow({ T, emoji, title, sub, onClick, disabled }) {
+function OptMenuRow({ T, icon, title, sub, onClick, disabled }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
       display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
       border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
       background: T.card, borderRadius: 14, padding: '13px 14px', opacity: disabled ? 0.55 : 1,
       boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-      <span style={{ fontSize: 20 }}>{emoji}</span>
+      <span style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+        display: 'grid', placeItems: 'center', background: `${T.accent}1A` }}>
+        <Icon name={icon} size={18} color={T.accent} sw={2} />
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: T.text }}>{title}</div>
-        <div style={{ fontSize: 11.5, color: T.faint, marginTop: 1 }}>{sub}</div>
+        <div style={{ fontSize: 12, color: T.faint, marginTop: 1 }}>{sub}</div>
       </div>
       <Icon name="chevron" size={18} color={T.faint} />
     </button>
@@ -128,7 +131,8 @@ function Onboarding({ T, onDone, siteKey }) {
     <div style={{ height: '100%', overflow: 'auto', background: T.bg, position: 'relative' }}>
       <div style={{ position: 'absolute', inset: 0, background: T.grad, pointerEvents: 'none' }} />
       <div style={{ position: 'relative', maxWidth: max, margin: '0 auto',
-        padding: 'calc(env(safe-area-inset-top, 0px) + 26px) 18px calc(env(safe-area-inset-bottom, 0px) + 28px)' }}>
+        padding: 'calc(env(safe-area-inset-top, 0px) + 26px) 18px calc(env(safe-area-inset-bottom, 0px) + 28px)',
+        animation: 'wcFade .4s ease both' }}>
         {children}
       </div>
     </div>
@@ -143,7 +147,7 @@ function Onboarding({ T, onDone, siteKey }) {
       <div style={{ lineHeight: 1 }}>
         <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 15, color: T.text,
           letterSpacing: 0.3 }}>WORLD CUP 2026</div>
-        <div style={{ fontSize: 10.5, color: T.faint, fontWeight: 700, marginTop: 2 }}>予想</div>
+        <div style={{ fontSize: 11, color: T.faint, fontWeight: 700, marginTop: 2 }}>予想</div>
       </div>
     </div>
   );
@@ -161,7 +165,7 @@ function Onboarding({ T, onDone, siteKey }) {
                 fontFamily: 'Archivo', fontWeight: 800, fontSize: 11,
                 background: done ? T.accent : active ? T.accent : T.card,
                 color: (done || active) ? T.accentInk : T.faint }}>{done ? '✓' : i + 1}</div>
-              <span style={{ fontSize: 11.5, fontWeight: 800,
+              <span style={{ fontSize: 12, fontWeight: 800,
                 color: active ? T.accent : T.faint }}>{lbl}</span>
             </div>
             {i < 2 && <div style={{ width: 14, height: 2, borderRadius: 2, background: T.line }} />}
@@ -181,7 +185,7 @@ function Onboarding({ T, onDone, siteKey }) {
   );
 
   const errLine = err
-    ? <p style={{ color: '#FF6B6B', fontSize: 13, fontWeight: 700, margin: '12px 2px 0' }}>{err}</p>
+    ? <p style={{ color: T.danger, fontSize: 13, fontWeight: 700, margin: '12px 2px 0' }}>{err}</p>
     : null;
 
   // ============ name ============
@@ -210,7 +214,7 @@ function Onboarding({ T, onDone, siteKey }) {
         </div>
         <button onClick={() => { setErr(''); setStep('sync'); }} style={{
           marginTop: 18, width: '100%', border: 'none', background: 'transparent',
-          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 13.5,
+          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 14,
           cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
           別の端末から続ける（同期コードを入力）</button>
       </div>
@@ -239,7 +243,7 @@ function Onboarding({ T, onDone, siteKey }) {
         </div>
         <button onClick={() => { setErr(''); setStep('name'); }} style={{
           marginTop: 18, width: '100%', border: 'none', background: 'transparent',
-          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           ← 戻る</button>
       </div>
     );
@@ -253,7 +257,7 @@ function Onboarding({ T, onDone, siteKey }) {
         <Eyebrow T={T}>STEP 2 · コア予想</Eyebrow>
         <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
           まず3つを予想</div>
-        <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
+        <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
           優勝・準優勝・得点王を選びましょう（あとで変更できます）。</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <CoreRow T={T} label="優勝" sub="CHAMPION" color={T.gold} icon="trophy"
@@ -268,7 +272,7 @@ function Onboarding({ T, onDone, siteKey }) {
         </div>
         <button onClick={() => setStep('done')} style={{
           marginTop: 12, width: '100%', border: 'none', background: 'transparent',
-          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           スキップして完了 →</button>
 
         <TeamPicker open={sheet === 'champ'} onClose={() => setSheet(null)} T={T} centered
@@ -306,14 +310,14 @@ function Onboarding({ T, onDone, siteKey }) {
         <Eyebrow T={T}>STEP 2 · オプション予想</Eyebrow>
         <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
           もっと予想する（任意）</div>
-        <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
+        <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
           やりたい人だけでOK。スキップしてすぐ完了できます。</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <OptMenuRow T={T} emoji="📊" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
+          <OptMenuRow T={T} icon="chart" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
             onClick={() => setOptScreen('grouprank')} />
-          <OptMenuRow T={T} emoji="🎯" title="3位ワイルドカード" sub={`通過する8組を選択 · ${taDone}/${wcCount}組`}
+          <OptMenuRow T={T} icon="target" title="3位ワイルドカード" sub={`通過する8組を選択 · ${taDone}/${wcCount}組`}
             onClick={() => setOptScreen('thirdwild')} />
-          <OptMenuRow T={T} emoji="🏟" title="ノックアウト予想" sub={koReady ? 'ベスト32→決勝' : '先にグループ順位予想を'}
+          <OptMenuRow T={T} icon="stadium" title="ノックアウト予想" sub={koReady ? 'ベスト32→決勝' : '先にグループ順位予想を'}
             onClick={() => koReady && setOptScreen('knockout')} disabled={!koReady} />
         </div>
         <div style={{ marginTop: 22 }}>
@@ -321,7 +325,7 @@ function Onboarding({ T, onDone, siteKey }) {
         </div>
         <button onClick={() => setStep('core')} style={{
           marginTop: 12, width: '100%', border: 'none', background: 'transparent',
-          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+          color: T.sub, fontFamily: 'inherit', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           ← コア予想に戻る</button>
       </div>
     );
@@ -330,7 +334,13 @@ function Onboarding({ T, onDone, siteKey }) {
   // ============ done ============
   return frame(
     <div>
-      <div style={{ textAlign: 'center', marginBottom: 8, fontSize: 52 }}>🎉</div>
+      <div style={{ display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+        <div style={{ width: 64, height: 64, borderRadius: 20, background: T.accent,
+          display: 'grid', placeItems: 'center', boxShadow: `0 10px 30px ${T.accent}40`,
+          animation: 'wcPop .5s cubic-bezier(.22,1.2,.36,1) both' }}>
+          <Icon name="check" size={36} color={T.accentInk} sw={2.6} />
+        </div>
+      </div>
       <div style={{ fontSize: 25, fontWeight: 900, color: T.text, textAlign: 'center' }}>
         予想を登録しました</div>
       <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.7, margin: '10px 0 22px', textAlign: 'center' }}>
@@ -346,7 +356,7 @@ function Onboarding({ T, onDone, siteKey }) {
           <button onClick={copyCode} style={{
             border: 'none', borderRadius: 12, padding: '10px 14px', cursor: 'pointer',
             background: copied ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
-            fontWeight: 800, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6,
+            fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6,
             boxShadow: copied ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
             <Icon name={copied ? 'check' : 'copy'} size={16} color={T.accent} sw={2.4} />
             {copied ? 'コピー済' : 'コピー'}</button>

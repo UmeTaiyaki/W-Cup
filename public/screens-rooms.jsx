@@ -33,7 +33,7 @@ function InviteSheet({ T, room, onClose }) {
       border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
       <span style={{ width: 52, height: 52, borderRadius: 16, background: bg,
         display: 'grid', placeItems: 'center', boxShadow: `inset 0 0 0 1px ${T.line}` }}>{glyph}</span>
-      <span style={{ fontSize: 11.5, fontWeight: 700, color: T.sub }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: T.sub }}>{label}</span>
     </button>
   );
   const brand = (txt, color) => (
@@ -53,7 +53,7 @@ function InviteSheet({ T, room, onClose }) {
   return (
     <Sheet open onClose={onClose} T={T} title="仲間を招待">
       <div style={{ padding: '0 18px 4px' }}>
-        <p style={{ color: T.faint, fontSize: 12.5, lineHeight: 1.5, margin: '0 0 14px' }}>
+        <p style={{ color: T.faint, fontSize: 13, lineHeight: 1.5, margin: '0 0 14px' }}>
           「{room.name || '部屋'}」に招待して、予想を見比べましょう。</p>
 
         <div style={{ display: 'flex', gap: 6, background: T.panel2, borderRadius: 12, padding: 4, marginBottom: 16 }}>
@@ -69,7 +69,7 @@ function InviteSheet({ T, room, onClose }) {
               <button onClick={() => copy('url', url)} style={{
                 border: 'none', borderRadius: 10, padding: '8px 12px', cursor: 'pointer',
                 background: copied === 'url' ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
-                fontWeight: 800, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
                 boxShadow: copied === 'url' ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
                 <Icon name={copied === 'url' ? 'check' : 'copy'} size={14} color={T.accent} sw={2.4} />
                 {copied === 'url' ? 'コピー済' : 'コピー'}</button>
@@ -179,7 +179,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
       <Eyebrow T={T}>ROOMS</Eyebrow>
       <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
         部屋で見比べ</div>
-      <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
+      <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
         部屋を作って参加コードを共有するか、もらったコードで参加すると、仲間と予想を見比べられます。</p>
 
       {/* 部屋一覧 */}
@@ -207,7 +207,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
         </div>
       ) : (
         <div style={{ background: T.card, borderRadius: 16, padding: '18px 16px', marginBottom: 16,
-          textAlign: 'center', color: T.faint, fontSize: 13.5, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+          textAlign: 'center', color: T.faint, fontSize: 14, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
           まだ部屋がありません。作るか、コードで参加しましょう。</div>
       )}
 
@@ -228,7 +228,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
           <div style={{ fontWeight: 800, color: T.text, fontSize: 15, marginBottom: 10 }}>部屋を作る</div>
           {input(name, setName, '部屋名（例：会社の予想大会）', false)}
           <TurnstileWidget key={tsKey} siteKey={siteKey} onToken={setToken} theme={T.isDark === false ? 'light' : 'dark'} />
-          {err && <p style={{ color: '#FF6B6B', fontSize: 13, fontWeight: 700, margin: '10px 2px 0' }}>{err}</p>}
+          {err && <p style={{ color: T.danger, fontSize: 13, fontWeight: 700, margin: '10px 2px 0' }}>{err}</p>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button onClick={() => { setMode(null); setErr(''); }} style={{
               flex: 1, border: 'none', borderRadius: 12, padding: '12px', fontFamily: 'inherit',
@@ -242,7 +242,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
       {created && (
         <div style={{ background: T.card, borderRadius: 16, padding: 16, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
           <div style={{ fontWeight: 800, color: T.text, fontSize: 15 }}>「{created.name}」を作成しました</div>
-          <p style={{ color: T.faint, fontSize: 12.5, lineHeight: 1.6, margin: '6px 0 12px' }}>
+          <p style={{ color: T.faint, fontSize: 13, lineHeight: 1.6, margin: '6px 0 12px' }}>
             この参加コードを仲間に共有してください。</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ flex: 1, fontFamily: 'Archivo, monospace', fontWeight: 900, fontSize: 24,
@@ -250,7 +250,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
             <button onClick={copyCreated} style={{
               border: 'none', borderRadius: 12, padding: '10px 14px', cursor: 'pointer',
               background: copied ? T.card : `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
-              fontWeight: 800, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6,
+              fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6,
               boxShadow: copied ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
               <Icon name={copied ? 'check' : 'copy'} size={16} color={T.accent} sw={2.4} />
               {copied ? 'コピー済' : 'コピー'}</button>
@@ -266,7 +266,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
         <div style={{ background: T.card, borderRadius: 16, padding: 16, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
           <div style={{ fontWeight: 800, color: T.text, fontSize: 15, marginBottom: 10 }}>コードで参加</div>
           {input(code, setCode, 'XXXX-XXXX', true)}
-          {err && <p style={{ color: '#FF6B6B', fontSize: 13, fontWeight: 700, margin: '10px 2px 0' }}>{err}</p>}
+          {err && <p style={{ color: T.danger, fontSize: 13, fontWeight: 700, margin: '10px 2px 0' }}>{err}</p>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button onClick={() => { setMode(null); setErr(''); }} style={{
               flex: 1, border: 'none', borderRadius: 12, padding: '12px', fontFamily: 'inherit',
@@ -326,22 +326,22 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <button onClick={goBack} style={{
           border: 'none', background: 'transparent', color: T.sub, fontFamily: 'inherit',
-          fontWeight: 700, fontSize: 12.5, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+          fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
           gap: 2, padding: '2px 0' }}>← 一覧</button>
         <span style={{ color: T.line }}>|</span>
-        <span style={{ color: T.sub, fontWeight: 700, fontSize: 12.5, maxWidth: 150,
+        <span style={{ color: T.sub, fontWeight: 700, fontSize: 13, maxWidth: 150,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{room.name || '部屋'}</span>
         <button onClick={() => setShowInvite(true)} title="仲間を招待" style={{
           marginLeft: 'auto', border: 'none', borderRadius: 999, padding: '6px 13px',
           background: `${T.accent}1A`, color: T.accent, fontFamily: 'inherit',
-          fontWeight: 800, fontSize: 12.5, cursor: 'pointer', display: 'inline-flex',
+          fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'inline-flex',
           alignItems: 'center', gap: 5 }}>
           <Icon name="share" size={14} color={T.accent} sw={2.2} />招待</button>
       </div>
 
       {showInvite && <InviteSheet T={T} room={room} onClose={() => setShowInvite(false)} />}
 
-      {err && <div style={{ color: '#FF6B6B', fontSize: 14, fontWeight: 700, padding: '12px 0' }}>{err}</div>}
+      {err && <div style={{ color: T.danger, fontSize: 14, fontWeight: 700, padding: '12px 0' }}>{err}</div>}
       {!data && !err && <div style={{ color: T.faint, fontSize: 14, padding: '20px 0', textAlign: 'center' }}>読み込み中…</div>}
 
       {state && (
@@ -372,9 +372,9 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
                       border: 'none', cursor: 'pointer', borderRadius: 999,
                       padding: active ? '5px 13px 5px 5px' : '5px',
                       background: active ? T.card : 'transparent',
-                      boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s' }}>
+                      boxShadow: active ? `inset 0 0 0 1px ${m.c}66` : 'none', transition: '.18s ease' }}>
                       <Avatar m={m} size={30} T={T} />
-                      {active && <span style={{ fontWeight: 800, fontSize: 13.5, color: T.text,
+                      {active && <span style={{ fontWeight: 800, fontSize: 14, color: T.text,
                         whiteSpace: 'nowrap' }}>{m.name}{m.id === me.id ? '（あなた）' : ''}</span>}
                     </button>
                   );

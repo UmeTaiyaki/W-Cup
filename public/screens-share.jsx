@@ -11,9 +11,9 @@ function ShareSheet({ T, member, pred, open, onClose }) {
   const avail = window.WC.availableCards(pred || {});
 
   const KINDS = [
-    { id: 'core', emoji: '🏆', label: '優勝予想' },
-    { id: 'group', emoji: '📊', label: 'グループ' },
-    { id: 'knockout', emoji: '🏟', label: 'トーナメント' },
+    { id: 'core', icon: 'trophy', label: '優勝予想' },
+    { id: 'group', icon: 'chart', label: 'グループ' },
+    { id: 'knockout', icon: 'stadium', label: 'トーナメント' },
   ];
   const memberId = member && member.id;
 
@@ -97,12 +97,13 @@ function ShareSheet({ T, member, pred, open, onClose }) {
                       fontFamily: 'inherit', borderRadius: 13, padding: '10px 6px',
                       background: active ? `${T.accent}1A` : T.panel2,
                       boxShadow: active ? `inset 0 0 0 1.5px ${T.accent}` : `inset 0 0 0 1px ${T.line}`,
-                      opacity: enabled ? 1 : 0.4, transition: '.15s' }}>
-                    <div style={{ fontSize: 18 }}>{k.emoji}</div>
+                      opacity: enabled ? 1 : 0.4, transition: '.15s ease' }}>
+                    <div style={{ display: 'grid', placeItems: 'center' }}>
+                      <Icon name={k.icon} size={19} color={active ? T.accent : T.sub} sw={2} /></div>
                     <div style={{ marginTop: 3, fontFamily: 'Archivo', fontWeight: 800, fontSize: 11,
                       letterSpacing: 0.5, color: active ? T.accent : T.sub,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.label}</div>
-                    {!enabled && <div style={{ fontSize: 9.5, color: T.faint, marginTop: 1 }}>未予想</div>}
+                    {!enabled && <div style={{ fontSize: 10, color: T.faint, marginTop: 1 }}>未予想</div>}
                   </button>
                 );
               })}
@@ -127,7 +128,7 @@ function ShareSheet({ T, member, pred, open, onClose }) {
                 color={status === 'error' ? T.accent : T.accentInk} sw={2.2} />
               {btnLabel}
             </button>
-            <p style={{ color: T.faint, fontSize: 11.5, textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+            <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
               スマホはOSの共有シートからX/LINE/Instagram等へ。PCは画像が保存されます。
             </p>
           </>

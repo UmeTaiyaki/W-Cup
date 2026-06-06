@@ -14,10 +14,10 @@ function GroupScreen({ T, wide = false }) {
         return (
           <button key={s.id} onClick={() => setSub(s.id)} style={{
             border: 'none', cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999,
-            padding: '8px 16px', fontWeight: 800, fontSize: 13.5,
+            padding: '8px 16px', fontWeight: 800, fontSize: 14,
             background: active ? T.accent : T.card,
             color: active ? T.accentInk : T.sub,
-            boxShadow: active ? 'none' : `inset 0 0 0 1px ${T.line}`, transition: '.15s' }}>
+            boxShadow: active ? 'none' : `inset 0 0 0 1px ${T.line}`, transition: '.15s ease' }}>
             {s.label}
           </button>
         );

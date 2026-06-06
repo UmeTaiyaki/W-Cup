@@ -65,7 +65,7 @@ function GroupRankScreen({ T, member, pred, setGroupRank, goBack, wide = false }
   return (
     <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px' }}>
       <button onClick={goBack} style={{ border: 'none', background: 'transparent', color: T.accent,
-        fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
+        fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
         display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', marginBottom: 6 }}>
         <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><Icon name="chevron" size={15} color={T.accent} /></span>予想ハブに戻る
       </button>
