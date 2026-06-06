@@ -180,7 +180,7 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
       <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
         部屋で見比べ</div>
       <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
-        仲間と予想を見比べる部屋です。新しく作るか、もらったコードで参加できます。</p>
+        <DotBreak>仲間と予想を見比べる部屋です。新しく作るか、もらったコードで参加できます。</DotBreak></p>
 
       {/* 部屋一覧 */}
       {rooms.length > 0 ? (

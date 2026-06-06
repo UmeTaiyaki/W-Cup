@@ -197,8 +197,7 @@ function Onboarding({ T, onDone, siteKey }) {
         <div style={{ fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: -0.5 }}>
           ようこそ ⚽️</div>
         <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.7, margin: '8px 0 22px' }}>
-          ニックネームを決めて、あなたの予想を始めましょう。<br />
-          ログインは不要です。</p>
+          <DotBreak>ニックネームを決めて、あなたの予想を始めましょう。ログインは不要です。</DotBreak></p>
         <input autoFocus value={name} maxLength={8}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) commitName(); }}
@@ -311,7 +310,7 @@ function Onboarding({ T, onDone, siteKey }) {
         <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
           もっと予想する（任意）</div>
         <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.6, margin: '0 0 16px' }}>
-          やりたい人だけでOK。スキップしてすぐ完了できます。</p>
+          <DotBreak>やりたい人だけでOK。スキップしてすぐ完了できます。</DotBreak></p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <OptMenuRow T={T} icon="chart" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
             onClick={() => setOptScreen('grouprank')} />
@@ -362,7 +361,7 @@ function Onboarding({ T, onDone, siteKey }) {
             {copied ? 'コピー済' : 'コピー'}</button>
         </div>
         <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '12px 0 0' }}>
-          別の端末で予想を続けるときに使います。
+          別の端末で予想を続けるときに使います。<br />
           <b style={{ color: T.sub }}>無くすと復元できません</b>ので、スクショなどで保管してください。</p>
       </div>
 

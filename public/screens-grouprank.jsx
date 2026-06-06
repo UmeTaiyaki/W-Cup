@@ -76,7 +76,7 @@ function GroupRankScreen({ T, member, pred, setGroupRank, goBack, wide = false }
           color: doneCount === 12 ? T.accent : T.text }}>{doneCount}<span style={{ color: T.faint, fontSize: 12 }}>/12組</span></span>
       </div>
       <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.55, margin: '0 0 14px' }}>
-        各組をタップした順に1位→2位→3位。もう一度タップで取消。3位まで決めると4位は自動です。</p>
+        <DotBreak>各組をタップした順に1位→2位→3位。もう一度タップで取消。3位まで決めると4位は自動です。</DotBreak></p>
       <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(240px, 1fr))' : '1fr', gap: 12 }}>
         {GK.map((k) => <Card key={k} k={k} />)}
       </div>

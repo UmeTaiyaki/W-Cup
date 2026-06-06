@@ -129,7 +129,7 @@ function ShareSheet({ T, member, pred, open, onClose }) {
               {btnLabel}
             </button>
             <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
-              スマホはOSの共有シートからX/LINE/Instagram等へ。PCは画像が保存されます。
+              <DotBreak>スマホはOSの共有シートからX/LINE/Instagram等へ。PCは画像が保存されます。</DotBreak>
             </p>
           </>
         )}

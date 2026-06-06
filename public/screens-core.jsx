@@ -311,7 +311,7 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
             <div style={{ fontWeight: 800, color: T.text, fontSize: 15, marginBottom: 3 }}>
               「{member.name}」を削除しますか？</div>
             <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>
-              この参加者の予想データも消えます。元に戻せません。</p>
+              <DotBreak>この参加者の予想データも消えます。元に戻せません。</DotBreak></p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => setConfirm(false)} style={{
                 flex: 1, border: 'none', borderRadius: 12, padding: '11px',

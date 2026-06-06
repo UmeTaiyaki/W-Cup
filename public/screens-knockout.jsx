@@ -65,7 +65,7 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
       <Eyebrow T={T}>KNOCKOUT · {member.name}</Eyebrow>
       <div style={{ fontSize: wide ? 26 : 22, fontWeight: 800, color: T.text, marginTop: 3 }}>ノックアウト予想</div>
       <p style={{ color: T.faint, fontSize: 12, margin: '8px 0 0', lineHeight: 1.5 }}>
-        対戦カードはグループ順位予想と3位割当から自動で決まります。各試合で勝者をタップ。決勝の勝敗は「優勝予想」（コア）で決まります。</p>
+        <DotBreak>対戦カードはグループ順位予想と3位割当から自動で決まります。各試合で勝者をタップ。決勝の勝敗は「優勝予想」（コア）で決まります。</DotBreak></p>
     </div>
   );
 

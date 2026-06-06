@@ -498,10 +498,26 @@ function OptionSaveBar({ T, onSave, hint, style }) {
         {saved ? '保存しました' : '保存する'}
       </button>
       {hint && (
-        <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}>{hint}</p>
+        <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}><DotBreak>{hint}</DotBreak></p>
       )}
     </div>
   );
+}
+
+// 文字列を「。」ごとに改行して表示する（説明文の可読性のため全体で統一）。
+// 句点は残し、各文を独立した行にする。Safari互換のため後読み正規表現は使わない。
+function DotBreak({ children }) {
+  const text = (typeof children === 'string') ? children
+    : React.Children.toArray(children).filter((c) => typeof c === 'string').join('');
+  const sentences = text.split('。');
+  const out = [];
+  sentences.forEach((s, i) => {
+    const seg = (i === sentences.length - 1) ? s : s + '。';
+    if (!seg) return;
+    if (out.length) out.push(<br key={'br' + i} />);
+    out.push(<React.Fragment key={i}>{seg}</React.Fragment>);
+  });
+  return out;
 }
 
 // 1行に収まるよう文字サイズを自動で縮める（省略しない）。max から min まで段階縮小。
@@ -537,5 +553,5 @@ function FitText({ text, max, min = 12, weight = 800, color, lineHeight, letterS
 }
 
 Object.assign(window, {
-  Icon, Flag, TeamLine, Avatar, Eyebrow, Card, Sheet, SquadSheet, TeamPicker, ScorerSelect, ScorerPicker, OptionSaveBar, FitText,
+  Icon, Flag, TeamLine, Avatar, Eyebrow, Card, Sheet, SquadSheet, TeamPicker, ScorerSelect, ScorerPicker, OptionSaveBar, FitText, DotBreak,
 });

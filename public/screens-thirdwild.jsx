@@ -72,7 +72,8 @@ function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false
           color: doneCount === FULL ? T.accent : T.text }}>{doneCount}<span style={{ color: T.faint, fontSize: 12 }}>/8組</span></span>
       </div>
       <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.55, margin: '0 0 14px' }}>
-        各組3位のうち、成績上位8組がベスト32へ進みます。<b>勝ち上がると思う8組</b>を選んでください。
+        各組3位のうち、成績上位8組がベスト32へ進みます。<br />
+        <b>勝ち上がると思う8組</b>を選んでください。<br />
         対戦カードは FIFA 公式の組み合わせ表（Annex C）に従って自動で決まります。</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: 9 }}>

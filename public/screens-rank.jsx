@@ -156,7 +156,7 @@ function RankingScreen({ T, state, wide = false }) {
       <Icon name="trophy" size={26} color={T.faint} />
       <div style={{ fontWeight: 800, fontSize: 15, color: T.text }}>まだ順位はつきません</div>
       <div style={{ fontSize: 13, color: T.sub, textAlign: 'center', lineHeight: 1.5 }}>
-        {M.length}人が予想を登録済み。試合結果が出ると順位が表示されます。
+        <DotBreak>{`${M.length}人が予想を登録済み。試合結果が出ると順位が表示されます。`}</DotBreak>
       </div>
     </div>
   );
