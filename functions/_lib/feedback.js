@@ -17,20 +17,23 @@ export function validateFeedbackText(text, { max = 1000 } = {}) {
   return { ok: true, value };
 }
 
+// Discord のハード上限(description ≤ 4096 / field value ≤ 1024)に対し余裕を持たせる。
+const MAX_DESCRIPTION = 4000;
+const MAX_FIELD_VALUE = 1000;
+
 // Discord Webhook の embed ペイロードを新規生成（mutation しない）。
-// Discord 制限: description ≤ 4096、field value ≤ 1024。
 export function buildDiscordPayload({ text, userId, name, codeMasked, ua, ts } = {}) {
   return {
     embeds: [
       {
         title: '📩 フィードバック',
-        description: String(text || '').slice(0, 4000),
+        description: String(text || '').slice(0, MAX_DESCRIPTION),
         color: 0xff8a3d,
         fields: [
           { name: 'ニックネーム', value: name || '(不明)', inline: true },
           { name: 'userId', value: userId || '(不明)', inline: true },
           { name: '同期コード', value: codeMasked || '-', inline: true },
-          { name: 'UA', value: String(ua || '(不明)').slice(0, 1000), inline: false },
+          { name: 'UA', value: String(ua || '(不明)').slice(0, MAX_FIELD_VALUE), inline: false },
         ],
         timestamp: ts || '',
       },
