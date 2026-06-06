@@ -63,8 +63,8 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
         </div>
         {showWordmark && (
           <div style={{ lineHeight: 1 }}>
-            <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 16,
-              color: T.text, letterSpacing: 0.3 }}>WORLD CUP 2026</div>
+            <div style={{ fontFamily: "'Anton', 'Archivo', sans-serif", fontWeight: 400, fontSize: 18,
+              color: T.text, letterSpacing: 0.8 }}>WORLD CUP 2026</div>
             <div style={{ fontSize: 11, color: T.faint, fontWeight: 700, marginTop: 2 }}>仲間内 予想バトル</div>
           </div>
         )}

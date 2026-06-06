@@ -145,8 +145,8 @@ function Onboarding({ T, onDone, siteKey }) {
         <Icon name="trophy" size={20} color={T.accentInk} />
       </div>
       <div style={{ lineHeight: 1 }}>
-        <div style={{ fontFamily: 'Archivo', fontWeight: 900, fontSize: 15, color: T.text,
-          letterSpacing: 0.3 }}>WORLD CUP 2026</div>
+        <div style={{ fontFamily: "'Anton', 'Archivo', sans-serif", fontWeight: 400, fontSize: 17, color: T.text,
+          letterSpacing: 0.7 }}>WORLD CUP 2026</div>
         <div style={{ fontSize: 11, color: T.faint, fontWeight: 700, marginTop: 2 }}>予想</div>
       </div>
     </div>
