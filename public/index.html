@@ -56,9 +56,11 @@
     import { availableCards, groupTop2, parseScorer, shareFilename, shareText } from './lib/share-model.js';
     import { drawShareCard } from './lib/share-draw.js';
     import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
+    import { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday } from './lib/schedule-view.js';
     window.WC = window.WC || {};
     Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings });
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
+    Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday });
     // 採点は RESULT を結果として渡す薄いラッパに統一（既存呼び出し scoreMember(pred) を維持）
     window.WC.scoreMember = (pred) => scoreMember(pred, window.WC.RESULT, SCORING);
   </script>
@@ -76,6 +78,7 @@
   <script type="text/babel" src="screens-optview.jsx?v=9"></script>
   <script type="text/babel" src="onboarding.jsx?v=8"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=9"></script>
+  <script type="text/babel" src="screens-home.jsx?v=1"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -459,8 +462,7 @@
       const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
 
       function renderScreen(wide) {
-        if (tab === 'summary') return <SummaryScreen solo T={T} state={soloState} member={member}
-          pred={pred} goTab={goTab} wide={wide} />;
+        if (tab === 'summary') return <HomeScreen T={T} wide={wide} />;
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
@@ -643,6 +645,7 @@
       const [homeKey, setHomeKey] = useState(0);          // 参加後に Home を再マウントして部屋を開く
       const [pendingJoin, setPendingJoin] = useState(readPendingJoin); // 招待リンクの参加コード
       const [siteKey, setSiteKey] = useState(() => window.WC.TURNSTILE_SITE_KEY || null); // Turnstile（bot対策）
+      const [, setConfigLoaded] = useState(false); // fetchConfig 完了で再レンダリングを保証（SCHEDULE/TEAM 反映）
 
       // 招待リンク → 参加 → 自動で部屋を開く
       async function handleJoinInvite(code) {
@@ -658,7 +661,7 @@
 
       useEffect(() => {
         // チーム/結果/名簿の共有設定を取得。完了後 Turnstile サイトキーを反映。
-        window.WC.fetchConfig().then(() => setSiteKey(window.WC.TURNSTILE_SITE_KEY || null));
+        window.WC.fetchConfig().then(() => { setSiteKey(window.WC.TURNSTILE_SITE_KEY || null); setConfigLoaded(true); });
         if (window.WC.Me.load()) {
           window.WC.Me.refresh().then((u) => {
             if (u) { setMe(u); setRoute('home'); }
