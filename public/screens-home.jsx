@@ -115,7 +115,15 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 
   const side = (team) => (
     <div style={{ textAlign: 'center', flex: 1 }}>
-      <Flag code={team.resolved ? team.code : ''} size={48} T={T} />
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {team.resolved
+          ? <Flag code={team.code} size={48} T={T} />
+          : <div style={{
+              width: 48, height: 48, borderRadius: 14, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.06)', color: T.faint, fontSize: 24,
+            }}>?</div>}
+      </div>
       <div style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}>
         {team.resolved ? team.code : team.label}
       </div>

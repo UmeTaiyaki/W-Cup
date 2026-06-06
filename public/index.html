@@ -645,6 +645,7 @@
       const [homeKey, setHomeKey] = useState(0);          // 参加後に Home を再マウントして部屋を開く
       const [pendingJoin, setPendingJoin] = useState(readPendingJoin); // 招待リンクの参加コード
       const [siteKey, setSiteKey] = useState(() => window.WC.TURNSTILE_SITE_KEY || null); // Turnstile（bot対策）
+      const [, setConfigLoaded] = useState(false); // fetchConfig 完了で再レンダリングを保証（SCHEDULE/TEAM 反映）
 
       // 招待リンク → 参加 → 自動で部屋を開く
       async function handleJoinInvite(code) {
@@ -660,7 +661,7 @@
 
       useEffect(() => {
         // チーム/結果/名簿の共有設定を取得。完了後 Turnstile サイトキーを反映。
-        window.WC.fetchConfig().then(() => setSiteKey(window.WC.TURNSTILE_SITE_KEY || null));
+        window.WC.fetchConfig().then(() => { setSiteKey(window.WC.TURNSTILE_SITE_KEY || null); setConfigLoaded(true); });
         if (window.WC.Me.load()) {
           window.WC.Me.refresh().then((u) => {
             if (u) { setMe(u); setRoute('home'); }
