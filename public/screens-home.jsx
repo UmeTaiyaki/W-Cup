@@ -103,14 +103,14 @@ function MatchCarousel({ T, dateStr, matches, today }) {
     touch.current = null;
   };
 
-  const arrow = (dir, on) => (
-    <div onClick={() => on && go(dir === '‹' ? -1 : 1)} style={{
+  const arrow = (delta, char, on) => (
+    <button onClick={() => go(delta)} disabled={!on} aria-label={delta < 0 ? '前の試合' : '次の試合'} style={{
       width: 30, height: 30, borderRadius: 15, flexShrink: 0,
       border: `1px solid ${T.line}`, background: 'rgba(255,255,255,0.04)',
       color: on ? T.text : T.faint, display: 'flex', alignItems: 'center',
       justifyContent: 'center', fontSize: 15, cursor: on ? 'pointer' : 'default',
-      opacity: on ? 1 : 0.35, userSelect: 'none',
-    }}>{dir}</div>
+      opacity: on ? 1 : 0.35, userSelect: 'none', padding: 0,
+    }}>{char}</button>
   );
 
   const side = (team) => (
@@ -126,11 +126,11 @@ function MatchCarousel({ T, dateStr, matches, today }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 6px 8px' }}>
         <span style={{ fontWeight: 800, fontSize: 15, color: T.text }}>📅 {formatDateJa(dateStr)} の試合</span>
-        <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{Math.min(idx + 1, n)} / {n}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{idx + 1} / {n}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        {n > 1 && arrow('‹', idx > 0)}
+        {n > 1 && arrow(-1, '‹', idx > 0)}
         <Card T={T} style={{ flex: 1, borderColor: 'rgba(182,255,60,0.30)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <span style={{
@@ -151,7 +151,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
             <div style={{ textAlign: 'center', fontSize: 11, color: T.faint, marginTop: 14 }}>📍 {cur.note}</div>
           )}
         </Card>
-        {n > 1 && arrow('›', idx < n - 1)}
+        {n > 1 && arrow(1, '›', idx < n - 1)}
       </div>
       {n > 1 && (
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12 }}>
