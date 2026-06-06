@@ -1,0 +1,50 @@
+/* ホームタブ：試合日程ビュー（読み取り専用・直近フォーカス型） */
+
+// 小さな旗 or 未確定プレースホルダ
+function MiniFlag({ T, team, size = 20 }) {
+  const box = {
+    width: size, height: size, borderRadius: size * 0.3, flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'rgba(255,255,255,0.06)', fontSize: size * 0.95, lineHeight: 1,
+  };
+  if (team.resolved) return <div style={box}><span style={{ transform: 'scale(1.3)' }}>{team.flag}</span></div>;
+  return <div style={{ ...box, color: T.faint, fontSize: size * 0.6 }}>?</div>;
+}
+
+// タイムライン1行：時刻 / A vs B / 章ラベル
+function MatchRow({ T, match, last }) {
+  const teamMap = window.WC.TEAM || {};
+  const a = window.WC.formatMatchTeam(match.a, teamMap);
+  const b = window.WC.formatMatchTeam(match.b, teamMap);
+  const label = window.WC.roundLabel(match.round);
+  const sideStyle = { fontWeight: 800, fontSize: 13, color: T.text, whiteSpace: 'nowrap' };
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '9px 4px',
+      borderBottom: last ? 'none' : `1px solid ${T.line}`,
+    }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, width: 46, flexShrink: 0 }}>
+        {match.time || '--:--'}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
+        <MiniFlag T={T} team={a} />
+        <span style={sideStyle}>{a.resolved ? a.code : a.label}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: T.faint, padding: '0 6px' }}>vs</span>
+        <span style={sideStyle}>{b.resolved ? b.code : b.label}</span>
+        <MiniFlag T={T} team={b} />
+      </div>
+      <span style={{
+        fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
+        background: 'rgba(255,255,255,0.06)', color: T.sub, border: `1px solid ${T.line}`,
+        flexShrink: 0, marginLeft: 8,
+      }}>{label}</span>
+    </div>
+  );
+}
+
+function HomeScreen({ T }) {
+  return <div style={{ color: T.text }}>準備中</div>;
+}
+
+Object.assign(window, { HomeScreen, MatchRow });
