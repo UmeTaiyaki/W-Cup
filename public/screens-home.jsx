@@ -74,6 +74,99 @@ function DayTimeline({ T, groups }) {
   );
 }
 
+// 日数差（'YYYY-MM-DD' 同士）。today→focus が何日後か。
+function daysUntil(today, focus) {
+  if (!today || !focus) return 0;
+  const a = Date.UTC(...today.split('-').map(Number).map((n, i) => i === 1 ? n - 1 : n));
+  const b = Date.UTC(...focus.split('-').map(Number).map((n, i) => i === 1 ? n - 1 : n));
+  return Math.round((b - a) / 86400000);
+}
+
+// フォーカス日の試合をスワイプ/矢印/ドットで切替表示
+function MatchCarousel({ T, dateStr, matches, today }) {
+  const [idx, setIdx] = React.useState(0);
+  const touch = React.useRef(null);
+  const n = matches.length;
+  const cur = matches[Math.min(idx, n - 1)];
+  const teamMap = window.WC.TEAM || {};
+  const a = window.WC.formatMatchTeam(cur.a, teamMap);
+  const b = window.WC.formatMatchTeam(cur.b, teamMap);
+  const diff = daysUntil(today, dateStr);
+  const countdown = diff <= 0 ? '本日' : `あと${diff}日`;
+
+  const go = (delta) => setIdx((p) => Math.max(0, Math.min(n - 1, p + delta)));
+  const onTouchStart = (e) => { touch.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (touch.current == null) return;
+    const dx = e.changedTouches[0].clientX - touch.current;
+    if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+    touch.current = null;
+  };
+
+  const arrow = (dir, on) => (
+    <div onClick={() => on && go(dir === '‹' ? -1 : 1)} style={{
+      width: 30, height: 30, borderRadius: 15, flexShrink: 0,
+      border: `1px solid ${T.line}`, background: 'rgba(255,255,255,0.04)',
+      color: on ? T.text : T.faint, display: 'flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: 15, cursor: on ? 'pointer' : 'default',
+      opacity: on ? 1 : 0.35, userSelect: 'none',
+    }}>{dir}</div>
+  );
+
+  const side = (team) => (
+    <div style={{ textAlign: 'center', flex: 1 }}>
+      <Flag code={team.resolved ? team.code : ''} size={48} T={T} />
+      <div style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}>
+        {team.resolved ? team.code : team.label}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 6px 8px' }}>
+        <span style={{ fontWeight: 800, fontSize: 15, color: T.text }}>📅 {formatDateJa(dateStr)} の試合</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{Math.min(idx + 1, n)} / {n}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {n > 1 && arrow('‹', idx > 0)}
+        <Card T={T} style={{ flex: 1, borderColor: 'rgba(182,255,60,0.30)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
+              background: 'rgba(182,255,60,0.14)', color: T.accent, border: '1px solid rgba(182,255,60,0.25)',
+            }}>{window.WC.roundLabel(cur.round)}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{countdown}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {side(a)}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 23, fontWeight: 800, color: T.text }}>{cur.time || '--:--'}</div>
+              <div style={{ fontSize: 10, color: T.faint }}>KICK OFF</div>
+            </div>
+            {side(b)}
+          </div>
+          {cur.note && (
+            <div style={{ textAlign: 'center', fontSize: 11, color: T.faint, marginTop: 14 }}>📍 {cur.note}</div>
+          )}
+        </Card>
+        {n > 1 && arrow('›', idx < n - 1)}
+      </div>
+      {n > 1 && (
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12 }}>
+          {matches.map((_, i) => (
+            <span key={i} style={{
+              width: i === idx ? 18 : 7, height: 7, borderRadius: 4,
+              background: i === idx ? T.accent : 'rgba(255,255,255,0.18)', transition: 'all .2s',
+            }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HomeScreen({ T }) {
   const schedule = window.WC.SCHEDULE || [];
   const groups = window.WC.groupByDate(schedule);
@@ -86,12 +179,15 @@ function HomeScreen({ T }) {
     );
   }
 
-  const focusDate = window.WC.pickFocusDate(groups.map((g) => g.date), window.WC.jstToday());
+  const today = window.WC.jstToday();
+  const focusDate = window.WC.pickFocusDate(groups.map((g) => g.date), today);
   const focusIdx = groups.findIndex((g) => g.date === focusDate);
+  const focusGroup = groups[focusIdx];
   const rest = groups.slice(focusIdx + 1).filter((g) => g.date !== null);
 
   return (
     <div>
+      <MatchCarousel T={T} dateStr={focusGroup.date} matches={focusGroup.matches} today={today} />
       <DayTimeline T={T} groups={rest} />
     </div>
   );
