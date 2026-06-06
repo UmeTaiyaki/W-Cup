@@ -51,22 +51,8 @@ function InviteSheet({ T, room, onClose }) {
   };
 
   return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.55)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        width: '100%', maxWidth: 460, background: T.bg, borderRadius: '22px 22px 0 0',
-        padding: `18px 18px calc(env(safe-area-inset-bottom, 0px) + 22px)`,
-        boxShadow: '0 -10px 40px rgba(0,0,0,0.45)', position: 'relative' }}>
-        <div style={{ width: 38, height: 4, borderRadius: 2, background: T.line, margin: '0 auto 14px' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-          <div style={{ fontWeight: 800, color: T.text, fontSize: 17 }}>仲間を招待</div>
-          <button onClick={onClose} style={{
-            marginLeft: 'auto', border: 'none', background: T.panel2, width: 30, height: 30,
-            borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
-            <Icon name="close" size={16} color={T.sub} /></button>
-        </div>
+    <Sheet open onClose={onClose} T={T} title="仲間を招待">
+      <div style={{ padding: '0 18px 4px' }}>
         <p style={{ color: T.faint, fontSize: 12.5, lineHeight: 1.5, margin: '0 0 14px' }}>
           「{room.name || '部屋'}」に招待して、予想を見比べましょう。</p>
 
@@ -113,7 +99,7 @@ function InviteSheet({ T, room, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </Sheet>
   );
 }
 
