@@ -60,3 +60,20 @@ export function groupByDate(schedule) {
     ...(undated.length ? [{ date: null, matches: undated.slice().sort(byTime) }] : []),
   ];
 }
+
+// 並んだ試合日リスト（昇順想定）から、今日 or それ以降で最初の試合日を返す。
+// 今日以降に無ければ最後の試合日。リストが空なら null。
+export function pickFocusDate(dateList, today) {
+  const dates = (Array.isArray(dateList) ? dateList : []).filter(Boolean).slice().sort();
+  if (!dates.length) return null;
+  for (const d of dates) {
+    if (d >= today) return d;
+  }
+  return dates[dates.length - 1];
+}
+
+// エポックミリ秒 → JST(UTC+9) の 'YYYY-MM-DD'。引数省略時は現在時刻。
+export function jstToday(nowMs = Date.now()) {
+  const jst = new Date(nowMs + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}

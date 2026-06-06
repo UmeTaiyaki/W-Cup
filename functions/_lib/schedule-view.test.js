@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roundLabel, formatMatchTeam, groupByDate } from '../../public/lib/schedule-view.js';
+import { roundLabel, formatMatchTeam, groupByDate, pickFocusDate, jstToday } from '../../public/lib/schedule-view.js';
 
 test('roundLabel: グループ記号は「グループX」', () => {
   assert.equal(roundLabel('A'), 'グループA');
@@ -102,4 +102,31 @@ test('groupByDate: date 空文字は日付未定グループへ', () => {
 test('groupByDate: 空配列は空配列', () => {
   assert.deepEqual(groupByDate([]), []);
   assert.deepEqual(groupByDate(null), []);
+});
+
+const DATES = ['2026-06-12', '2026-06-13', '2026-06-25'];
+
+test('pickFocusDate: 今日に試合があれば今日', () => {
+  assert.equal(pickFocusDate(DATES, '2026-06-13'), '2026-06-13');
+});
+
+test('pickFocusDate: 今日に試合が無ければ次の試合日', () => {
+  assert.equal(pickFocusDate(DATES, '2026-06-07'), '2026-06-12'); // 大会前
+  assert.equal(pickFocusDate(DATES, '2026-06-20'), '2026-06-25'); // 休養日
+});
+
+test('pickFocusDate: 今日以降に試合が無ければ最後の試合日', () => {
+  assert.equal(pickFocusDate(DATES, '2026-07-01'), '2026-06-25'); // 大会後
+});
+
+test('pickFocusDate: 空リストは null', () => {
+  assert.equal(pickFocusDate([], '2026-06-12'), null);
+  assert.equal(pickFocusDate(null, '2026-06-12'), null);
+});
+
+test('jstToday: ミリ秒からJSTの YYYY-MM-DD を返す', () => {
+  // 2026-06-12T19:30:00Z = JST 2026-06-13 04:30 → '2026-06-13'
+  assert.equal(jstToday(Date.parse('2026-06-12T19:30:00Z')), '2026-06-13');
+  // 2026-06-12T14:00:00Z = JST 2026-06-12 23:00 → '2026-06-12'
+  assert.equal(jstToday(Date.parse('2026-06-12T14:00:00Z')), '2026-06-12');
 });
