@@ -64,7 +64,7 @@ function ShareSheet({ T, member, pred, open, onClose }) {
     status === 'working' ? '生成中…'
     : status === 'done' ? '閉じる'
     : status === 'error' ? '失敗。もう一度'
-    : '画像で共有 / 保存';
+    : '画像でシェア / 保存';
 
   // 共有完了後はボタンを「閉じる」に切り替える（押下で再共有しない）
   function handleButton() {
@@ -76,11 +76,11 @@ function ShareSheet({ T, member, pred, open, onClose }) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} T={T} title="予想を共有">
+    <Sheet open={open} onClose={onClose} T={T} title="予想をシェア">
       <div style={{ padding: '4px 18px 18px' }}>
         {noData ? (
           <div style={{ color: T.faint, fontSize: 14, fontWeight: 700, textAlign: 'center', padding: '28px 0' }}>
-            {member ? member.name : 'この人'}はまだ共有できる予想がありません
+            {member ? member.name : 'この人'}はまだシェアできる予想がありません
           </div>
         ) : (
           <>

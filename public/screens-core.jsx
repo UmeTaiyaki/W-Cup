@@ -101,7 +101,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
           cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
           display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
           fontWeight: 800, fontSize: 14 }}>
-          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
+          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />シェア
         </button>
       )}
     </div>
@@ -274,7 +274,7 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
           cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
           display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
           fontWeight: 800, fontSize: 14 }}>
-          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
+          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />シェア
         </button>
       </div>
 
