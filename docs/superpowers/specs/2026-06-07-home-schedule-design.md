@@ -69,10 +69,11 @@
 
 ## 5. コンポーネント分割
 
-`coding-style`（多数の小ファイル / 純関数の分離）に沿い、新規ファイル
-`public/screens-home.jsx` を作成:
+`coding-style`（多数の小ファイル / 純関数の分離）に沿い、既存慣習どおり
+**純ロジックは ESM モジュール `public/lib/schedule-view.js`** に、
+**表示は babel JSX `public/screens-home.jsx`** に分ける。
 
-純関数（ユニットテスト対象）:
+純関数（`public/lib/schedule-view.js`・ユニットテスト対象）:
 - `groupByDate(schedule)` — `date` 昇順 → 各日の試合を `time` 昇順に整形した
   `[{ date, matches }]` を返す。`date` 欠落要素は末尾の「日付未定」グループへ。
 - `pickFocusDate(dateList, today)` — §4 のロジックでフォーカス日を返す。
@@ -85,10 +86,15 @@
 - `<DayTimeline>` — 翌日以降の日付グループ一覧。
 - `<MatchRow>` — タイムライン1行。
 
-`index.html` のルーティング `'summary' → SummaryScreen` を `HomeScreen` に差し替え、
-`screens-core.jsx` の旧 `SummaryScreen` と、それに伴い不要化する補助
-（PodiumHero/MiniPick 等のホーム専用利用箇所）を撤去する。
-ただし予想タブ（`InputScreen`）が使う共有コンポーネントは温存する。
+`index.html` のルーティング `'summary' → SummaryScreen`（462行）を `HomeScreen` に差し替える。
+
+**注意**: `SummaryScreen` は部屋の比較画面（`screens-rooms.jsx:384` の `RoomCompareScreen`）でも
+メンバーの予想サマリー表示に使われているため **削除しない**。ホームタブの描画先を切り替えるだけ。
+`PodiumHero`/`MiniPick` も `SummaryScreen`・`InputScreen` が引き続き使うため温存する。
+
+ESM 純関数はビルド慣習（`public/lib/*.js` を `export`、`index.html` の module script で
+import → `Object.assign(window.WC, {...})` で babel 側へ橋渡し）に従って公開する。
+チーム情報の参照は既存の `window.WC.TEAM[code]`（code→{ja,flag,c}）を使う。
 
 再利用: `Card` / `Panel` / `Eyebrow` / `Flag` / `TeamLine` / `Icon` / テーマトークン
 （`T.bg`/`T.card`/`T.line`/`T.text`/`T.sub`/`T.faint`/`T.accent`）。
