@@ -118,14 +118,149 @@
       );
     }
 
+    // 画像をブラウザ側で縮小・JPEG 再エンコード（Discord 8MB 制限内に収める）。失敗時は原本を返す。
+    async function compressImage(file, opts) {
+      const maxEdge = (opts && opts.maxEdge) || 1600;
+      const quality = (opts && opts.quality) || 0.8;
+      if (!file || !String(file.type || '').startsWith('image/')) return file;
+      try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+        const w = Math.max(1, Math.round(bitmap.width * scale));
+        const h = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+        if (!blob) return file;
+        return new File([blob], 'feedback.jpg', { type: 'image/jpeg' });
+      } catch (e) {
+        return file; // 圧縮できなくてもサーバ側上限で弾けるので原本で続行
+      }
+    }
+
+    // フィードバックフォーム（本文必須＋画像任意1枚＋Turnstile）。
+    function FeedbackForm({ T, siteKey, onClose }) {
+      const [text, setText] = useState('');
+      const [imageFile, setImageFile] = useState(null);
+      const [preview, setPreview] = useState(null);
+      const [token, setToken] = useState(null);
+      const [tsKey, setTsKey] = useState(0);
+      const [busy, setBusy] = useState(false);
+      const [err, setErr] = useState('');
+      const [done, setDone] = useState(false);
+      const previewRef = useRef(preview);
+      previewRef.current = preview;
+      useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); }, []);
+      const MAX = 1000;
+      const remain = MAX - Array.from(text).length;
+
+      async function pickImage(e) {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!f) return;
+        if (!String(f.type || '').startsWith('image/')) { setErr('画像ファイルを選んでください'); return; }
+        setErr('');
+        const compressed = await compressImage(f);
+        if (preview) URL.revokeObjectURL(preview);
+        setImageFile(compressed);
+        setPreview(URL.createObjectURL(compressed));
+      }
+      function removeImage() {
+        if (preview) URL.revokeObjectURL(preview);
+        setImageFile(null); setPreview(null);
+      }
+      async function submit() {
+        const t = text.trim();
+        if (!t || busy) return;
+        if (siteKey && !token) { setErr('「私はロボットではありません」の確認を完了してください'); return; }
+        setBusy(true); setErr('');
+        try {
+          await window.WC.Feedback.send({ text: t, imageFile, turnstileToken: token });
+          if (preview) URL.revokeObjectURL(preview);
+          setDone(true);
+        } catch (e) {
+          setErr(e.message || '送信に失敗しました');
+          if (siteKey) { setToken(null); setTsKey((k) => k + 1); }
+        } finally { setBusy(false); }
+      }
+
+      if (done) {
+        return (
+          <div style={{ background: T.card, borderRadius: 16, padding: '16px', marginTop: 10,
+            boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+            <div style={{ fontWeight: 800, color: T.text, fontSize: 14.5, marginBottom: 4 }}>
+              送信しました。ありがとうございます</div>
+            <p style={{ color: T.sub, fontSize: 12.5, lineHeight: 1.5, margin: '0 0 12px' }}>
+              いただいた内容は運営が確認します。</p>
+            <button onClick={onClose} style={{
+              border: 'none', borderRadius: 12, padding: '10px 16px', cursor: 'pointer',
+              background: T.panel2, color: T.sub, fontFamily: 'inherit', fontWeight: 800, fontSize: 13.5 }}>
+              閉じる</button>
+          </div>
+        );
+      }
+
+      return (
+        <div style={{ background: T.card, borderRadius: 16, padding: '16px', marginTop: 10,
+          boxShadow: `inset 0 0 0 1px ${T.line}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <textarea value={text} maxLength={MAX} rows={4}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="ご意見・不具合など、なんでもどうぞ"
+            style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none',
+              resize: 'vertical', background: T.panel2, color: T.text, fontSize: 15, fontFamily: 'inherit',
+              fontWeight: 600, lineHeight: 1.6, padding: '12px 14px', borderRadius: 12 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+              background: T.panel2, color: T.sub, borderRadius: 12, padding: '9px 13px',
+              fontWeight: 800, fontSize: 13 }}>
+              <Icon name="image" size={15} color={T.sub} sw={2.2} />
+              {imageFile ? '画像を変更' : '画像を添付'}
+              <input type="file" accept="image/*" onChange={pickImage} style={{ display: 'none' }} />
+            </label>
+            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700,
+              color: remain < 0 ? '#FF6B6B' : T.faint }}>{remain}</span>
+          </div>
+          {preview ? (
+            <div style={{ position: 'relative', alignSelf: 'flex-start' }}>
+              <img src={preview} alt="添付画像" style={{ maxWidth: '100%', maxHeight: 200,
+                borderRadius: 12, display: 'block' }} />
+              <button onClick={removeImage} title="削除" style={{ position: 'absolute', top: 6, right: 6,
+                border: 'none', borderRadius: 999, width: 28, height: 28, cursor: 'pointer',
+                background: 'rgba(0,0,0,0.6)', color: '#fff', fontWeight: 900, fontSize: 14 }}>×</button>
+            </div>
+          ) : null}
+          {siteKey ? (
+            <TurnstileWidget key={tsKey} siteKey={siteKey} onToken={setToken}
+              theme={T.isDark === false ? 'light' : 'dark'} />
+          ) : null}
+          {err ? <div style={{ color: '#FF6B6B', fontSize: 12.5, fontWeight: 700 }}>{err}</div> : null}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} style={{
+              border: 'none', borderRadius: 12, padding: '11px 16px', cursor: 'pointer',
+              background: T.panel2, color: T.sub, fontFamily: 'inherit', fontWeight: 800, fontSize: 13.5 }}>
+              キャンセル</button>
+            <button onClick={submit} disabled={!text.trim() || busy} style={{
+              flex: 1, border: 'none', borderRadius: 12, padding: '11px 18px',
+              cursor: !text.trim() || busy ? 'default' : 'pointer',
+              background: !text.trim() || busy ? T.panel2 : T.accent,
+              color: !text.trim() || busy ? T.faint : T.accentInk,
+              fontFamily: 'inherit', fontWeight: 800, fontSize: 13.5 }}>
+              {busy ? '送信中…' : '送信する'}</button>
+          </div>
+        </div>
+      );
+    }
+
     // アカウント画面（名前変更＋同期コード再表示＋このブラウザのデータ削除）
-    function AccountScreen({ T, me, setMe, onSignOut }) {
+    function AccountScreen({ T, me, setMe, onSignOut, siteKey }) {
       const [copied, setCopied] = useState(false);
       const [confirm, setConfirm] = useState(false);
       const [editing, setEditing] = useState(false);
       const [draft, setDraft] = useState(me.name || '');
       const [saving, setSaving] = useState(false);
       const [nameErr, setNameErr] = useState('');
+      const [showFeedback, setShowFeedback] = useState(false);
       const fmt = (c) => (c || '').replace(/(.{4})(?=.)/g, '$1-');
       function copy() {
         try { navigator.clipboard.writeText(me.code); setCopied(true); setTimeout(() => setCopied(false), 1600); }
@@ -209,6 +344,22 @@
               別の端末で予想を続けるときに使うコードです。
               <b style={{ color: T.sub }}>このブラウザのデータを消すと予想は消えます。</b>
               無くすと復元できません。</p>
+          </div>
+
+          {/* フィードバック */}
+          <div>
+            <Eyebrow T={T}>フィードバック</Eyebrow>
+            {!showFeedback ? (
+              <button onClick={() => setShowFeedback(true)} style={{
+                width: '100%', marginTop: 8, border: 'none', borderRadius: 14, padding: '13px',
+                fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                background: T.card, color: T.text, boxShadow: `inset 0 0 0 1px ${T.line}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Icon name="chat" size={17} color={T.accent} sw={2.2} />
+                フィードバックを送る</button>
+            ) : (
+              <FeedbackForm T={T} siteKey={siteKey} onClose={() => setShowFeedback(false)} />
+            )}
           </div>
 
           {/* このブラウザからサインアウト */}
@@ -326,7 +477,7 @@
           return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={openRoom} wide={wide} siteKey={siteKey} />;
         }
         if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
-        if (tab === 'account') return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} />;
+        if (tab === 'account') return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} siteKey={siteKey} />;
         return null;
       }
 

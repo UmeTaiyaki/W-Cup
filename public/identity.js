@@ -123,6 +123,24 @@
     });
   }
 
+  // フィードバック送信（multipart）。{ ok } を返す。失敗時は error/status を持つ Error。
+  async function sendFeedback({ text, imageFile, turnstileToken }) {
+    const id = load();
+    const fd = new FormData();
+    fd.set('text', text || '');
+    if (id && id.userId) fd.set('userId', id.userId);
+    if (turnstileToken) fd.set('turnstileToken', turnstileToken);
+    if (imageFile) fd.set('image', imageFile, imageFile.name || 'image.jpg');
+    const res = await fetch('/api/feedback', { method: 'POST', body: fd, cache: 'no-store' });
+    if (!res.ok) {
+      let msg = '送信に失敗しました';
+      const status = res.status;
+      try { const e = await res.json(); if (e && e.error) msg = e.error; } catch (e2) {}
+      const err = new Error(msg); err.status = status; throw err;
+    }
+    return res.json();
+  }
+
   // ---- 部屋（ルーム）API ----
   async function postRoom(body) {
     const res = await fetch('/api/room', {
@@ -153,6 +171,7 @@
     scheduleSave, flushSave, flushBeacon, cacheUser,
   };
   window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };
+  window.WC.Feedback = { send: sendFeedback };
 
   // 招待URL（?join=CODE）。受け取った端末は起動時に参加を促される。
   window.WC.roomInviteURL = (code) =>
