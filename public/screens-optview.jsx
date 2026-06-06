@@ -1,8 +1,9 @@
 /* ============================================================
-   画面: オプション予想ビューア（読み取り専用）
+   画面: オプション予想ビューア
    各メンバーのグループ順位・3位ワイルドカード・ノックアウト予想を閲覧する。
-   編集はしない。上部のメンバーチップで閲覧対象を切り替えられる。
-   props: T, state, viewId, setViewId, goBack, wide, availWidth
+   既定は読み取り専用。editable+onEdit を渡すと各セクション見出しに編集ボタンを出す。
+   上部のメンバーチップで閲覧対象を切り替えられる。
+   props: T, state, viewId, setViewId, goBack, wide, availWidth, embedded, editable, onEdit
    ============================================================ */
 function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, availWidth = 0, backLabel = 'ホームに戻る', embedded = false, editable = false, onEdit }) {
   const members = state.members;
