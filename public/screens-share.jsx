@@ -62,9 +62,18 @@ function ShareSheet({ T, member, pred, open, onClose }) {
   const noData = !avail.core && !avail.group && !avail.knockout;
   const btnLabel =
     status === 'working' ? '生成中…'
-    : status === 'done' ? '完了 ✓'
+    : status === 'done' ? '閉じる'
     : status === 'error' ? '失敗。もう一度'
     : '画像で共有 / 保存';
+
+  // 共有完了後はボタンを「閉じる」に切り替える（押下で再共有しない）
+  function handleButton() {
+    if (status === 'done') {
+      onClose && onClose();
+      return;
+    }
+    handleShare();
+  }
 
   return (
     <Sheet open={open} onClose={onClose} T={T} title="予想を共有">
@@ -106,7 +115,7 @@ function ShareSheet({ T, member, pred, open, onClose }) {
             </div>
 
             {/* 共有ボタン */}
-            <button onClick={handleShare} disabled={status === 'working'}
+            <button onClick={handleButton} disabled={status === 'working'}
               style={{ marginTop: 14, width: '100%', border: 'none', borderRadius: 16, padding: '15px',
                 cursor: status === 'working' ? 'default' : 'pointer', fontFamily: 'inherit',
                 fontWeight: 800, fontSize: 16, display: 'flex', alignItems: 'center',
@@ -114,7 +123,7 @@ function ShareSheet({ T, member, pred, open, onClose }) {
                 background: status === 'error' ? T.card : T.accent,
                 color: status === 'error' ? T.accent : T.accentInk,
                 boxShadow: status === 'error' ? `inset 0 0 0 1.5px ${T.accent}` : 'none' }}>
-              <Icon name={status === 'done' ? 'check' : 'share'} size={19}
+              <Icon name={status === 'done' ? 'close' : 'share'} size={19}
                 color={status === 'error' ? T.accent : T.accentInk} sw={2.2} />
               {btnLabel}
             </button>
