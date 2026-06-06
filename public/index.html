@@ -62,7 +62,7 @@
   <script type="text/babel" src="ios-frame.jsx?v=2"></script>
   <script type="text/babel" src="ui.jsx?v=5"></script>
   <script type="text/babel" src="app-shell.jsx?v=3"></script>
-  <script type="text/babel" src="screens-core.jsx?v=7"></script>
+  <script type="text/babel" src="screens-core.jsx?v=8"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=3"></script>
   <script type="text/babel" src="screens-rank.jsx?v=3"></script>
   <script type="text/babel" src="screens-group.jsx?v=3"></script>
@@ -465,7 +465,7 @@
             setThirdGroups={setThirdGroups} goBack={() => setOptScreen(null)} wide={wide} />;
           if (optScreen === 'knockout') return <KnockoutScreen T={T} member={member} pred={pred}
             setKnockout={setKnockout} goBack={() => setOptScreen(null)} wide={wide} availWidth={contentAvail} />;
-          return <InputScreen solo T={T} member={member} pred={pred} setPick={setPick}
+          return <InputScreen solo T={T} state={soloState} member={member} pred={pred} setPick={setPick}
             goOption={setOptScreen} wide={wide} />;
         }
         if (tab === 'rooms') {

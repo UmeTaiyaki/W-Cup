@@ -251,85 +251,40 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
 }
 
 // ===== 予想入力画面 =========================================
-function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, wide = false, solo = false }) {
-  const gr = pred.groupRank || {};
-  const grDone = ['A','B','C','D','E','F','G','H','I','J','K','L'].filter((k) => (gr[k] || []).length >= 3).length;
-  const wcCount = 8; // 3位通過する8組
-  const taDone = (pred.thirdGroups || []).length;
-  const koReady = grDone === 12 && taDone === wcCount;
+function InputScreen({ T, state, member, pred, setPick, onRemove, canRemove, goOption, wide = false, solo = false }) {
+  const champ = pred.champion ? window.WC.TEAM[pred.champion] : null;
   const [sheet, setSheet] = React.useState(null); // 'champ' | 'runner' | 'scorer'
   const [confirm, setConfirm] = React.useState(false);
   React.useEffect(() => { setConfirm(false); }, [member.id]);
 
-  const Row = ({ field, label, sub, color, icon, code, scorer }) => {
-    const filled = code || scorer;
-    const sm = scorer ? (/^(.*)\s+\(([A-Za-z]{2,3})\)$/.exec(scorer) || []) : [];
-    const scFlag = sm[2] ? (window.WC.TEAM[sm[2]] || {}).flag : '';
-    const scName = sm[1] || scorer;
-    return (
-      <button onClick={() => setSheet(field)} style={{
-        width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
-        background: T.card, borderRadius: 20, padding: 16,
-        boxShadow: `inset 0 0 0 1px ${filled ? color + '55' : T.line}`,
-        display: 'flex', alignItems: 'center', gap: 14, fontFamily: 'inherit',
-      }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: 13, display: 'grid', placeItems: 'center',
-          background: `${color}1F`, flexShrink: 0 }}>
-          <Icon name={icon} size={24} color={color} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ fontWeight: 800, fontSize: 16, color: T.text }}>{label}</span>
-            <span style={{ fontFamily: 'Archivo', fontWeight: 700, fontSize: 10,
-              letterSpacing: 1.5, color: T.faint, whiteSpace: 'nowrap' }}>{sub}</span>
-          </div>
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-            {(code ? window.WC.TEAM[code].flag : scFlag) &&
-              <span style={{ fontSize: 24, flexShrink: 0 }}>{code ? window.WC.TEAM[code].flag : scFlag}</span>}
-            <span style={{ fontSize: 18, fontWeight: 800, color: filled ? T.text : T.faint,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {code ? window.WC.TEAM[code].ja : (scorer ? scName : 'タップして選ぶ')}
-            </span>
-          </div>
-        </div>
-        <Icon name="chevron" size={20} color={T.faint} />
-      </button>
-    );
-  };
+  // OptionViewScreen は state.members/preds を参照するため単一メンバーのシムを渡す
+  const viewState = state || { current: member.id, members: [member], preds: { [member.id]: pred } };
 
   return (
-    <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px' }}>
-      <Eyebrow T={T}>EDIT · {member.name}</Eyebrow>
-      <div style={{ fontSize: 23, fontWeight: 800, color: T.text, marginTop: 3, marginBottom: 4 }}>
-        3つを予想しよう</div>
-      <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.6, margin: '0 0 16px' }}>
-        {solo ? '優勝・準優勝・得点王を選ぶと自動で保存されます。'
-              : '優勝・準優勝・得点王を選ぶと自動で保存。上の人物アイコンで仲間を切り替えられます。'}</p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Row field="champ" label="優勝" sub="CHAMPION" color={T.gold} icon="trophy" code={pred.champion} />
-        <Row field="runner" label="準優勝" sub="RUNNER-UP" color={T.silver} icon="medal" code={pred.runnerUp} />
-        <Row field="scorer" label="得点王" sub="TOP SCORER" color={T.boot} icon="boot" scorer={pred.topScorer} />
+    <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px',
+      display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div>
+        <Eyebrow T={T}>EDIT · {member.name}</Eyebrow>
+        <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
+          予想を編集</div>
       </div>
 
-      {/* オプション予想の入口 */}
-      <div style={{ marginTop: 22 }}>
-        <div style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 11, letterSpacing: 1.4,
-          color: T.accent, marginBottom: 10 }}>■ オプション予想（やりたい人）</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <OptionCard T={T} emoji="📊" title="グループ順位予想" sub={`12組の1〜3位 · ${grDone}/12組`}
-            onClick={() => goOption('grouprank')} />
-          <OptionCard T={T} emoji="🎯" title="3位ワイルドカード" sub={`通過する8組を選択 · ${taDone}/${wcCount}組`}
-            onClick={() => goOption('thirdwild')} />
-          <OptionCard T={T} emoji="🏟" title="ノックアウト予想" sub={koReady ? 'ベスト32→決勝' : '先にグループ順位予想を'}
-            onClick={() => koReady && goOption('knockout')} disabled={!koReady} />
-        </div>
+      <PodiumHero T={T} champ={champ} onEdit={() => setSheet('champ')} />
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <MiniPick T={T} label="準優勝" sub="RUNNER-UP" code={pred.runnerUp} color={T.silver}
+          icon="medal" onEdit={() => setSheet('runner')} />
+        <MiniPick T={T} label="得点王" sub="TOP SCORER" scorer={pred.topScorer} color={T.boot}
+          icon="boot" onEdit={() => setSheet('scorer')} />
       </div>
+
+      {/* オプション予想（インライン表示＋各見出しの編集ボタン） */}
+      <OptionViewScreen embedded editable T={T} state={viewState} viewId={member.id}
+        setViewId={() => {}} wide={wide} onEdit={goOption} />
 
       {/* 参加者の削除 */}
       {!solo && (
-      <div style={{ marginTop: 28, paddingTop: 18, borderTop: `1px solid ${T.line}` }}>
+      <div style={{ marginTop: 14, paddingTop: 18, borderTop: `1px solid ${T.line}` }}>
         {!confirm ? (
           <button onClick={() => setConfirm(true)} disabled={!canRemove} style={{
             width: '100%', border: 'none', borderRadius: 14, padding: '13px',
@@ -374,23 +329,6 @@ function InputScreen({ T, member, pred, setPick, onRemove, canRemove, goOption, 
       <ScorerPicker open={sheet === 'scorer'} onClose={() => setSheet(null)} T={T} centered={wide}
         title="得点王を選ぶ" onPick={v => setPick('topScorer', v)} />
     </div>
-  );
-}
-
-function OptionCard({ T, emoji, title, sub, onClick, disabled = false }) {
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
-      border: 'none', cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
-      background: T.card, borderRadius: 14, padding: '13px 14px', opacity: disabled ? 0.55 : 1,
-      boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-      <span style={{ fontSize: 20 }}>{emoji}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 800, fontSize: 14, color: T.text }}>{title}</div>
-        <div style={{ fontSize: 11.5, color: T.faint, marginTop: 1 }}>{sub}</div>
-      </div>
-      <Icon name="chevron" size={18} color={T.faint} />
-    </button>
   );
 }
 
