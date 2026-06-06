@@ -1,17 +1,9 @@
 /* ホームタブ：試合日程ビュー（読み取り専用・直近フォーカス型） */
 
-// 小さな旗（枠なしの絵文字） or 未確定の丸プレースホルダ
-function MiniFlag({ T, team, size = 20 }) {
-  if (team.resolved) {
-    return <span style={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>{team.flag}</span>;
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(255,255,255,0.06)', color: T.faint, fontSize: size * 0.6,
-    }}>?</div>
-  );
+// 小さな旗（枠なしの絵文字）。未確定チームは何も表示しない。
+function MiniFlag({ team, size = 20 }) {
+  if (!team.resolved) return null;
+  return <span style={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>{team.flag}</span>;
 }
 
 // タイムライン1行：時刻 / A vs B / 章ラベル
@@ -106,26 +98,21 @@ function MatchCarousel({ T, dateStr, matches, today }) {
     touch.current = null;
   };
 
-  const arrow = (delta, char, on) => (
+  // 控えめなオーバーレイ矢印（枠・背景なし、カード左右端に重ねる）
+  const arrow = (delta, char, on, edge) => (
     <button onClick={() => go(delta)} disabled={!on} aria-label={delta < 0 ? '前の試合' : '次の試合'} style={{
-      width: 30, height: 30, borderRadius: 15, flexShrink: 0,
-      border: `1px solid ${T.line}`, background: 'rgba(255,255,255,0.04)',
-      color: on ? T.text : T.faint, display: 'flex', alignItems: 'center',
-      justifyContent: 'center', fontSize: 15, cursor: on ? 'pointer' : 'default',
-      opacity: on ? 1 : 0.35, userSelect: 'none', padding: 0,
+      position: 'absolute', top: '50%', [edge]: 2, transform: 'translateY(-50%)',
+      width: 26, height: 40, border: 'none', background: 'transparent', padding: 0,
+      color: T.faint, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 22, lineHeight: 1, cursor: on ? 'pointer' : 'default',
+      opacity: on ? 0.5 : 0.12, userSelect: 'none',
     }}>{char}</button>
   );
 
   const side = (team) => (
     <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
       <div style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {team.resolved
-          ? <span style={{ fontSize: 42, lineHeight: 1 }}>{team.flag}</span>
-          : <div style={{
-              width: 44, height: 44, borderRadius: '50%', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(255,255,255,0.06)', color: T.faint, fontSize: 22,
-            }}>?</div>}
+        {team.resolved && <span style={{ fontSize: 42, lineHeight: 1 }}>{team.flag}</span>}
       </div>
       <div style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}>
         {team.resolved ? team.code : team.label}
@@ -139,10 +126,9 @@ function MatchCarousel({ T, dateStr, matches, today }) {
         <span style={{ fontWeight: 800, fontSize: 15, color: T.text }}>📅 {formatDateJa(dateStr)} の試合</span>
         <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{idx + 1} / {n}</span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+      <div style={{ position: 'relative' }}
         onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-        {n > 1 && arrow(-1, '‹', idx > 0)}
-        <Card T={T} style={{ flex: 1, borderColor: 'rgba(182,255,60,0.30)' }}>
+        <Card T={T} style={{ borderColor: 'rgba(182,255,60,0.30)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
@@ -162,7 +148,8 @@ function MatchCarousel({ T, dateStr, matches, today }) {
             <div style={{ textAlign: 'center', fontSize: 11, color: T.faint, marginTop: 14 }}>📍 {cur.note}</div>
           )}
         </Card>
-        {n > 1 && arrow(1, '›', idx < n - 1)}
+        {n > 1 && arrow(-1, '‹', idx > 0, 'left')}
+        {n > 1 && arrow(1, '›', idx < n - 1, 'right')}
       </div>
       {n > 1 && (
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12 }}>
