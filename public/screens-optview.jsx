@@ -33,7 +33,7 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
 
   const posMeta = (i) =>
     i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver }
-    : i === 2 ? { n: '3', c: T.sub } : { n: '4', c: T.faint };
+    : i === 2 ? { n: '3', c: T.boot } : { n: '4', c: T.faint };
 
   // ---- ヘッダー（戻る＋メンバー切替）----
   const Header = () => (

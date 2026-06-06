@@ -19,7 +19,7 @@ function GroupRankScreen({ T, member, pred, setGroupRank, goBack, wide = false }
     setGroupRank(k, cur);
   }
 
-  const posMeta = (i) => i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver } : { n: '3', c: T.sub };
+  const posMeta = (i) => i === 0 ? { n: '1', c: T.gold } : i === 1 ? { n: '2', c: T.silver } : { n: '3', c: T.boot };
 
   const Card = ({ k }) => {
     const members = (groups[k] || []).filter(Boolean);
