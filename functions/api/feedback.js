@@ -8,6 +8,7 @@ import { maskCode, validateFeedbackText, buildDiscordPayload } from '../_lib/fee
 const limiter = createRateLimiter({ capacity: 5, refillPerSec: 0.1 });
 const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_BODY_BYTES = 6 * 1024 * 1024;
 
 async function readUser(env, id) {
   if (!id) return null;
@@ -27,10 +28,16 @@ export async function onRequestPost({ request, env }) {
     return json(429, { error: '操作が多すぎます。少し待って再度お試しください' });
   }
 
+  const len = Number(request.headers.get('content-length') || 0);
+  if (len > MAX_BODY_BYTES) {
+    return json(413, { error: '送信データが大きすぎます' });
+  }
+
   let form;
   try {
     form = await request.formData();
   } catch (e) {
+    console.error('feedback: formData parse failed', e);
     return json(400, { error: 'リクエストを解釈できませんでした' });
   }
 
