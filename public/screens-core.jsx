@@ -47,22 +47,25 @@ function PodiumHero({ T, champ, onEdit }) {
   );
 }
 
-// ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false, hideShare = false }) {
-  const champ = window.WC.TEAM[pred.champion];
-  const runner = window.WC.TEAM[pred.runnerUp];
-  const M = state.members;
-  const [shareOpen, setShareOpen] = React.useState(false);
-
-  const MiniPick = ({ label, sub, code, scorer, color, icon }) => (
+function MiniPick({ T, label, sub, code, scorer, color, icon, onEdit }) {
+  return (
     <div style={{
       flex: 1, background: T.card, borderRadius: 20, padding: '15px 14px',
       boxShadow: `inset 0 0 0 1px ${T.line}`, minWidth: 0,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <Icon name={icon} size={17} color={color} />
-        <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 10.5,
-          letterSpacing: 1.6, color: color }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+          <Icon name={icon} size={17} color={color} />
+          <span style={{ fontFamily: 'Archivo, system-ui', fontWeight: 800, fontSize: 10.5,
+            letterSpacing: 1.6, color: color }}>{label}</span>
+        </div>
+        {onEdit && (
+          <button onClick={onEdit} style={{ flexShrink: 0, border: 'none', cursor: 'pointer',
+            fontFamily: 'inherit', borderRadius: 999, padding: 5, display: 'grid', placeItems: 'center',
+            background: T.panel2, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+            <Icon name="edit" size={13} color={T.accent} sw={2} />
+          </button>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 12 }}>
         {code
@@ -77,6 +80,14 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
       <div style={{ fontSize: 11.5, color: T.faint, marginTop: 1 }}>{sub}</div>
     </div>
   );
+}
+
+// ===== サマリー画面 =========================================
+function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false, hideShare = false }) {
+  const champ = window.WC.TEAM[pred.champion];
+  const runner = window.WC.TEAM[pred.runnerUp];
+  const M = state.members;
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -98,8 +109,8 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
 
   const Picks = () => (
     <div style={{ display: 'flex', gap: 12 }}>
-      <MiniPick label="準優勝" sub="RUNNER-UP" code={pred.runnerUp} color={T.silver} icon="medal" />
-      <MiniPick label="得点王" sub="TOP SCORER" scorer={pred.topScorer} color={T.boot} icon="boot" />
+      <MiniPick T={T} label="準優勝" sub="RUNNER-UP" code={pred.runnerUp} color={T.silver} icon="medal" />
+      <MiniPick T={T} label="得点王" sub="TOP SCORER" scorer={pred.topScorer} color={T.boot} icon="boot" />
     </div>
   );
 
