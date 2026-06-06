@@ -58,15 +58,7 @@
   const TEAM = {};
   TEAMS.forEach(t => { TEAM[t.code] = t; });
 
-  // ---- 仲間4人（初期サンプル） --------------------------------
-  const MEMBERS = [
-    { id: 'hikaru', name: 'ひかる', initial: 'ひ', c: '#FF5C7A' },
-    { id: 'sobe',   name: 'そべ',   initial: 'そ', c: '#2DD4BF' },
-    { id: 'gan',    name: 'ガン',   initial: 'ガ', c: '#FBBF24' },
-    { id: 'mizu',   name: '水谷',   initial: '水', c: '#8B7CFF' },
-  ];
-
-  // 新規参加者に割り当てる色（順番に使用）
+  // 新規参加者に割り当てる色（順番に使用。見比べボードのアバター配色に使用）
   const MEMBER_COLORS = [
     '#FF8A3D', '#34D399', '#60A5FA', '#F472B6',
     '#A78BFA', '#22D3EE', '#FB7185', '#FACC15',
@@ -101,46 +93,6 @@
     thirdAssign: {},
   };
 
-  // ---- 各メンバーの初期予想（シード） ------------------------
-  const SEED = {
-    hikaru: {
-      champion: 'ARG', runnerUp: 'ENG', topScorer: 'ムバッペ',
-      bracket: {
-        r16:   ['BRA', 'POR', 'ARG', 'MEX', 'FRA', 'ESP', 'ENG', 'GER'],
-        qf:    ['BRA', 'ARG', 'FRA', 'ENG'],
-        sf:    ['ARG', 'FRA'],
-        final: ['ARG'],
-      },
-    },
-    sobe: {
-      champion: 'FRA', runnerUp: 'ARG', topScorer: 'ハーランド',
-      bracket: {
-        r16:   ['BRA', 'POR', 'ARG', 'NED', 'URU', 'ESP', 'ENG', 'COL'],
-        qf:    ['BRA', 'ARG', 'ESP', 'ENG'],
-        sf:    ['ARG', 'ENG'],
-        final: ['ARG'],
-      },
-    },
-    gan: {
-      champion: 'ARG', runnerUp: 'FRA', topScorer: 'メッシ',
-      bracket: {
-        r16:   ['BRA', 'POR', 'ARG', 'NED', 'FRA', 'ESP', 'ENG', 'GER'],
-        qf:    ['BRA', 'ARG', 'FRA', 'ENG'],
-        sf:    ['ARG', 'FRA'],
-        final: ['ARG'],
-      },
-    },
-    mizu: {
-      champion: 'BRA', runnerUp: 'FRA', topScorer: 'ムバッペ',
-      bracket: {
-        r16:   ['BRA', 'POR', 'ARG', 'NED', 'FRA', 'CRO', 'ENG', 'COL'],
-        qf:    ['BRA', 'ARG', 'FRA', 'ENG'],
-        sf:    ['ARG', 'FRA'],
-        final: ['ARG'],
-      },
-    },
-  };
-
   // ---- テーマ（Tweaksで切替） --------------------------------
   const THEMES = {
     pitch: {
@@ -172,12 +124,7 @@
     },
   };
 
-  // ---- 共有ストレージ（KVバックエンド）------------------------
-  // 予想データと参加者リストはサーバー(/api/predictions)で全員共有する。
-  // 端末ローカルに残すのは「いま表示しているメンバー(current)」だけ。
-  const CUR_KEY = 'wc2026_current_v1';
-
-  // 空の予想（新規参加者の初期値）
+  // 空の予想（新規参加者の初期値）。各画面・オンボーディングが window.WC.emptyPred で利用。
   function emptyPred() {
     return {
       champion: null, runnerUp: null, topScorer: '',
@@ -187,152 +134,11 @@
     };
   }
 
-  function loadCurrent() {
-    try { return localStorage.getItem(CUR_KEY) || null; } catch (e) { return null; }
-  }
-  function saveCurrent(id) {
-    try { if (id) localStorage.setItem(CUR_KEY, id); } catch (e) {}
-  }
-
-  // 各予想にオプションフィールドを補完（旧データ・サーバー応答の正規化）
-  function normalizeDoc(doc) {
-    const blank = emptyPred();
-    const members = Array.isArray(doc.members) && doc.members.length
-      ? doc.members : JSON.parse(JSON.stringify(MEMBERS));
-    const src = doc.preds || {};
-    const preds = {};
-    members.forEach((m) => {
-      const p = src[m.id] || {};
-      preds[m.id] = {
-        champion: p.champion ?? null,
-        runnerUp: p.runnerUp ?? null,
-        topScorer: p.topScorer ?? '',
-        groupRank: p.groupRank || JSON.parse(JSON.stringify(blank.groupRank)),
-        thirdAssign: p.thirdAssign || { ...blank.thirdAssign },
-        knockout: p.knockout || JSON.parse(JSON.stringify(blank.knockout)),
-      };
-    });
-    return { members, preds };
-  }
-
-  // current(端末ローカル)を doc に合成して App の state 形にする
-  function withCurrent(doc, preferId) {
-    const norm = normalizeDoc(doc);
-    const wanted = preferId || loadCurrent();
-    const current = (wanted && norm.preds[wanted]) ? wanted
-      : (norm.members[0] && norm.members[0].id) || null;
-    return { current, members: norm.members, preds: norm.preds };
-  }
-
-  // フェッチ前の即時表示用プレースホルダ（シード）。オフライン時のフォールバックも兼ねる。
-  function seedDoc() {
-    const preds = {};
-    MEMBERS.forEach((m) => {
-      const seed = SEED[m.id] || {};
-      preds[m.id] = {
-        ...emptyPred(),
-        champion: seed.champion ?? null,
-        runnerUp: seed.runnerUp ?? null,
-        topScorer: seed.topScorer ?? '',
-      };
-    });
-    return withCurrent({ members: JSON.parse(JSON.stringify(MEMBERS)), preds });
-  }
-
-  // サーバーから最新の予想を取得（失敗時は null）
-  async function fetchPredictions() {
-    try {
-      const res = await fetch('/api/predictions', { cache: 'no-store' });
-      if (!res.ok) return null;
-      const doc = await res.json();
-      if (!doc || !Array.isArray(doc.members) || !doc.preds) return null;
-      return withCurrent(doc);
-    } catch (e) { return null; }
-  }
-
-  async function postOp(body) {
-    const res = await fetch('/api/predictions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      keepalive: !!body.__keepalive,
-    });
-    if (!res.ok) {
-      let msg = '保存に失敗しました';
-      try { const e = await res.json(); if (e && e.error) msg = e.error; } catch (e2) {}
-      throw new Error(msg);
-    }
-    return res.json();
-  }
-
-  // ---- 編集中メンバーの予想を debounce 保存（メンバー単位マージ）-------
-  let saveTimer = null;
-  let pending = null; // { memberId, pred }
-  function scheduleSave(memberId, pred) {
-    pending = { memberId, pred };
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(flushSave, 700);
-  }
-  function flushSave() {
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-    if (!pending) return;
-    const { memberId, pred } = pending;
-    pending = null;
-    postOp({ op: 'setPred', memberId, pred }).catch((e) => {
-      console.error('予想の保存に失敗しました', e);
-    });
-  }
-  // 離脱時に未保存分を確実に送る
-  function flushBeacon() {
-    if (!pending) return;
-    const { memberId, pred } = pending;
-    pending = null;
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-    try {
-      const blob = new Blob(
-        [JSON.stringify({ op: 'setPred', memberId, pred })],
-        { type: 'application/json' });
-      if (navigator.sendBeacon) navigator.sendBeacon('/api/predictions', blob);
-      else postOp({ op: 'setPred', memberId, pred, __keepalive: true }).catch(() => {});
-    } catch (e) {}
-  }
-  if (typeof window !== 'undefined') {
-    window.addEventListener('pagehide', flushBeacon);
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flushBeacon();
-    });
-  }
-
-  // ---- 参加者を追加 / 削除 / リセット（即時サーバー反映）-------------
-  async function addMember(name) {
-    const nm = (name || '').trim();
-    if (!nm) return null;
-    const doc = await postOp({ op: 'addMember', name: nm });
-    const state = withCurrent(doc, doc.newId);
-    saveCurrent(state.current);
-    return state;
-  }
-  async function removeMember(id, currentId) {
-    const doc = await postOp({ op: 'removeMember', memberId: id });
-    const prefer = currentId === id ? null : currentId;
-    const state = withCurrent(doc, prefer);
-    saveCurrent(state.current);
-    return state;
-  }
-  async function reset() {
-    const doc = await postOp({ op: 'reset' });
-    const state = withCurrent(doc, doc.members[0] && doc.members[0].id);
-    saveCurrent(state.current);
-    return state;
-  }
-
   window.WC = {
-    TEAMS, TEAM, MEMBERS, MEMBER_COLORS, GROUPS, GROUP_RESULT: {},
-    RESULT, SEED, THEMES,
+    TEAMS, TEAM, MEMBER_COLORS, GROUPS, GROUP_RESULT: {},
+    RESULT, THEMES,
     GROUP_MATCHES: {}, SCORERS: [], SQUADS: {},
-    emptyPred, seedDoc, withCurrent, fetchPredictions,
-    loadCurrent, saveCurrent, scheduleSave, flushSave,
-    addMember, removeMember, reset,
+    emptyPred,
   };
 
   // ---- 共有設定の取得（KVバックエンド）----------------------

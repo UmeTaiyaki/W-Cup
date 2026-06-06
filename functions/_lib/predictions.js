@@ -14,13 +14,6 @@ const codeArr = (a, max) => (Array.isArray(a) ? a : []).filter(isStr).slice(0, m
 // 認証なしエンドポイントのため、配列長・文字列長に上限を設けてKV肥大化を防ぐ。
 export const LIMITS = { members: 30, topScorer: 60, groupRank: 4, knockout: 32, postBytes: 64 * 1024 };
 
-// 新規参加者に割り当てる色（順番に使用。data.js の MEMBER_COLORS と一致）
-export const MEMBER_COLORS = [
-  '#FF8A3D', '#34D399', '#60A5FA', '#F472B6',
-  '#A78BFA', '#22D3EE', '#FB7185', '#FACC15',
-  '#4ADE80', '#F87171', '#818CF8', '#2DD4BF',
-];
-
 // 空の予想（新規参加者の初期値）
 export function emptyPred() {
   return {
@@ -64,57 +57,3 @@ export function validatePred(input) {
   };
 }
 
-function genId() {
-  try {
-    if (globalThis.crypto && globalThis.crypto.randomUUID) {
-      return 'p' + globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 16);
-    }
-  } catch (e) {}
-  return 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
-}
-
-// 名前から新規メンバーを生成（id・色・イニシャルはサーバーで採番）。
-// count は既存メンバー数（色のローテーションに使用）。
-export function makeMember(name, count) {
-  if (typeof name !== 'string') return null;
-  const nm = name.trim();
-  if (!nm) return null;
-  const c = MEMBER_COLORS[count % MEMBER_COLORS.length];
-  const initial = Array.from(nm)[0] || '?';
-  return { id: genId(), name: nm.slice(0, 12), initial, c, custom: true };
-}
-
-// ---- デフォルトシード（KVが空のときのGETフォールバック）----------------
-// data.js の MEMBERS / SEED と一致させること。
-const DEFAULT_MEMBERS = [
-  { id: 'hikaru', name: 'ひかる', initial: 'ひ', c: '#FF5C7A' },
-  { id: 'sobe',   name: 'そべ',   initial: 'そ', c: '#2DD4BF' },
-  { id: 'gan',    name: 'ガン',   initial: 'ガ', c: '#FBBF24' },
-  { id: 'mizu',   name: '水谷',   initial: '水', c: '#8B7CFF' },
-];
-
-const SEED = {
-  hikaru: { champion: 'ARG', runnerUp: 'ENG', topScorer: 'ムバッペ' },
-  sobe:   { champion: 'FRA', runnerUp: 'ARG', topScorer: 'ハーランド' },
-  gan:    { champion: 'ARG', runnerUp: 'FRA', topScorer: 'メッシ' },
-  mizu:   { champion: 'BRA', runnerUp: 'FRA', topScorer: 'ムバッペ' },
-};
-
-export function seedPredictions() {
-  const preds = {};
-  for (const m of DEFAULT_MEMBERS) {
-    const s = SEED[m.id] || {};
-    preds[m.id] = {
-      ...emptyPred(),
-      champion: s.champion ?? null,
-      runnerUp: s.runnerUp ?? null,
-      topScorer: s.topScorer ?? '',
-    };
-  }
-  return {
-    version: 1,
-    updatedAt: null,
-    members: JSON.parse(JSON.stringify(DEFAULT_MEMBERS)),
-    preds,
-  };
-}

@@ -1,12 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  emptyPred,
-  validatePred,
-  makeMember,
-  seedPredictions,
-  MEMBER_COLORS,
-} from './predictions.js';
+import { emptyPred, validatePred } from './predictions.js';
 
 test('emptyPred は全グループ・全枠・全ラウンドを持つ空予想を返す', () => {
   const p = emptyPred();
@@ -61,39 +55,4 @@ test('validatePred はプロトタイプ汚染キーを取り込まない', () =
   assert.equal(r.value.champion, 'JPN');
   assert.equal(({}).polluted, undefined); // Object.prototype 非汚染
   assert.equal(Object.prototype.hasOwnProperty.call(r.value, '__proto__'), false);
-});
-
-test('makeMember は非文字列の名前を拒否する', () => {
-  assert.equal(makeMember(12345, 0), null);
-  assert.equal(makeMember({ a: 1 }, 0), null);
-  assert.equal(makeMember(null, 0), null);
-});
-
-test('makeMember は名前から一意id・色・イニシャルを採番する', () => {
-  const m = makeMember('たけし', 0);
-  assert.equal(m.name, 'たけし');
-  assert.equal(m.initial, 'た');
-  assert.equal(m.c, MEMBER_COLORS[0]);
-  assert.equal(m.custom, true);
-  assert.match(m.id, /^p/);
-  assert.equal(makeMember('   ', 0), null);
-  assert.equal(makeMember('', 5), null);
-});
-
-test('makeMember は色を人数でローテーションする', () => {
-  const m = makeMember('x', MEMBER_COLORS.length);
-  assert.equal(m.c, MEMBER_COLORS[0]);
-});
-
-test('seedPredictions は4人のシード予想を返し各予想は正規化済み', () => {
-  const seed = seedPredictions();
-  assert.equal(seed.members.length, 4);
-  assert.equal(seed.preds.hikaru.champion, 'ARG');
-  assert.equal(seed.preds.sobe.champion, 'FRA');
-  // 全メンバーが空予想のオプションフィールドを持つ
-  for (const m of seed.members) {
-    const p = seed.preds[m.id];
-    assert.equal(Object.keys(p.groupRank).length, 12);
-    assert.equal(Object.keys(p.thirdAssign).length, 8);
-  }
 });
