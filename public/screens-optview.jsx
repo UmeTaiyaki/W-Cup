@@ -185,7 +185,6 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
                     <span style={{ fontSize: 16, flexShrink: 0 }}>{tm.flag}</span>
                     <span style={{ fontWeight: 700, color: T.text, fontSize: 13, flex: 1, whiteSpace: 'nowrap',
                       overflow: 'hidden', textOverflow: 'ellipsis' }}>{tm.ja}</span>
-                    {isAuto && <span style={{ fontSize: 10, color: T.faint, fontWeight: 700, flexShrink: 0 }}>自動</span>}
                   </div>
                 );
               })}
