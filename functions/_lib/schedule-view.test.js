@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roundLabel, formatMatchTeam } from '../../public/lib/schedule-view.js';
+import { roundLabel, formatMatchTeam, groupByDate } from '../../public/lib/schedule-view.js';
 
 test('roundLabel: グループ記号は「グループX」', () => {
   assert.equal(roundLabel('A'), 'グループA');
@@ -58,4 +58,43 @@ test('formatMatchTeam: 空や未知は未定', () => {
   assert.deepEqual(formatMatchTeam('', {}), {
     resolved: false, code: '', label: '未定', flag: null,
   });
+});
+
+test('groupByDate: 日付昇順・各日内は時刻昇順', () => {
+  const sched = [
+    { date: '2026-06-13', time: '10:00', round: 'D', a: 'USA', b: 'PAR' },
+    { date: '2026-06-12', time: '11:00', round: 'A', a: 'KOR', b: 'CZE' },
+    { date: '2026-06-12', time: '04:00', round: 'A', a: 'MEX', b: 'RSA' },
+  ];
+  const out = groupByDate(sched);
+  assert.deepEqual(out.map((g) => g.date), ['2026-06-12', '2026-06-13']);
+  assert.deepEqual(out[0].matches.map((m) => m.time), ['04:00', '11:00']);
+  assert.equal(out[0].matches.length, 2);
+  assert.equal(out[1].matches.length, 1);
+});
+
+test('groupByDate: 同時刻試合も両方保持', () => {
+  const sched = [
+    { date: '2026-06-25', time: '04:00', round: 'B', a: 'SUI', b: 'CAN' },
+    { date: '2026-06-25', time: '04:00', round: 'B', a: 'BIH', b: 'QAT' },
+  ];
+  const out = groupByDate(sched);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].matches.length, 2);
+});
+
+test('groupByDate: date 欠落要素は末尾「日付未定」グループへ', () => {
+  const sched = [
+    { date: '2026-06-12', time: '04:00', round: 'A', a: 'MEX', b: 'RSA' },
+    { time: '04:00', round: 'F', a: 'W101', b: 'W102' },
+  ];
+  const out = groupByDate(sched);
+  assert.equal(out.length, 2);
+  assert.equal(out[out.length - 1].date, null);
+  assert.equal(out[out.length - 1].matches.length, 1);
+});
+
+test('groupByDate: 空配列は空配列', () => {
+  assert.deepEqual(groupByDate([]), []);
+  assert.deepEqual(groupByDate(null), []);
 });

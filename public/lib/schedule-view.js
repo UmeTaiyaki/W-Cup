@@ -33,3 +33,28 @@ export function formatMatchTeam(code, teamMap = {}) {
   }
   return { resolved: false, code: c, label, flag: null };
 }
+
+// schedule を日付ごとにまとめ、日付昇順・各日内は時刻昇順で返す。
+// date 欠落要素は末尾の { date: null } グループへ集約。
+export function groupByDate(schedule) {
+  const list = Array.isArray(schedule) ? schedule : [];
+  const byDate = new Map();
+  const undated = [];
+  for (const m of list) {
+    if (!m) continue;
+    if (m.date) {
+      if (!byDate.has(m.date)) byDate.set(m.date, []);
+      byDate.get(m.date).push(m);
+    } else {
+      undated.push(m);
+    }
+  }
+  const dates = [...byDate.keys()].sort();
+  const byTime = (x, y) => (x.time || '').localeCompare(y.time || '');
+  const out = dates.map((date) => ({
+    date,
+    matches: byDate.get(date).slice().sort(byTime),
+  }));
+  if (undated.length) out.push({ date: null, matches: undated.slice().sort(byTime) });
+  return out;
+}
