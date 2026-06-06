@@ -1,35 +1,46 @@
 // 試合日程ビューの純ロジック（ブラウザ/Node 共有・ESM）
 
+// ノックアウトの round コード → 表示ラベル。
+// 注: グループステージは round = 'A'〜'L'（roundLabel で「グループX」に変換）。
+//     'F' は常にグループ F であり、決勝は round = '決勝' で別物。
 const ROUND_NAMES = {
   R32: 'ベスト32', R16: 'ベスト16', QF: '準々決勝',
-  SF: '準決勝', '3rd': '3位決定戦', F: '決勝',
+  SF: '準決勝', '3位': '3位決定戦', '決勝': '決勝',
+};
+
+// あるラウンドの「ひとつ前のラウンド」ラベル。W##/L## スロットを
+// 「ベスト32 勝者」「準決勝 敗者」のように分かりやすく表記するために使う。
+const PREV_ROUND_LABEL = {
+  R16: 'ベスト32', QF: 'ベスト16', SF: '準々決勝',
+  '決勝': '準決勝', '3位': '準決勝',
 };
 
 // round 記号 → 章ラベル
 export function roundLabel(round) {
   if (round == null || round === '') return ''; // null / undefined / 空文字
-  if (ROUND_NAMES[round]) return ROUND_NAMES[round];
-  if (/^[A-L]$/.test(round)) return `グループ${round}`;
-  return round;
+  if (/^[A-L]$/.test(round)) return `グループ${round}`; // A〜L（'F'=グループF を優先）
+  return ROUND_NAMES[round] || round;
 }
 
-// 試合の a/b フィールド（確定チームコード or スロット表記）を表示用オブジェクトに変換
-export function formatMatchTeam(code, teamMap = {}) {
+// 試合の a/b フィールド（確定チームコード or スロット表記）を表示用オブジェクトに変換。
+// round は当該試合のラウンド（W##/L## を前ラウンド基準のラベルにするために使う）。
+export function formatMatchTeam(code, teamMap = {}, round) {
   const c = code || '';
   const team = teamMap[c];
   if (team) {
     return { resolved: true, code: c, label: team.ja, flag: team.flag };
   }
+  const prev = PREV_ROUND_LABEL[round];
   let label = '未定';
   let m;
   if ((m = /^([12])([A-L])$/.exec(c))) {
     label = `グループ${m[2]} ${m[1]}位`;
-  } else if (/^3[A-L]{2,}$/.test(c)) {
-    label = '3位通過';
-  } else if ((m = /^W(\d+)$/.exec(c))) {
-    label = `第${m[1]}試合 勝者`;
-  } else if ((m = /^L(\d+)$/.exec(c))) {
-    label = `第${m[1]}試合 敗者`;
+  } else if (/^3\(/.test(c) || /^3[A-L]{2,}$/.test(c)) {
+    label = '3位通過'; // 例: '3(A/B/C/D/F)'
+  } else if (/^W\d+$/.test(c)) {
+    label = prev ? `${prev} 勝者` : '勝者';
+  } else if (/^L\d+$/.test(c)) {
+    label = prev ? `${prev} 敗者` : '敗者';
   }
   return { resolved: false, code: c, label, flag: null };
 }

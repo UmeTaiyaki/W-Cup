@@ -1,21 +1,24 @@
 /* ホームタブ：試合日程ビュー（読み取り専用・直近フォーカス型） */
 
-// 小さな旗 or 未確定プレースホルダ
+// 小さな旗（枠なしの絵文字） or 未確定の丸プレースホルダ
 function MiniFlag({ T, team, size = 20 }) {
-  const box = {
-    width: size, height: size, borderRadius: size * 0.3, flexShrink: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'rgba(255,255,255,0.06)', fontSize: size * 0.95, lineHeight: 1,
-  };
-  if (team.resolved) return <div style={box}><span style={{ transform: 'scale(1.3)' }}>{team.flag}</span></div>;
-  return <div style={{ ...box, color: T.faint, fontSize: size * 0.6 }}>?</div>;
+  if (team.resolved) {
+    return <span style={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>{team.flag}</span>;
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(255,255,255,0.06)', color: T.faint, fontSize: size * 0.6,
+    }}>?</div>
+  );
 }
 
 // タイムライン1行：時刻 / A vs B / 章ラベル
 function MatchRow({ T, match, last }) {
   const teamMap = window.WC.TEAM || {};
-  const a = window.WC.formatMatchTeam(match.a, teamMap);
-  const b = window.WC.formatMatchTeam(match.b, teamMap);
+  const a = window.WC.formatMatchTeam(match.a, teamMap, match.round);
+  const b = window.WC.formatMatchTeam(match.b, teamMap, match.round);
   const label = window.WC.roundLabel(match.round);
   const sideStyle = { fontWeight: 800, fontSize: 13, color: T.text, whiteSpace: 'nowrap' };
   return (
@@ -89,8 +92,8 @@ function MatchCarousel({ T, dateStr, matches, today }) {
   const n = matches.length;
   const cur = matches[Math.min(idx, n - 1)];
   const teamMap = window.WC.TEAM || {};
-  const a = window.WC.formatMatchTeam(cur.a, teamMap);
-  const b = window.WC.formatMatchTeam(cur.b, teamMap);
+  const a = window.WC.formatMatchTeam(cur.a, teamMap, cur.round);
+  const b = window.WC.formatMatchTeam(cur.b, teamMap, cur.round);
   const diff = daysUntil(today, dateStr);
   const countdown = diff <= 0 ? '本日' : `あと${diff}日`;
 
@@ -114,14 +117,14 @@ function MatchCarousel({ T, dateStr, matches, today }) {
   );
 
   const side = (team) => (
-    <div style={{ textAlign: 'center', flex: 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+    <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
+      <div style={{ height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {team.resolved
-          ? <Flag code={team.code} size={48} T={T} />
+          ? <span style={{ fontSize: 42, lineHeight: 1 }}>{team.flag}</span>
           : <div style={{
-              width: 48, height: 48, borderRadius: 14, display: 'flex',
+              width: 44, height: 44, borderRadius: '50%', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(255,255,255,0.06)', color: T.faint, fontSize: 24,
+              background: 'rgba(255,255,255,0.06)', color: T.faint, fontSize: 22,
             }}>?</div>}
       </div>
       <div style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}>
