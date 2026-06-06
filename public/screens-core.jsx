@@ -3,15 +3,21 @@
    props で T / state などを受け取る
    ============================================================ */
 
-// ===== サマリー画面 =========================================
-function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false, hideShare = false }) {
-  const champ = window.WC.TEAM[pred.champion];
-  const runner = window.WC.TEAM[pred.runnerUp];
-  const M = state.members;
-  const [shareOpen, setShareOpen] = React.useState(false);
+// ===== 共通カード（ホーム／予想タブで共有） =====================
+function EditBtn({ T, onClick, label = '編集' }) {
+  return (
+    <button onClick={onClick} style={{
+      flexShrink: 0, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+      borderRadius: 999, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 5,
+      background: T.panel2, color: T.accent, fontWeight: 800, fontSize: 12.5,
+      boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+      <Icon name="edit" size={14} color={T.accent} sw={2} />{label}
+    </button>
+  );
+}
 
-  // 大きな表彰台カード
-  const PodiumHero = () => (
+function PodiumHero({ T, champ, onEdit }) {
+  return (
     <div style={{
       borderRadius: 26, padding: '22px 20px 24px', position: 'relative', overflow: 'hidden',
       background: `linear-gradient(170deg, ${T.gold}1F 0%, ${T.card} 42%)`,
@@ -20,7 +26,10 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
       <div style={{ position: 'absolute', top: -30, right: -20, opacity: 0.10 }}>
         <Icon name="trophy" size={150} color={T.gold} fill="none" sw={1} />
       </div>
-      <Eyebrow color={T.gold} T={T}>CHAMPION · 優勝</Eyebrow>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <Eyebrow color={T.gold} T={T}>CHAMPION · 優勝</Eyebrow>
+        {onEdit && <EditBtn T={T} onClick={onEdit} />}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14 }}>
         <div style={{
           width: 62, height: 62, borderRadius: 18, display: 'grid', placeItems: 'center',
@@ -36,6 +45,14 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
       </div>
     </div>
   );
+}
+
+// ===== サマリー画面 =========================================
+function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard = false, solo = false, hideShare = false }) {
+  const champ = window.WC.TEAM[pred.champion];
+  const runner = window.WC.TEAM[pred.runnerUp];
+  const M = state.members;
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   const MiniPick = ({ label, sub, code, scorer, color, icon }) => (
     <div style={{
@@ -171,7 +188,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <Header />
         <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 16, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <PodiumHero />
+            <PodiumHero T={T} champ={champ} />
             <Picks />
             <Options />
           </div>
@@ -194,7 +211,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <Header />
         <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 16, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <PodiumHero />
+            <PodiumHero T={T} champ={champ} />
             <Picks />
             <Options />
           </div>
@@ -213,7 +230,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
   return (
     <div style={{ padding: '4px 16px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Header />
-      <PodiumHero />
+      <PodiumHero T={T} champ={champ} />
       <Picks />
       <Options />
       {!solo && <Everyone />}
