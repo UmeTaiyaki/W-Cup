@@ -263,7 +263,9 @@ function OptionViewScreen({ T, state, viewId, setViewId, goBack, wide = false, a
               ) : <MiniEmpty text="グループ順位予想はまだありません" />}
             </div>
             <div>
-              <SubHead emoji="🥉" text="3位ワイルドカード" note={`${taDone}組`} editId="thirdwild" />
+              {editable && onEdit && (
+                <SubHead emoji="🥉" text="3位ワイルドカード" editId="thirdwild" />
+              )}
               {taDone > 0
                 ? <WildcardAccordion />
                 : <MiniEmpty text="3位ワイルドカードはまだ割り当てられていません" />}
