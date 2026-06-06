@@ -462,8 +462,7 @@
       const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
 
       function renderScreen(wide) {
-        if (tab === 'summary') return <SummaryScreen solo T={T} state={soloState} member={member}
-          pred={pred} goTab={goTab} wide={wide} />;
+        if (tab === 'summary') return <HomeScreen T={T} wide={wide} />;
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
