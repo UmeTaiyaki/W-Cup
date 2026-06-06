@@ -255,6 +255,7 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
   const champ = pred.champion ? window.WC.TEAM[pred.champion] : null;
   const [sheet, setSheet] = React.useState(null); // 'champ' | 'runner' | 'scorer'
   const [confirm, setConfirm] = React.useState(false);
+  const [shareOpen, setShareOpen] = React.useState(false);
   React.useEffect(() => { setConfirm(false); }, [member.id]);
 
   // 通常は呼び出し側が state を渡す。未指定時のフォールバックとして単一メンバーのシムを使う
@@ -263,10 +264,18 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
   return (
     <div style={{ padding: wide ? '4px 0 24px' : '4px 16px 16px',
       display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div>
-        <Eyebrow T={T}>EDIT · {member.name}</Eyebrow>
-        <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
-          予想を編集</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <Eyebrow T={T}>EDIT · {member.name}</Eyebrow>
+          <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
+            予想を編集</div>
+        </div>
+        <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
+          cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',
+          display: 'flex', alignItems: 'center', gap: 6, background: T.accent, color: T.accentInk,
+          fontWeight: 800, fontSize: 13.5 }}>
+          <Icon name="share" size={15} color={T.accentInk} sw={2.2} />共有
+        </button>
       </div>
 
       <PodiumHero T={T} champ={champ} onEdit={() => setSheet('champ')} />
@@ -328,6 +337,8 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
         title="準優勝を選ぶ" onPick={c => setPick('runnerUp', c)} exclude={[pred.champion]} />
       <ScorerPicker open={sheet === 'scorer'} onClose={() => setSheet(null)} T={T} centered={wide}
         title="得点王を選ぶ" onPick={v => setPick('topScorer', v)} />
+      <ShareSheet T={T} member={member} pred={pred} open={shareOpen}
+        onClose={() => setShareOpen(false)} />
     </div>
   );
 }
