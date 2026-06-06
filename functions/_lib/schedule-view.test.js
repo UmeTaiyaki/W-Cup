@@ -12,8 +12,13 @@ test('roundLabel: ノックアウトのラウンド名', () => {
   assert.equal(roundLabel('R16'), 'ベスト16');
   assert.equal(roundLabel('QF'), '準々決勝');
   assert.equal(roundLabel('SF'), '準決勝');
-  assert.equal(roundLabel('3rd'), '3位決定戦');
-  assert.equal(roundLabel('F'), '決勝');
+  assert.equal(roundLabel('3位'), '3位決定戦');
+  assert.equal(roundLabel('決勝'), '決勝');
+});
+
+test('roundLabel: F はグループF（決勝ではない）', () => {
+  // 実データでは 'F' は常にグループF。決勝は round = '決勝'。
+  assert.equal(roundLabel('F'), 'グループF');
 });
 
 test('roundLabel: 不明値はそのまま返す', () => {
@@ -33,25 +38,34 @@ test('formatMatchTeam: 既知チームコードは確定扱い', () => {
   });
 });
 
-test('formatMatchTeam: スロット表記は未確定ラベル', () => {
+test('formatMatchTeam: 順位スロットは「グループX N位」', () => {
   assert.deepEqual(formatMatchTeam('1A', {}), {
     resolved: false, code: '1A', label: 'グループA 1位', flag: null,
   });
   assert.deepEqual(formatMatchTeam('2C', {}), {
     resolved: false, code: '2C', label: 'グループC 2位', flag: null,
   });
-  assert.deepEqual(formatMatchTeam('W73', {}), {
-    resolved: false, code: 'W73', label: '第73試合 勝者', flag: null,
-  });
-  assert.deepEqual(formatMatchTeam('L88', {}), {
-    resolved: false, code: 'L88', label: '第88試合 敗者', flag: null,
-  });
+});
+
+test('formatMatchTeam: 勝者/敗者スロットは前ラウンド基準のラベル', () => {
+  // R16 の対戦相手はベスト32の勝者
+  assert.equal(formatMatchTeam('W74', {}, 'R16').label, 'ベスト32 勝者');
+  // 決勝の対戦相手は準決勝の勝者
+  assert.equal(formatMatchTeam('W101', {}, '決勝').label, '準決勝 勝者');
+  // 3位決定戦は準決勝の敗者
+  assert.equal(formatMatchTeam('L101', {}, '3位').label, '準決勝 敗者');
+  // 準々決勝(QF)はベスト16の勝者
+  assert.equal(formatMatchTeam('W89', {}, 'QF').label, 'ベスト16 勝者');
+});
+
+test('formatMatchTeam: round 不明な勝者/敗者は素の「勝者/敗者」', () => {
+  assert.equal(formatMatchTeam('W73', {}).label, '勝者');
+  assert.equal(formatMatchTeam('L88', {}).label, '敗者');
 });
 
 test('formatMatchTeam: 3位群スロットは「3位通過」表記', () => {
-  const r = formatMatchTeam('3ABCD', {});
-  assert.equal(r.resolved, false);
-  assert.equal(r.label, '3位通過');
+  assert.equal(formatMatchTeam('3(A/B/C/D/F)', {}).label, '3位通過'); // 実データ形式
+  assert.equal(formatMatchTeam('3ABCD', {}).label, '3位通過');       // 旧形式も許容
 });
 
 test('formatMatchTeam: 空や未知は未定', () => {
