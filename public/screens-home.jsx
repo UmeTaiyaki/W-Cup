@@ -65,7 +65,7 @@ function DayTimeline({ T, groups }) {
           </div>
           <Card T={T} style={{ padding: '4px 12px' }}>
             {g.matches.map((m, i) => (
-              <MatchRow key={i} T={T} match={m} last={i === g.matches.length - 1} />
+              <MatchRow key={`${m.time || 'x'}-${m.a}-${m.b}`} T={T} match={m} last={i === g.matches.length - 1} />
             ))}
           </Card>
         </div>
@@ -88,7 +88,7 @@ function HomeScreen({ T }) {
 
   const focusDate = window.WC.pickFocusDate(groups.map((g) => g.date), window.WC.jstToday());
   const focusIdx = groups.findIndex((g) => g.date === focusDate);
-  const rest = groups.slice(focusIdx + 1);
+  const rest = groups.slice(focusIdx + 1).filter((g) => g.date !== null);
 
   return (
     <div>
