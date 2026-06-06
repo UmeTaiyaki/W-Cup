@@ -23,7 +23,7 @@ function PodiumHero({ T, champ, onEdit }) {
       background: `linear-gradient(170deg, ${T.gold}1F 0%, ${T.card} 42%)`,
       boxShadow: `inset 0 0 0 1px ${T.line}`,
     }}>
-      <div style={{ position: 'absolute', top: -30, right: -20, opacity: 0.10 }}>
+      <div style={{ position: 'absolute', top: -30, right: -20, opacity: 0.10, pointerEvents: 'none' }}>
         <Icon name="trophy" size={150} color={T.gold} fill="none" sw={1} />
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
