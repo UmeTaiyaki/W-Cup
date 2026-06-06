@@ -56,9 +56,11 @@
     import { availableCards, groupTop2, parseScorer, shareFilename, shareText } from './lib/share-model.js';
     import { drawShareCard } from './lib/share-draw.js';
     import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
+    import { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday } from './lib/schedule-view.js';
     window.WC = window.WC || {};
     Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings });
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
+    Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday });
     // 採点は RESULT を結果として渡す薄いラッパに統一（既存呼び出し scoreMember(pred) を維持）
     window.WC.scoreMember = (pred) => scoreMember(pred, window.WC.RESULT, SCORING);
   </script>
