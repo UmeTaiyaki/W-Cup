@@ -4,6 +4,7 @@ import { validateUser, publicUser, addRoomToUser } from '../_lib/users.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 import { createStore } from '../_lib/store.js';
 import { createRateLimiter } from '../_lib/ratelimit.js';
+import { verifyTurnstile } from '../_lib/turnstile.js';
 
 const rKey = (id) => `room:${id}`;
 const rcKey = (code) => `roomcode:${code}`;
@@ -104,12 +105,16 @@ export async function onRequestPost({ request, env }) {
     if (typeof input.userId !== 'string' || !input.userId) {
       return json(400, { error: 'ユーザーが不明です' });
     }
+    // bot による大量の部屋作成（書き込み枠の枯渇）を防ぐ。secret 未設定時は素通り。
+    const verdict = await verifyTurnstile({ secret: env.TURNSTILE_SECRET, token: input.turnstileToken, ip: clientIp(request) });
+    if (!verdict.ok) return json(403, { error: '人間確認に失敗しました。もう一度お試しください' });
     const code = await uniqueRoomCode(env);
     const room = makeRoom(input.name, code, input.userId);
     if (!room) return json(400, { error: '部屋名を入力してください' });
     try {
-      await env.CONFIG.put(rKey(room.id), JSON.stringify(room));
-      await env.CONFIG.put(rcKey(code), room.id);
+      const store = createStore(env.CONFIG);
+      await store.putJSON(rKey(room.id), room);
+      await store.putRaw(rcKey(code), room.id);
     } catch (e) {
       console.error('room create: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });

@@ -3,6 +3,7 @@ import { makeUser, validateUser, publicUser, normalizeName, USER_LIMITS } from '
 import { validatePred } from '../_lib/predictions.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 import { createRateLimiter } from '../_lib/ratelimit.js';
+import { verifyTurnstile } from '../_lib/turnstile.js';
 
 const uKey = (id) => `user:${id}`;
 const ucKey = (code) => `usercode:${code}`;
@@ -71,6 +72,9 @@ export async function onRequestPost({ request, env }) {
   const op = input && input.op;
 
   if (op === 'create') {
+    // bot による大量アカウント作成（書き込み枠の枯渇）を防ぐ。secret 未設定時は素通り。
+    const verdict = await verifyTurnstile({ secret: env.TURNSTILE_SECRET, token: input.turnstileToken, ip: clientIp(request) });
+    if (!verdict.ok) return json(403, { error: '人間確認に失敗しました。もう一度お試しください' });
     const code = await uniqueUserCode(env);
     const user = makeUser(input.name, code);
     if (!user) return json(400, { error: '名前を入力してください' });

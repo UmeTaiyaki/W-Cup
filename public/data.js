@@ -363,6 +363,8 @@
       }
       if (Array.isArray(cfg.scorers)) window.WC.SCORERS = cfg.scorers;
       if (cfg.squads && typeof cfg.squads === 'object') window.WC.SQUADS = cfg.squads;
+      // Turnstile（bot対策）サイトキー。未設定なら null＝フロントは素通り。
+      window.WC.TURNSTILE_SITE_KEY = cfg.turnstileSiteKey || null;
       return true;
     } catch (e) {
       return false;

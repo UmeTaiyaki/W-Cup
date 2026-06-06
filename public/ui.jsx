@@ -3,6 +3,45 @@
    window に export
    ============================================================ */
 
+// ---- Cloudflare Turnstile（bot対策ウィジェット） -------------
+// siteKey が無ければ何も描画せずトークンも要求しない（＝鍵未設定なら従来どおり素通り）。
+// 取得したトークンは onToken(token) で親に渡す。失敗/期限切れは onToken(null)。
+function TurnstileWidget({ siteKey, onToken, theme = 'auto' }) {
+  const ref = React.useRef(null);
+  const widgetId = React.useRef(null);
+  React.useEffect(() => {
+    if (!siteKey) return;
+    let cancelled = false;
+    const cleanup = () => {
+      try { if (widgetId.current != null && window.turnstile) window.turnstile.remove(widgetId.current); }
+      catch (e) {}
+      widgetId.current = null;
+    };
+    function renderWidget() {
+      if (cancelled || !window.turnstile || !ref.current || widgetId.current != null) return;
+      try {
+        widgetId.current = window.turnstile.render(ref.current, {
+          sitekey: siteKey,
+          theme,
+          callback: (t) => { if (onToken) onToken(t); },
+          'error-callback': () => { if (onToken) onToken(null); },
+          'expired-callback': () => { if (onToken) onToken(null); },
+        });
+      } catch (e) { /* 多重 render などは無視 */ }
+    }
+    if (window.turnstile) {
+      renderWidget();
+      return () => { cancelled = true; cleanup(); };
+    }
+    // スクリプトが非同期読み込みのため、ロード完了を待ってから render する。
+    const iv = setInterval(() => { if (window.turnstile) { clearInterval(iv); renderWidget(); } }, 120);
+    const to = setTimeout(() => clearInterval(iv), 8000);
+    return () => { cancelled = true; clearInterval(iv); clearTimeout(to); cleanup(); };
+  }, [siteKey]);
+  if (!siteKey) return null;
+  return <div ref={ref} style={{ marginTop: 14, minHeight: 65 }} />;
+}
+
 // ---- アイコン（SVGストローク系） ----------------------------
 function Icon({ name, size = 24, color = 'currentColor', fill = 'none', sw = 1.9 }) {
   const p = { fill: fill === 'none' ? 'none' : color, stroke: fill === 'solid' ? 'none' : color,

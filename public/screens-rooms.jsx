@@ -125,7 +125,7 @@ function withRoom(me, room) {
 }
 
 // 部屋一覧＋作る/参加
-function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false }) {
+function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
   const { useState } = React;
   const [mode, setMode] = useState(null);      // 'create' | 'join' | null
   const [name, setName] = useState('');
@@ -134,18 +134,24 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false }) {
   const [err, setErr] = useState('');
   const [created, setCreated] = useState(null); // 作成直後に参加コードを見せる
   const [copied, setCopied] = useState(false);
+  const [token, setToken] = useState(null);     // Turnstile トークン（siteKey なしなら不要）
+  const [tsKey, setTsKey] = useState(0);        // 失敗時にウィジェットを再マウントするためのキー
   const rooms = Array.isArray(me.rooms) ? me.rooms : [];
 
   function commitMe(nextMe) { setMe(nextMe); window.WC.Me.cacheUser(nextMe); }
 
   async function doCreate() {
     const nm = name.trim(); if (!nm || busy) return;
+    if (siteKey && !token) { setErr('「私はロボットではありません」の確認を完了してください'); return; }
     setBusy(true); setErr('');
     try {
-      const out = await window.WC.Rooms.create(me.id, nm);
+      const out = await window.WC.Rooms.create(me.id, nm, token);
       commitMe(withRoom(me, out.room));
       setCreated(out.room); setName('');
-    } catch (e) { setErr(e.message || '作成に失敗しました'); }
+    } catch (e) {
+      setErr(e.message || '作成に失敗しました');
+      if (siteKey) { setToken(null); setTsKey((k) => k + 1); }  // 使い切りトークンを作り直す
+    }
     finally { setBusy(false); }
   }
   async function doJoin() {
@@ -235,12 +241,13 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false }) {
         <div style={{ background: T.card, borderRadius: 16, padding: 16, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
           <div style={{ fontWeight: 800, color: T.text, fontSize: 15, marginBottom: 10 }}>部屋を作る</div>
           {input(name, setName, '部屋名（例：会社の予想大会）', false)}
+          <TurnstileWidget key={tsKey} siteKey={siteKey} onToken={setToken} theme={T.isDark === false ? 'light' : 'dark'} />
           {err && <p style={{ color: '#FF6B6B', fontSize: 13, fontWeight: 700, margin: '10px 2px 0' }}>{err}</p>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button onClick={() => { setMode(null); setErr(''); }} style={{
               flex: 1, border: 'none', borderRadius: 12, padding: '12px', fontFamily: 'inherit',
               fontWeight: 800, fontSize: 14, cursor: 'pointer', background: T.panel2, color: T.sub }}>キャンセル</button>
-            <div style={{ flex: 1 }}>{primary(busy ? '…' : '作成', doCreate, !name.trim() || busy)}</div>
+            <div style={{ flex: 1 }}>{primary(busy ? '…' : '作成', doCreate, !name.trim() || busy || (siteKey && !token))}</div>
           </div>
         </div>
       )}

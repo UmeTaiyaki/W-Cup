@@ -59,7 +59,7 @@ function OptMenuRow({ T, emoji, title, sub, onClick, disabled }) {
   );
 }
 
-function Onboarding({ T, onDone }) {
+function Onboarding({ T, onDone, siteKey }) {
   const { useState } = React;
   const [step, setStep] = useState('name');         // name | sync | core | option | done
   const [me, setMe] = useState(null);
@@ -71,6 +71,8 @@ function Onboarding({ T, onDone }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState(false);
+  const [token, setToken] = useState(null);         // Turnstile トークン（siteKey なしなら不要）
+  const [tsKey, setTsKey] = useState(0);            // 失敗時にウィジェットを再マウントするためのキー
 
   const member = me
     ? { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' }
@@ -92,13 +94,18 @@ function Onboarding({ T, onDone }) {
   async function commitName() {
     const nm = name.trim();
     if (!nm || busy) return;
+    if (siteKey && !token) { setErr('「私はロボットではありません」の確認を完了してください'); return; }
     setBusy(true); setErr('');
     try {
-      const out = await window.WC.Me.create(nm);
+      const out = await window.WC.Me.create(nm, token);
       setMe(out.user);
       setPred(out.user.pred || window.WC.emptyPred());
       setStep('core');
-    } catch (e) { setErr(e.message || '作成に失敗しました'); }
+    } catch (e) {
+      setErr(e.message || '作成に失敗しました');
+      // Turnstile トークンは使い切りのため、失敗時はウィジェットを作り直す。
+      if (siteKey) { setToken(null); setTsKey((k) => k + 1); }
+    }
     finally { setBusy(false); }
   }
   async function commitSync() {
@@ -201,9 +208,10 @@ function Onboarding({ T, onDone }) {
             background: T.panel2, color: T.text, fontSize: 17, fontFamily: 'inherit',
             fontWeight: 700, padding: '15px 16px', borderRadius: 14,
             boxShadow: `inset 0 0 0 1px ${T.line}` }} />
+        <TurnstileWidget key={tsKey} siteKey={siteKey} onToken={setToken} theme={T.isDark === false ? 'light' : 'dark'} />
         {errLine}
         <div style={{ marginTop: 16 }}>
-          {primaryBtn(busy ? '…' : 'はじめる', commitName, !name.trim() || busy)}
+          {primaryBtn(busy ? '…' : 'はじめる', commitName, !name.trim() || busy || (siteKey && !token))}
         </div>
         <button onClick={() => { setErr(''); setStep('sync'); }} style={{
           marginTop: 18, width: '100%', border: 'none', background: 'transparent',

@@ -41,8 +41,9 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-  <script src="data.js?v=3"></script>
-  <script src="identity.js?v=3"></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <script src="data.js?v=4"></script>
+  <script src="identity.js?v=4"></script>
   <script type="module">
     import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto } from './lib/bracket.js';
     import { SCORING, scoreMember } from './lib/scoring.js';
@@ -58,7 +59,7 @@
   </script>
   <script type="text/babel" src="tweaks-panel.jsx?v=2"></script>
   <script type="text/babel" src="ios-frame.jsx?v=2"></script>
-  <script type="text/babel" src="ui.jsx?v=4"></script>
+  <script type="text/babel" src="ui.jsx?v=5"></script>
   <script type="text/babel" src="app-shell.jsx?v=3"></script>
   <script type="text/babel" src="screens-core.jsx?v=4"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=2"></script>
@@ -68,8 +69,8 @@
   <script type="text/babel" src="screens-thirdwild.jsx?v=2"></script>
   <script type="text/babel" src="screens-share.jsx?v=2"></script>
   <script type="text/babel" src="screens-optview.jsx?v=4"></script>
-  <script type="text/babel" src="onboarding.jsx?v=2"></script>
-  <script type="text/babel" src="screens-rooms.jsx?v=5"></script>
+  <script type="text/babel" src="onboarding.jsx?v=3"></script>
+  <script type="text/babel" src="screens-rooms.jsx?v=6"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -245,7 +246,7 @@
     }
 
     // ================= ホーム（単一ユーザー） =================
-    function Home({ T, t, setTweak, me, setMe, isDesktop, contW, mode, onSignOut, initialTab }) {
+    function Home({ T, t, setTweak, me, setMe, isDesktop, contW, mode, onSignOut, initialTab, siteKey }) {
       const [tab, setTab] = useState(initialTab || 'summary'); // summary | input | rooms | group | account
       const [optScreen, setOptScreen] = useState(null);  // grouprank | thirdwild | knockout | null
       // 見比べ中の部屋。初期値は「最後に開いた部屋」（localStorage、me.rooms に存在する場合）
@@ -322,7 +323,7 @@
         if (tab === 'rooms') {
           if (roomView) return <RoomCompareScreen T={T} me={me} room={roomView}
             goBack={() => setRoomView(null)} wide={wide} availWidth={contentAvail} refreshKey={roomRefreshKey} />;
-          return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={openRoom} wide={wide} />;
+          return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={openRoom} wide={wide} siteKey={siteKey} />;
         }
         if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
         if (tab === 'account') return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} />;
@@ -488,6 +489,7 @@
       const [homeTab, setHomeTab] = useState('summary');
       const [homeKey, setHomeKey] = useState(0);          // 参加後に Home を再マウントして部屋を開く
       const [pendingJoin, setPendingJoin] = useState(readPendingJoin); // 招待リンクの参加コード
+      const [siteKey, setSiteKey] = useState(() => window.WC.TURNSTILE_SITE_KEY || null); // Turnstile（bot対策）
 
       // 招待リンク → 参加 → 自動で部屋を開く
       async function handleJoinInvite(code) {
@@ -502,7 +504,8 @@
       }
 
       useEffect(() => {
-        window.WC.fetchConfig();           // チーム/結果/名簿の共有設定を取得
+        // チーム/結果/名簿の共有設定を取得。完了後 Turnstile サイトキーを反映。
+        window.WC.fetchConfig().then(() => setSiteKey(window.WC.TURNSTILE_SITE_KEY || null));
         if (window.WC.Me.load()) {
           window.WC.Me.refresh().then((u) => {
             if (u) { setMe(u); setRoute('home'); }
@@ -522,12 +525,12 @@
 
       let inner;
       if (route === 'onboarding') {
-        inner = <Onboarding T={T} onDone={(u, tab) => { setMe(u); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
+        inner = <Onboarding T={T} siteKey={siteKey} onDone={(u, tab) => { setMe(u); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
       } else if (!me) {
         inner = <Splash T={T} />;
       } else {
         inner = <Home key={homeKey} T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}
-          isDesktop={isDesktop} contW={contW} mode={mode} initialTab={homeTab}
+          isDesktop={isDesktop} contW={contW} mode={mode} initialTab={homeTab} siteKey={siteKey}
           onSignOut={() => { window.WC.Me.clear(); setMe(null); setRoute('onboarding'); }} />;
       }
 

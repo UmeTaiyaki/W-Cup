@@ -39,6 +39,14 @@ export async function onRequestGet(context) {
     } catch (e) { console.error('config GET: stored JSON parse failed', e); }
   }
 
+  // クライアントに渡す公開設定として Turnstile サイトキーを同梱する（サイトキーは公開前提の値）。
+  // 未設定なら field を足さず、フロントは「Turnstile なし」として素通りする。
+  const siteKey = env.TURNSTILE_SITE_KEY || null;
+  if (siteKey) {
+    try { body = JSON.stringify({ ...JSON.parse(body), turnstileSiteKey: siteKey }); }
+    catch (e) { console.error('config GET: site key inject failed', e); }
+  }
+
   const resp = new Response(body, {
     status: 200,
     headers: {

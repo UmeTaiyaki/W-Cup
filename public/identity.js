@@ -52,8 +52,9 @@
   }
 
   // 名前で新規作成。{userId, code, user} を保存して返す。
-  async function create(name) {
-    const out = await postOp({ op: 'create', name });
+  // turnstileToken: bot対策トークン（鍵未設定時は undefined のままで可）。
+  async function create(name, turnstileToken) {
+    const out = await postOp({ op: 'create', name, turnstileToken });
     saveIdentity(out.userId, out.code, out.user);
     return out;
   }
@@ -135,8 +136,8 @@
     }
     return res.json();
   }
-  // 部屋を作成 → {roomId, code, room}
-  async function createRoom(userId, name) { return postRoom({ op: 'create', userId, name }); }
+  // 部屋を作成 → {roomId, code, room}（turnstileToken は鍵未設定時 undefined で可）
+  async function createRoom(userId, name, turnstileToken) { return postRoom({ op: 'create', userId, name, turnstileToken }); }
   // 部屋に参加 → {roomId, room}
   async function joinRoom(userId, code) { return postRoom({ op: 'join', userId, code }); }
   // 部屋＋メンバー取得 → {room, members:[publicUser]}
