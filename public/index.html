@@ -307,10 +307,10 @@
               </div>
             ) : (
               <div style={{ marginTop: 8 }}>
-                <input autoFocus value={draft} maxLength={8}
+                <input autoFocus value={draft} maxLength={10}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') cancelEdit(); }}
-                  placeholder="ニックネーム（8文字まで）"
+                  placeholder="ニックネーム（10文字まで）"
                   style={{ width: '100%', boxSizing: 'border-box', border: 'none', outline: 'none',
                     background: T.panel2, color: T.text, fontSize: 18, fontFamily: 'inherit',
                     fontWeight: 800, padding: '13px 14px', borderRadius: 14,

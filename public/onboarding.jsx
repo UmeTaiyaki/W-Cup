@@ -203,10 +203,10 @@ function Onboarding({ T, onDone, siteKey }) {
           ようこそ ⚽️</div>
         <p style={{ color: T.sub, fontSize: 14, lineHeight: 1.7, margin: '8px 0 22px' }}>
           <DotBreak>ニックネームを決めて、あなたの予想を始めましょう。ログインは不要です。</DotBreak></p>
-        <input autoFocus value={name} maxLength={8}
+        <input autoFocus value={name} maxLength={10}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) commitName(); }}
-          placeholder="ニックネーム（8文字まで）"
+          placeholder="ニックネーム（10文字まで）"
           style={{ width: '100%', border: 'none', outline: 'none', boxSizing: 'border-box',
             background: T.panel2, color: T.text, fontSize: 17, fontFamily: 'inherit',
             fontWeight: 700, padding: '15px 16px', borderRadius: 14,

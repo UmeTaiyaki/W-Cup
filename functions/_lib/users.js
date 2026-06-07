@@ -4,7 +4,7 @@ import { genId } from './ids.js';
 import { emptyPred, validatePred } from './predictions.js';
 import { normalizeCode } from './codes.js';
 
-export const USER_LIMITS = { name: 8, postBytes: 64 * 1024, maxRooms: 50, roomName: 30 };
+export const USER_LIMITS = { name: 10, postBytes: 64 * 1024, maxRooms: 50, roomName: 30 };
 
 // 名前を trim → 最大長で丸める。空なら null。文字数は書記素ではなくコードポイント基準。
 export const normalizeName = (name) => {
