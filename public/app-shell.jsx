@@ -57,10 +57,8 @@ function Sidebar({ T, t, tab, setTab, tabs, members, current, setCurrent, onAdd,
 
       {/* ロゴ */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 8px 16px' }}>
-        <div style={{ width: 36, height: 36, borderRadius: 11, background: T.accent,
-          display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-          <Icon name="trophy" size={21} color={T.accentInk} />
-        </div>
+        <img src="/icons/icon-192.png?v=2" alt="" width={36} height={36}
+          style={{ borderRadius: 11, display: 'block', flexShrink: 0 }} />
         {showWordmark && (
           <div style={{ lineHeight: 1 }}>
             <div style={{ fontFamily: "'Anton', 'Archivo', sans-serif", fontWeight: 400, fontSize: 18,

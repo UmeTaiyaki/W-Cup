@@ -145,14 +145,11 @@ function Onboarding({ T, onDone, siteKey }) {
 
   const Wordmark = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: T.accent,
-        display: 'grid', placeItems: 'center' }}>
-        <Icon name="trophy" size={20} color={T.accentInk} />
-      </div>
+      <img src="/icons/icon-192.png?v=2" alt="" width={34} height={34}
+        style={{ borderRadius: 10, display: 'block', flexShrink: 0 }} />
       <div style={{ lineHeight: 1 }}>
         <div style={{ fontFamily: "'Anton', 'Archivo', sans-serif", fontWeight: 400, fontSize: 17, color: T.text,
           letterSpacing: 0.7 }}>WORLD CUP 2026</div>
-        <div style={{ fontSize: 11, color: T.faint, fontWeight: 700, marginTop: 2 }}>予想</div>
       </div>
     </div>
   );
