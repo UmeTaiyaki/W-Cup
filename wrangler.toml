@@ -13,4 +13,7 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
 
 [[kv_namespaces]]
 binding = "CONFIG"
-id = "8c9c431e2ee146a5a8ebafed58758a45"
+id = "8c9c431e2ee146a5a8ebafed58758a45"          # 本番KV（wrangler pages deploy / production）
+# 下は `wrangler pages dev`（ローカル開発）でのみ使われるテストKV。
+# クラウドのプレビューデプロイで分けるにはダッシュボードの Preview バインディング設定が必要。
+preview_id = "f020e592e7c5484082229c56f653c465"

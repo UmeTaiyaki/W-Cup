@@ -1,0 +1,40 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一ブランチの古い実行は新しい push でキャンセルする
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 外部依存ゼロ（node 標準テストランナーのみ）。node 21+ が glob を自前展開する
+      - name: Test
+        run: npm test
+
+      # main への push は本番、それ以外（PR/ブランチ）はプレビューにデプロイ。
+      # ブランチ名は攻撃者が制御しうる（PR 元ブランチ名）ため env 経由＋クォートで渡す
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        env:
+          DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy public --project-name=wcup2026-yosou --branch="$DEPLOY_BRANCH"
