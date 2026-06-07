@@ -1,0 +1,17 @@
+{
+  "name": "W杯2026 予想",
+  "short_name": "W杯予想",
+  "description": "FIFAワールドカップ2026の勝敗を予想して、友だちと見比べよう。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f1a15",
+  "theme_color": "#0f1a15",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
