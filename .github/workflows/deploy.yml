@@ -31,7 +31,8 @@ jobs:
       # main への push は本番、それ以外（PR/ブランチ）はプレビューにデプロイ。
       # ブランチ名は攻撃者が制御しうる（PR 元ブランチ名）ため env 経由＋クォートで渡す
       - name: Deploy
-        uses: cloudflare/wrangler-action@v3
+        # サプライチェーン対策でSHAピン留め（タグは移動可能なため）。更新時はSHAを確認すること
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         env:
           DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}
         with:
