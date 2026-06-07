@@ -28,14 +28,18 @@ jobs:
       - name: Test
         run: npm test
 
-      # main への push は本番、それ以外（PR/ブランチ）はプレビューにデプロイ。
-      # ブランチ名は攻撃者が制御しうる（PR 元ブランチ名）ため env 経由＋クォートで渡す
+      # main への push は本番（--branch=main）、PR はプレビュー（--branch=pr-<番号>）。
+      # 注意: wrangler-action の command 入力はシェル変数を展開しないため、以前の
+      # "$DEPLOY_BRANCH" はリテラル文字列のまま wrangler に渡り、production ブランチ(main)と
+      # 一致せず全デプロイが Preview 扱いになっていた（＝本番に反映されない原因）。
+      # ブランチ名を直接展開するとコマンドインジェクションの恐れがあるため、Actions 式で
+      # 安全な固定値('main')か数値由来の値('pr-<番号>')のみを生成して渡す。
       - name: Deploy
         # サプライチェーン対策でSHAピン留め（タグは移動可能なため）。更新時はSHAを確認すること
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
-        env:
-          DEPLOY_BRANCH: ${{ github.head_ref || github.ref_name }}
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=wcup2026-yosou --branch="$DEPLOY_BRANCH"
+          command: >-
+            pages deploy public --project-name=wcup2026-yosou
+            --branch=${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'main' }}
