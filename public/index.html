@@ -526,6 +526,16 @@
             )}
           </div>
 
+          {/* ビルドバージョン表示。Web版とPWA版でこの値が一致していれば最新（旧版判定の目安）。 */}
+          <p style={{ color: T.faint, fontSize: 11, textAlign: 'center', letterSpacing: 0.4,
+            margin: '6px 0 0' }}>
+            {(() => {
+              const v = window.__APP_VERSION || '';
+              const placeholder = '__BUILD' + '_VERSION__'; // 未注入（ローカル開発）
+              return 'v ' + (!v || v === placeholder || v === 'dev' ? 'dev' : v.slice(0, 7));
+            })()}
+          </p>
+
           {/* iOS 用「ホーム画面に追加」手順（iOS は beforeinstallprompt 非対応のため案内のみ） */}
           {showIosGuide && (
             <div onClick={() => setShowIosGuide(false)} style={{ position: 'fixed', inset: 0, zIndex: 1300,
