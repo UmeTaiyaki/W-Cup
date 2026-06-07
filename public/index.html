@@ -57,6 +57,10 @@
   <script src="data.js?v=7"></script>
   <script src="identity.js?v=7"></script>
   <script>
+    // この HTML が読み込まれた時点のビルド識別子。デプロイ時に Actions が git SHA へ置換する
+    // （未置換のローカル開発時はそのまま＝更新チェックは無効）。version.json と照合して更新検知する。
+    window.__APP_VERSION = '__BUILD_VERSION__';
+
     // PWA: beforeinstallprompt は読み込み直後（AccountScreen マウント前）に発火しうるため、
     // ここで早期に捕捉して保持する。Android/PC のみ発火（iOS は未サポート）。
     window.__wcInstall = { prompt: null };
@@ -280,6 +284,32 @@
           </div>
         </div>
       );
+    }
+
+    // デプロイ更新の検知。起動時とフォアグラウンド復帰時に version.json を確認し、
+    // 読み込み済みバージョンと異なれば stale=true（更新バナーを出す）。
+    // PWA standalone は手動リロード手段が無いため、ユーザーが1タップで最新化できるようにする。
+    function useAppUpdate() {
+      const loaded = window.__APP_VERSION || '';
+      const [stale, setStale] = useState(false);
+      useEffect(() => {
+        const placeholder = '__BUILD' + '_VERSION__'; // sed 置換に巻き込まれないよう分割表記
+        if (!loaded || loaded === placeholder) return; // ローカル開発（SHA 未注入）は無効
+        let alive = true;
+        async function check() {
+          try {
+            const res = await fetch('/version.json', { cache: 'no-store' });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (alive && data && data.version && data.version !== loaded) setStale(true);
+          } catch (e) {}
+        }
+        check();
+        const onVis = () => { if (document.visibilityState === 'visible') check(); };
+        document.addEventListener('visibilitychange', onVis);
+        return () => { alive = false; document.removeEventListener('visibilitychange', onVis); };
+      }, [loaded]);
+      return stale;
     }
 
     // PWA インストール状態。Android/PC はネイティブプロンプト、iOS は手順案内になる。
@@ -750,6 +780,7 @@
       const [pendingJoin, setPendingJoin] = useState(readPendingJoin); // 招待リンクの参加コード
       const [siteKey, setSiteKey] = useState(() => window.WC.TURNSTILE_SITE_KEY || null); // Turnstile（bot対策）
       const [, setConfigLoaded] = useState(false); // fetchConfig 完了で再レンダリングを保証（SCHEDULE/TEAM 反映）
+      const updateAvailable = useAppUpdate(); // 新デプロイ検知 → 更新バナー
 
       // 招待リンク → 参加 → 自動で部屋を開く
       async function handleJoinInvite(code) {
@@ -813,6 +844,17 @@
           background: '#0b0d12', overflow: previewW > 0 ? 'auto' : 'hidden' }}>
           <div ref={appRef} id="wc-app-root" style={colStyle}>
             {inner}
+            {updateAvailable && (
+              <div onClick={() => window.location.reload()} style={{
+                position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2000,
+                background: T.accent, color: T.accentInk, padding: '11px 16px',
+                fontFamily: 'inherit', fontWeight: 800, fontSize: 13.5, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                boxShadow: '0 2px 14px rgba(0,0,0,0.35)' }}>
+                <Icon name="refresh" size={16} color={T.accentInk} sw={2.6} />
+                新しいバージョンがあります — タップして更新
+              </div>
+            )}
             <window.SaveStatus T={T} />
             {route === 'home' && me && pendingJoin &&
               <JoinInviteModal T={T} code={pendingJoin}

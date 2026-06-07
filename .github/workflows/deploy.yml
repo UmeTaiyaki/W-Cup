@@ -28,6 +28,13 @@ jobs:
       - name: Test
         run: npm test
 
+      # デプロイ識別子(git SHA)を version.json と index.html に焼き込む。
+      # クライアントは起動/復帰時に version.json と照合し、差異があれば更新バナーを出す。
+      - name: Stamp build version
+        run: |
+          printf '{ "version": "%s" }\n' "$GITHUB_SHA" > public/version.json
+          sed -i "s/__BUILD_VERSION__/${GITHUB_SHA}/g" public/index.html
+
       # main への push は本番（--branch=main）、PR はプレビュー（--branch=pr-<番号>）。
       # 注意: wrangler-action の command 入力はシェル変数を展開しないため、以前の
       # "$DEPLOY_BRANCH" はリテラル文字列のまま wrangler に渡り、production ブランチ(main)と
