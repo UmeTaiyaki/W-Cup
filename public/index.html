@@ -287,8 +287,17 @@
     }
 
     // デプロイ更新の検知。起動時とフォアグラウンド復帰時に version.json を確認し、
-    // 読み込み済みバージョンと異なれば stale=true（更新バナーを出す）。
-    // PWA standalone は手動リロード手段が無いため、ユーザーが1タップで最新化できるようにする。
+    // 読み込み済みバージョンと異なれば最新化する。
+    //
+    // iOS の standalone（ホーム画面起動）は起動URL(/)の HTML を永続キャッシュし、
+    // no-store/no-cache を無視する。さらに「ストア(ディスク)」と「メモリ」の二層キャッシュ
+    // があり、location.reload() はストアを更新するだけで表示中セッションはメモリの古い版の
+    // まま（新版はアプリ完全終了→次回コールド起動でしか出ない）。SW も無いため、古い HTML を
+    // 差し替える手段が無い。
+    // → 対策: iOS がまだキャッシュしていない「クエリ付きURL(/?v=<新バージョン>)」へ遷移し、
+    //   強制的にネットワーク取得させて、その場のセッションで最新 HTML に置き換える。
+    //   遷移後の HTML は焼き込み版 = version.json と一致するため再遷移せず、ループしない。
+    // standalone は自動遷移、通常ブラウザは従来どおりバナーで手動更新する。
     function useAppUpdate() {
       const loaded = window.__APP_VERSION || '';
       const [stale, setStale] = useState(false);
@@ -296,12 +305,27 @@
         const placeholder = '__BUILD' + '_VERSION__'; // sed 置換に巻き込まれないよう分割表記
         if (!loaded || loaded === placeholder) return; // ローカル開発（SHA 未注入）は無効
         let alive = true;
+        let redirecting = false; // standalone の自動遷移を一度だけに抑制
+        const isStandalone = () =>
+          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+          window.navigator.standalone === true;
+        // 既存のクエリ/ハッシュ（招待リンク等）は保持したまま v だけ差し替える
+        function applyUpdate(version) {
+          const params = new URLSearchParams(location.search);
+          params.set('v', version);
+          window.location.replace(location.pathname + '?' + params.toString() + location.hash);
+        }
         async function check() {
           try {
             const res = await fetch('/version.json', { cache: 'no-store' });
             if (!res.ok) return;
             const data = await res.json();
-            if (alive && data && data.version && data.version !== loaded) setStale(true);
+            if (!alive || !data || !data.version || data.version === loaded) return;
+            if (isStandalone()) {
+              if (!redirecting) { redirecting = true; applyUpdate(data.version); }
+            } else {
+              setStale(true); // 通常ブラウザはバナー → タップで location.reload()
+            }
           } catch (e) {}
         }
         check();
