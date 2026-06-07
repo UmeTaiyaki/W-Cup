@@ -38,22 +38,22 @@ function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false
     const blocked = !on && selected.length >= FULL;
     return (
       <button onClick={() => toggle(g)} disabled={blocked} style={{
-        display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+        display: 'flex', flexDirection: 'column', gap: 3, width: '100%', textAlign: 'left',
         border: 'none', cursor: blocked ? 'default' : 'pointer', fontFamily: 'inherit',
         background: on ? T.accent : T.card, borderRadius: 13, padding: '11px 12px',
         opacity: blocked ? 0.4 : 1,
         boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.line}` }}>
-        <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 13, width: 16,
-          color: on ? T.accentInk : T.accent }}>{g}</span>
-        <span style={{ fontSize: 19 }}>{tm ? tm.flag : '⚪️'}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden',
-            textOverflow: 'ellipsis', color: on ? T.accentInk : (tm ? T.text : T.faint) }}>
-            {tm ? tm.ja : '3位未予想'}</div>
-          <div style={{ fontSize: 11, fontFamily: 'Archivo', letterSpacing: 0.4,
-            color: on ? T.accentInk + 'cc' : T.faint }}>{g}組 3位</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%' }}>
+          <span style={{ fontFamily: 'Archivo', fontWeight: 800, fontSize: 13, width: 16, flexShrink: 0,
+            textAlign: 'center', color: on ? T.accentInk : T.accent }}>{g}</span>
+          <span style={{ fontSize: 19, flexShrink: 0, lineHeight: 1 }}>{tm ? tm.flag : '⚪️'}</span>
+          <span style={{ flex: 1, minWidth: 0, fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap',
+            overflow: 'hidden', textOverflow: 'ellipsis', color: on ? T.accentInk : (tm ? T.text : T.faint) }}>
+            {tm ? tm.ja : '3位未予想'}</span>
+          {on && <Icon name="check" size={15} color={T.accentInk} sw={2.6} />}
         </div>
-        {on && <Icon name="check" size={15} color={T.accentInk} sw={2.6} />}
+        <div style={{ marginLeft: 25, fontSize: 11, fontFamily: 'Archivo', letterSpacing: 0.4,
+          color: on ? T.accentInk + 'cc' : T.faint }}>{g}組 3位</div>
       </button>
     );
   };
