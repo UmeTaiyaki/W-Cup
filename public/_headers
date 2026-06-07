@@ -3,6 +3,17 @@
 /*
   Cache-Control: no-cache
 
+# index.html と起動URL(/) は no-store（キャッシュ禁止）にする。
+# iOS PWA(standalone)は no-cache の再検証指示を無視して古い index.html を
+# そのまま起動することがあり、更新検知コード自体が実行されなくなるため。
+# 静的アセット(.jsx等)は no-cache のままで性能を維持する（Cloudflare Pages は
+# 下に書いた方がより具体的なルールとして優先される）。
+/
+  Cache-Control: no-store
+
+/index.html
+  Cache-Control: no-store
+
 # 管理画面は検索インデックスに載せない（meta robots に加えヘッダでも明示）。
 /admin/*
   X-Robots-Tag: noindex, nofollow
