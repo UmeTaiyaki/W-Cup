@@ -3,6 +3,29 @@
    props で T / state などを受け取る
    ============================================================ */
 
+// ISO日時 → JSTの「6月5日 21:34」。無効/未設定は null。
+function formatUpdatedAt(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString('ja-JP', {
+    timeZone: 'Asia/Tokyo', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+// 予想の「最終更新 6月5日 21:34」行。未設定なら何も表示しない。
+function UpdatedAtLine({ T, iso }) {
+  const txt = formatUpdatedAt(iso);
+  if (!txt) return null;
+  return (
+    <div style={{ fontSize: 11.5, fontWeight: 700, color: T.faint, marginTop: 4,
+      display: 'flex', alignItems: 'center', gap: 5 }}>
+      <Icon name="refresh" size={12} color={T.faint} sw={2} />最終更新 {txt}
+    </div>
+  );
+}
+
 // ===== 共通カード（ホーム／予想タブで共有） =====================
 function EditBtn({ T, onClick, label = '編集' }) {
   return (
@@ -95,6 +118,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
         <Eyebrow T={T}>MY 予想</Eyebrow>
         <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
           {member.name}の予想</div>
+        <UpdatedAtLine T={T} iso={member.updatedAt} />
       </div>
       {!hideShare && (
         <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
@@ -251,7 +275,7 @@ function SummaryScreen({ T, state, member, pred, goTab, wide = false, dashboard 
 }
 
 // ===== 予想入力画面 =========================================
-function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, canRemove = false, goOption, wide = false, solo = false }) {
+function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, canRemove = false, goOption, wide = false, solo = false, updatedAt = null }) {
   const champ = pred.champion ? window.WC.TEAM[pred.champion] : null;
   const [sheet, setSheet] = React.useState(null); // 'champ' | 'runner' | 'scorer'
   const [confirm, setConfirm] = React.useState(false);
@@ -269,6 +293,7 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
           <Eyebrow T={T}>EDIT · {member.name}</Eyebrow>
           <div style={{ fontSize: wide ? 27 : 23, fontWeight: 800, color: T.text, marginTop: 3 }}>
             予想を編集</div>
+          <UpdatedAtLine T={T} iso={updatedAt} />
         </div>
         <button onClick={() => setShareOpen(true)} style={{ flexShrink: 0, border: 'none',
           cursor: 'pointer', fontFamily: 'inherit', borderRadius: 999, padding: '9px 16px',

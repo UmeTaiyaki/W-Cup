@@ -307,6 +307,7 @@ function RoomCompareScreen({ T, me, room, goBack, wide = false, availWidth, refr
       id: u.id, name: u.name || '名無し',
       c: u.id === me.id ? T.accent : COLORS[oi++ % COLORS.length],
       initial: Array.from(u.name || '?')[0] || '?',
+      updatedAt: u.updatedAt || null,
     }));
     const preds = {};
     ordered.forEach((u) => { preds[u.id] = u.pred || window.WC.emptyPred(); });
