@@ -47,7 +47,7 @@
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="data.js?v=7"></script>
-  <script src="identity.js?v=6"></script>
+  <script src="identity.js?v=7"></script>
   <script type="module">
     import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign } from './lib/bracket.js';
     import { THIRD_ALLOCATION, thirdAllocation } from './lib/third-allocation.js';
@@ -647,7 +647,8 @@
     function App() {
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
       const T = useTheme(t);
-      const [route, setRoute] = useState(() => window.WC.Me.load() ? 'home' : 'onboarding');
+      // localStorage に identity が無くても、まず cookie 復元(restore)を試すため 'restoring' から始める。
+      const [route, setRoute] = useState(() => window.WC.Me.load() ? 'home' : 'restoring');
       const [me, setMe] = useState(() => window.WC.Me.withDraft(window.WC.Me.cachedUser()));
       const [homeTab, setHomeTab] = useState('summary');
       const [homeKey, setHomeKey] = useState(0);          // 参加後に Home を再マウントして部屋を開く
@@ -675,6 +676,12 @@
             if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // 下書きを温存
             else { setMe(null); setRoute('onboarding'); }  // 失効/未登録
           });
+        } else {
+          // localStorage に identity が無い → cookie からサーバー復元を試す（iOS Safari ITP 対策）。
+          window.WC.Me.restore().then((u) => {
+            if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // cookie から自動ログイン
+            else { setMe(null); setRoute('onboarding'); }  // cookie 無し/失効 → 新規登録
+          });
         }
       }, []);
 
@@ -690,7 +697,7 @@
       let inner;
       if (route === 'onboarding') {
         inner = <Onboarding T={T} siteKey={siteKey} onDone={(u, tab) => { setMe(window.WC.Me.withDraft(u)); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
-      } else if (!me) {
+      } else if (route === 'restoring' || !me) {
         inner = <Splash T={T} />;
       } else {
         inner = <Home key={homeKey} T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}

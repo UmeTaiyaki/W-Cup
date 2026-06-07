@@ -4,6 +4,7 @@ import { validatePred } from '../_lib/predictions.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 import { createRateLimiter } from '../_lib/ratelimit.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
+import { ID_COOKIE, setIdCookie, clearIdCookie, readCookie } from '../_lib/cookies.js';
 
 const uKey = (id) => `user:${id}`;
 const ucKey = (code) => `usercode:${code}`;
@@ -61,6 +62,9 @@ export async function onRequestPost({ request, env }) {
   const cl = Number(request.headers.get('content-length') || 0);
   if (cl > USER_LIMITS.postBytes) return json(413, { error: 'データが大きすぎます' });
 
+  // 本番(HTTPS)のみ Secure cookie。ローカル開発(http)では Secure を外す。
+  const secure = new URL(request.url).protocol === 'https:';
+
   let input;
   try {
     input = await request.json();
@@ -85,7 +89,8 @@ export async function onRequestPost({ request, env }) {
       console.error('user create: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
     }
-    return json(200, { userId: user.id, code, user });
+    // 同期コードを HttpOnly cookie でも保持（localStorage が ITP で消えても復元可能に）。
+    return json(200, { userId: user.id, code, user }, { 'Set-Cookie': setIdCookie(code, { secure }) });
   }
 
   if (op === 'setPred') {
@@ -138,7 +143,32 @@ export async function onRequestPost({ request, env }) {
     }
     const user = await readUser(env, id);
     if (!user) return json(404, { error: 'コードに該当するユーザーがいません' });
-    return json(200, { userId: user.id, code, user });
+    // 同期コードを cookie にも反映（別端末・別ブラウザでも以後は自動復元される）。
+    return json(200, { userId: user.id, code, user }, { 'Set-Cookie': setIdCookie(code, { secure }) });
+  }
+
+  if (op === 'whoami') {
+    // cookie だけで本人を復元する（localStorage 不要・新規入力は受け取らない）。
+    // localStorage が iOS Safari の ITP で消えても、これで再オンボーディングを回避する。
+    const code = normalizeCode(readCookie(request.headers.get('Cookie'), ID_COOKIE));
+    if (!code) return json(401, { error: 'ログイン情報がありません' });
+    let id = null;
+    try {
+      id = await env.CONFIG.get(ucKey(code));
+    } catch (e) {
+      console.error('user whoami: KV read failed', e);
+      return json(500, { error: '読み込みに失敗しました' });
+    }
+    const user = await readUser(env, id);
+    // 失効した cookie は破棄して返す（蘇り防止）。
+    if (!user) return json(404, { error: 'ログイン情報が無効です' }, { 'Set-Cookie': clearIdCookie({ secure }) });
+    // 有効期限をローリング更新しつつ、localStorage 復元用に userId/code を返す。
+    return json(200, { userId: user.id, code, user }, { 'Set-Cookie': setIdCookie(code, { secure }) });
+  }
+
+  if (op === 'logout') {
+    // cookie を破棄（アカウント切替・データ削除時）。残ると次回 whoami で旧アカウントが蘇る。
+    return json(200, { ok: true }, { 'Set-Cookie': clearIdCookie({ secure }) });
   }
 
   return json(400, { error: '不明な操作です' });

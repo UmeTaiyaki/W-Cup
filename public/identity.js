@@ -32,6 +32,8 @@
   }
   function clear() {
     try { localStorage.removeItem(ID_KEY); localStorage.removeItem(ME_KEY); } catch (e) {}
+    // サーバー側の identity cookie も破棄（残ると次回 restore で旧アカウントが蘇る）。
+    try { postOp({ op: 'logout', __keepalive: true }).catch(() => {}); } catch (e) {}
   }
 
   async function postOp(body) {
@@ -72,6 +74,19 @@
     const merged = { ...(cachedUser() || {}), name: out.name, updatedAt: out.updatedAt };
     cacheUser(merged);
     return merged;
+  }
+
+  // localStorage に identity が無いとき、HttpOnly cookie からサーバー側で復元する。
+  // iOS Safari の ITP で localStorage が7日で消えても、再オンボーディングを避けられる。
+  // 成功なら identity/user を localStorage に書き戻して user を返す。cookie 無し/失効は null。
+  async function restore() {
+    try {
+      const out = await postOp({ op: 'whoami' });
+      saveIdentity(out.userId, out.code, out.user);
+      return out.user;
+    } catch (e) {
+      return null; // cookie 無し(401)・失効(404)・通信失敗 → オンボーディングへ
+    }
   }
 
   // 保存済み identity で最新 user を取得。失効(404)なら clear して null。
@@ -212,7 +227,7 @@
 
   window.WC = window.WC || {};
   window.WC.Me = {
-    load, cachedUser, clear, create, sync, refresh, setName, cacheUser,
+    load, cachedUser, clear, create, sync, refresh, restore, setName, cacheUser,
     saveDraft, commit, loadDraft, withDraft, hasUnsaved, onSaveState,
   };
   window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };
