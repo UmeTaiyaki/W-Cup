@@ -200,4 +200,55 @@ function RightRail({ T, state, member, pred, goTab }) {
   );
 }
 
-Object.assign(window, { useContainerWidth, modeFor, Sidebar, RightRail });
+// ---- 保存ステータス表示（楽観更新の失敗を可視化）-----------------
+// identity.js の onSaveState を購読し、保存中／保存しました／失敗 を表示する。
+// 失敗時は消えずに残り、タップで即時再試行できる（裏で自動リトライも併走）。
+// アプリ全体の最前面に浮かせるため #wc-app-root 直下に置く。
+function SaveStatus({ T }) {
+  const [st, setSt] = React.useState('idle');
+  const [hideSaved, setHideSaved] = React.useState(false);
+
+  React.useEffect(() => window.WC.Me.onSaveState(setSt), []);
+  // 「保存しました」は数秒で自動的に消す（成功時は邪魔をしない）。
+  React.useEffect(() => {
+    if (st !== 'saved') { setHideSaved(false); return; }
+    setHideSaved(false);
+    const id = setTimeout(() => setHideSaved(true), 1600);
+    return () => clearTimeout(id);
+  }, [st]);
+
+  if (st === 'idle') return null;
+  if (st === 'saved' && hideSaved) return null;
+
+  const isError = st === 'error';
+  const label = isError ? '保存できていません · タップで再試行'
+    : st === 'saving' ? '保存中…' : '保存しました';
+  const fg = isError ? '#fff' : T.sub;
+
+  return (
+    <div onClick={isError ? () => window.WC.Me.retryNow() : undefined}
+      role={isError ? 'button' : 'status'} aria-live="polite"
+      style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)', zIndex: 1200,
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: isError ? '10px 15px' : '8px 13px', borderRadius: 999,
+        background: isError ? '#FF6B6B' : T.card, color: fg,
+        fontFamily: 'inherit', fontWeight: 800, fontSize: 12.5, whiteSpace: 'nowrap',
+        cursor: isError ? 'pointer' : 'default', maxWidth: 'calc(100% - 32px)',
+        boxShadow: isError ? '0 8px 24px rgba(255,107,107,0.5)'
+          : `inset 0 0 0 1px ${T.line}, 0 4px 14px rgba(0,0,0,0.18)`,
+        animation: 'wcPop .2s ease both' }}>
+      {isError ? (
+        <span style={{ fontSize: 14, lineHeight: 1 }}>⚠️</span>
+      ) : (
+        <span style={{ display: 'grid', placeItems: 'center',
+          animation: st === 'saving' ? 'wcSpin 0.7s linear infinite' : 'none' }}>
+          <Icon name={st === 'saving' ? 'refresh' : 'check'} size={14} color={fg} sw={2.6} />
+        </span>
+      )}
+      {label}
+    </div>
+  );
+}
+
+Object.assign(window, { useContainerWidth, modeFor, Sidebar, RightRail, SaveStatus });

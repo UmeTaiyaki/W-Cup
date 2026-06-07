@@ -47,7 +47,7 @@
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="data.js?v=7"></script>
-  <script src="identity.js?v=4"></script>
+  <script src="identity.js?v=5"></script>
   <script type="module">
     import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign } from './lib/bracket.js';
     import { THIRD_ALLOCATION, thirdAllocation } from './lib/third-allocation.js';
@@ -67,7 +67,7 @@
   <script type="text/babel" src="tweaks-panel.jsx?v=2"></script>
   <script type="text/babel" src="ios-frame.jsx?v=2"></script>
   <script type="text/babel" src="ui.jsx?v=9"></script>
-  <script type="text/babel" src="app-shell.jsx?v=4"></script>
+  <script type="text/babel" src="app-shell.jsx?v=5"></script>
   <script type="text/babel" src="screens-core.jsx?v=13"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=5"></script>
   <script type="text/babel" src="screens-rank.jsx?v=6"></script>
@@ -703,6 +703,7 @@
           background: '#0b0d12', overflow: previewW > 0 ? 'auto' : 'hidden' }}>
           <div ref={appRef} id="wc-app-root" style={colStyle}>
             {inner}
+            <window.SaveStatus T={T} />
             {route === 'home' && me && pendingJoin &&
               <JoinInviteModal T={T} code={pendingJoin}
                 onJoin={handleJoinInvite} onDismiss={() => setPendingJoin(null)} />}

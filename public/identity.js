@@ -88,27 +88,88 @@
     }
   }
 
-  // ---- 予想の debounce 保存（setPred は code 必須=本人確認）----
+  // ---- 予想の保存（debounce + 状態通知 + 失敗時の自動リトライ）----
+  // 入力は楽観更新で即座に画面へ反映される。保存が無言で失敗するとユーザーが
+  // 気づけないため、保存状態(saving/saved/error)を購読者(UI)へ通知する。
+  // setPred は code 必須＝本人確認。
   let timer = null, pending = null;
+  let saveState = 'idle';            // 'idle' | 'saving' | 'saved' | 'error'
+  let failedPred = null;             // 保存に失敗した予想（再試行用に保持）
+  let retryTimer = null, retryDelay = 0;
+  const saveSubs = new Set();
+
+  function setSaveState(s) {
+    saveState = s;
+    saveSubs.forEach((fn) => { try { fn(s); } catch (e) {} });
+  }
+  // UI が保存状態を購読する。登録直後に現在値を1回流す。戻り値で解除。
+  function onSaveState(fn) {
+    saveSubs.add(fn);
+    try { fn(saveState); } catch (e) {}
+    return () => { saveSubs.delete(fn); };
+  }
+  // 保存に失敗して未送達の変更が残っているか（閉じる前の警告に使う）。
+  function hasUnsaved() { return failedPred != null; }
+
   function scheduleSave(pred) {
     pending = pred;
     if (timer) clearTimeout(timer);
     timer = setTimeout(flushSave, 700);
   }
+
+  // 実際の保存。成功で 'saved'、失敗で 'error' にして失敗予想を保持し自動リトライ。
+  function doSave(pred) {
+    const id = load();
+    if (!id) return;
+    setSaveState('saving');
+    postOp({ op: 'setPred', userId: id.userId, code: id.code, pred })
+      .then((u) => {
+        cacheUser(u);
+        failedPred = null;
+        retryDelay = 0;
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+        setSaveState('saved');
+      })
+      .catch((e) => {
+        console.error('予想の保存に失敗しました', e);
+        failedPred = pred;
+        setSaveState('error');
+        scheduleRetry();
+      });
+  }
+
   function flushSave() {
     if (timer) { clearTimeout(timer); timer = null; }
     if (pending == null) return;
-    const id = load(); const pred = pending; pending = null;
-    if (!id) return;
-    postOp({ op: 'setPred', userId: id.userId, code: id.code, pred })
-      .then((u) => cacheUser(u))
-      .catch((e) => console.error('予想の保存に失敗しました', e));
+    const pred = pending; pending = null;
+    if (!load()) return;
+    doSave(pred);
   }
+
+  // 失敗時は指数バックオフ(5s→10s→20s→40s→最大60s)で自動再送。
+  function scheduleRetry() {
+    if (retryTimer) return;
+    retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, 60000);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (failedPred != null) doSave(failedPred);
+    }, retryDelay);
+  }
+
+  // ユーザーが「今すぐ再試行」したときに呼ぶ（バックオフ待ちを飛ばす）。
+  function retryNow() {
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    retryDelay = 0;
+    if (failedPred != null) doSave(failedPred);
+    else if (pending != null) flushSave();
+  }
+
   function flushBeacon() {
-    if (pending == null) return;
-    const id = load(); const pred = pending; pending = null;
+    const id = load(); if (!id) return;
+    const pred = (pending != null) ? pending : failedPred;
+    if (pred == null) return;
+    pending = null;
     if (timer) { clearTimeout(timer); timer = null; }
-    if (!id) return;
     try {
       const body = JSON.stringify({ op: 'setPred', userId: id.userId, code: id.code, pred });
       const blob = new Blob([body], { type: 'application/json' });
@@ -116,10 +177,15 @@
       else postOp({ op: 'setPred', userId: id.userId, code: id.code, pred, __keepalive: true }).catch(() => {});
     } catch (e) {}
   }
+
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', flushBeacon);
     window.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') flushBeacon();
+    });
+    // 保存に失敗した変更が残ったままタブを閉じようとしたら警告（データ消失防止）。
+    window.addEventListener('beforeunload', (e) => {
+      if (hasUnsaved()) { e.preventDefault(); e.returnValue = ''; }
     });
   }
 
@@ -169,6 +235,7 @@
   window.WC.Me = {
     load, cachedUser, clear, create, sync, refresh, setName,
     scheduleSave, flushSave, flushBeacon, cacheUser,
+    onSaveState, retryNow, hasUnsaved,
   };
   window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };
   window.WC.Feedback = { send: sendFeedback };
