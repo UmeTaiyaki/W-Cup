@@ -475,27 +475,39 @@ function ScorerPicker({ open, onClose, onPick, T, title = '得点王を選ぶ', 
   );
 }
 
-// ---- オプション予想の保存バー（最下部・押して確定＆戻る）------
-// 入力はタップごとに自動保存済み。ボタンは明示的な「保存しました」確認＋予想ハブへ戻る役割。
+// ---- 予想の保存バー（最下部・押すと下書きをKVへ保存）------
+// onSave は下書きをKVへ書き込む commit（async・失敗時 throw）。成功するまで
+// 「保存しました」は出さない（無言の失敗を作らない）。失敗時はボタンを戻す
+// （浮遊ピル SaveStatus 側がエラー表示と再試行を担う）。
 function OptionSaveBar({ T, onSave, hint, style }) {
-  const [saved, setSaved] = React.useState(false);
-  const timer = React.useRef(null);
-  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  function handle() {
-    if (saved) return;
-    setSaved(true);
-    timer.current = setTimeout(() => { onSave && onSave(); }, 650);
+  const [phase, setPhase] = React.useState('idle'); // 'idle' | 'saving' | 'saved'
+  const mounted = React.useRef(true);
+  React.useEffect(() => () => { mounted.current = false; }, []);
+  async function handle() {
+    if (phase !== 'idle') return;
+    setPhase('saving');
+    try {
+      await (onSave && onSave());
+      if (mounted.current) setPhase('saved');
+    } catch (e) {
+      if (mounted.current) setPhase('idle'); // 失敗：再度押せるように戻す
+    }
   }
+  const saved = phase === 'saved';
+  const saving = phase === 'saving';
   return (
     <div style={{ marginTop: 18, ...style }}>
-      <button onClick={handle} disabled={saved} style={{
+      <button onClick={handle} disabled={saving || saved} style={{
         width: '100%', border: 'none', borderRadius: 16, padding: '15px',
-        cursor: saved ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 16,
+        cursor: saving || saved ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 16,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
         background: saved ? T.card : T.accent, color: saved ? T.accent : T.accentInk,
         boxShadow: saved ? `inset 0 0 0 1.5px ${T.accent}` : 'none', transition: '.18s ease' }}>
-        <Icon name="check" size={19} color={saved ? T.accent : T.accentInk} sw={2.6} />
-        {saved ? '保存しました' : '保存する'}
+        <span style={{ display: 'grid', placeItems: 'center',
+          animation: saving ? 'wcSpin 0.7s linear infinite' : 'none' }}>
+          <Icon name={saving ? 'refresh' : 'check'} size={19} color={saved ? T.accent : T.accentInk} sw={2.6} />
+        </span>
+        {saved ? '保存しました' : saving ? '保存中…' : '保存する'}
       </button>
       {hint && (
         <p style={{ color: T.faint, fontSize: 12, textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}><DotBreak>{hint}</DotBreak></p>

@@ -291,6 +291,12 @@ function InputScreen({ T, state, member, pred, setPick, onRemove = () => {}, can
       <OptionViewScreen embedded editable T={T} state={viewState} viewId={member.id}
         setViewId={() => {}} wide={wide} onEdit={goOption} />
 
+      {/* 予想を保存（下書き→KV）。押すまで保存されない。 */}
+      {solo && (
+        <OptionSaveBar T={T} onSave={() => window.WC.Me.commit()}
+          hint="編集中の予想はこの端末に下書き保存中です。「保存」を押すまでサーバーには保存されません。" />
+      )}
+
       {/* 参加者の削除 */}
       {!solo && (
       <div style={{ marginTop: 14, paddingTop: 18, borderTop: `1px solid ${T.line}` }}>

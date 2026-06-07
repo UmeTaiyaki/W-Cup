@@ -88,15 +88,33 @@
     }
   }
 
-  // ---- 予想の保存（debounce + 状態通知 + 失敗時の自動リトライ）----
-  // 入力は楽観更新で即座に画面へ反映される。保存が無言で失敗するとユーザーが
-  // 気づけないため、保存状態(saving/saved/error)を購読者(UI)へ通知する。
+  // ---- 予想の保存（ハイブリッド：下書き=ローカル即時／保存=KV明示）----
+  // 編集は端末の localStorage に「下書き」として即時保存する（無料・閉じても残る）。
+  // KV への書き込みは commit()（＝「保存」ボタン）を押したときだけ行う＝書き込み激減。
+  // 状態を購読者(UI)へ通知する：
+  //   'idle'(同期済) | 'dirty'(未保存の下書きあり) | 'saving' | 'saved' | 'error'。
   // setPred は code 必須＝本人確認。
-  let timer = null, pending = null;
-  let saveState = 'idle';            // 'idle' | 'saving' | 'saved' | 'error'
-  let failedPred = null;             // 保存に失敗した予想（再試行用に保持）
-  let retryTimer = null, retryDelay = 0;
+  const DRAFT_PREFIX = 'wc2026_draft_v1:';
+  let saveState = 'idle';
+  let failedPred = null;             // commit に失敗した予想（再試行用に保持）
   const saveSubs = new Set();
+
+  // 下書きはユーザーごとに分離して保存（端末を共有しても混ざらない）。
+  function draftKey() { const id = load(); return id ? DRAFT_PREFIX + id.userId : null; }
+  function loadDraft() {
+    try {
+      const k = draftKey(); if (!k) return null;
+      const raw = localStorage.getItem(k);
+      const v = raw ? JSON.parse(raw) : null;
+      return (v && v.pred) ? v.pred : null;
+    } catch (e) { return null; }
+  }
+  function writeDraft(pred) {
+    try { const k = draftKey(); if (k) localStorage.setItem(k, JSON.stringify({ pred })); } catch (e) {}
+  }
+  function removeDraft() {
+    try { const k = draftKey(); if (k) localStorage.removeItem(k); } catch (e) {}
+  }
 
   function setSaveState(s) {
     saveState = s;
@@ -108,85 +126,46 @@
     try { fn(saveState); } catch (e) {}
     return () => { saveSubs.delete(fn); };
   }
-  // 保存に失敗して未送達の変更が残っているか（閉じる前の警告に使う）。
-  function hasUnsaved() { return failedPred != null; }
-
-  function scheduleSave(pred) {
-    pending = pred;
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(flushSave, 700);
+  // KV 未反映の下書きが残っているか（離脱前の警告に使う）。
+  function hasUnsaved() { return loadDraft() != null; }
+  // KV に保存済みの値を取り込む際、未保存の下書きがあれば上書きせず温存する。
+  function withDraft(user) {
+    if (!user) return user;
+    const d = loadDraft();
+    return d ? { ...user, pred: d } : user;
   }
 
-  // 実際の保存。成功で 'saved'、失敗で 'error' にして失敗予想を保持し自動リトライ。
-  function doSave(pred) {
+  // 編集のたびに呼ぶ：下書きをローカルに即時保存（KVは触らない）。
+  function saveDraft(pred) {
+    writeDraft(pred);
+    failedPred = null;
+    setSaveState('dirty');
+  }
+
+  // 「保存」：下書きを KV に1回だけ書き込む。成功で下書きを消し dirty を解除する。
+  // 返り値は更新後の publicUser（呼び出し側が setMe で同期できる）。失敗時は throw。
+  function commit() {
     const id = load();
-    if (!id) return;
+    const pred = loadDraft();
+    if (!id || pred == null) { setSaveState('idle'); return Promise.resolve(null); }
     setSaveState('saving');
-    postOp({ op: 'setPred', userId: id.userId, code: id.code, pred })
-      .then((u) => {
-        cacheUser(u);
-        failedPred = null;
-        retryDelay = 0;
-        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-        setSaveState('saved');
-      })
+    return postOp({ op: 'setPred', userId: id.userId, code: id.code, pred })
+      .then((u) => { cacheUser(u); removeDraft(); failedPred = null; setSaveState('saved'); return u; })
       .catch((e) => {
         console.error('予想の保存に失敗しました', e);
-        failedPred = pred;
+        failedPred = pred;       // 下書きは消さないのでデータは安全。再度 commit で再試行可。
         setSaveState('error');
-        scheduleRetry();
+        throw e;
       });
   }
 
-  function flushSave() {
-    if (timer) { clearTimeout(timer); timer = null; }
-    if (pending == null) return;
-    const pred = pending; pending = null;
-    if (!load()) return;
-    doSave(pred);
-  }
-
-  // 失敗時は指数バックオフ(5s→10s→20s→40s→最大60s)で自動再送。
-  function scheduleRetry() {
-    if (retryTimer) return;
-    retryDelay = Math.min(retryDelay ? retryDelay * 2 : 5000, 60000);
-    retryTimer = setTimeout(() => {
-      retryTimer = null;
-      if (failedPred != null) doSave(failedPred);
-    }, retryDelay);
-  }
-
-  // ユーザーが「今すぐ再試行」したときに呼ぶ（バックオフ待ちを飛ばす）。
-  function retryNow() {
-    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
-    retryDelay = 0;
-    if (failedPred != null) doSave(failedPred);
-    else if (pending != null) flushSave();
-  }
-
-  function flushBeacon() {
-    const id = load(); if (!id) return;
-    const pred = (pending != null) ? pending : failedPred;
-    if (pred == null) return;
-    pending = null;
-    if (timer) { clearTimeout(timer); timer = null; }
-    try {
-      const body = JSON.stringify({ op: 'setPred', userId: id.userId, code: id.code, pred });
-      const blob = new Blob([body], { type: 'application/json' });
-      if (navigator.sendBeacon) navigator.sendBeacon('/api/user', blob);
-      else postOp({ op: 'setPred', userId: id.userId, code: id.code, pred, __keepalive: true }).catch(() => {});
-    } catch (e) {}
-  }
-
   if (typeof window !== 'undefined') {
-    window.addEventListener('pagehide', flushBeacon);
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flushBeacon();
-    });
-    // 保存に失敗した変更が残ったままタブを閉じようとしたら警告（データ消失防止）。
+    // 未保存の下書きが残ったままタブを閉じようとしたら警告（データ消失防止）。
     window.addEventListener('beforeunload', (e) => {
       if (hasUnsaved()) { e.preventDefault(); e.returnValue = ''; }
     });
+    // 起動時：前回の未保存下書きが残っていれば「未保存」として表示する。
+    if (loadDraft()) saveState = 'dirty';
   }
 
   // フィードバック送信（multipart）。{ ok } を返す。失敗時は error/status を持つ Error。
@@ -233,9 +212,8 @@
 
   window.WC = window.WC || {};
   window.WC.Me = {
-    load, cachedUser, clear, create, sync, refresh, setName,
-    scheduleSave, flushSave, flushBeacon, cacheUser,
-    onSaveState, retryNow, hasUnsaved,
+    load, cachedUser, clear, create, sync, refresh, setName, cacheUser,
+    saveDraft, commit, loadDraft, withDraft, hasUnsaved, onSaveState,
   };
   window.WC.Rooms = { create: createRoom, join: joinRoom, get: getRoom };
   window.WC.Feedback = { send: sendFeedback };

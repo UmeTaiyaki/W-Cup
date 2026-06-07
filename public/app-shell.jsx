@@ -200,10 +200,14 @@ function RightRail({ T, state, member, pred, goTab }) {
   );
 }
 
-// ---- 保存ステータス表示（楽観更新の失敗を可視化）-----------------
-// identity.js の onSaveState を購読し、保存中／保存しました／失敗 を表示する。
-// 失敗時は消えずに残り、タップで即時再試行できる（裏で自動リトライも併走）。
-// アプリ全体の最前面に浮かせるため #wc-app-root 直下に置く。
+// ---- 保存ステータス／保存ボタン（ハイブリッド保存の可視化）----------
+// identity.js の onSaveState を購読して全タブ共通で浮かせる安全網。
+//   dirty  : 未保存の下書きあり → タップで保存（commit）
+//   saving : KVへ書き込み中
+//   saved  : 直後だけ表示して自動的に消す
+//   error  : 保存失敗 → タップで再試行（下書きは保持されているので消えない）
+//   idle   : 非表示
+// アプリ全体の最前面に出すため #wc-app-root 直下に置く。
 function SaveStatus({ T }) {
   const [st, setSt] = React.useState('idle');
   const [hideSaved, setHideSaved] = React.useState(false);
@@ -220,33 +224,39 @@ function SaveStatus({ T }) {
   if (st === 'idle') return null;
   if (st === 'saved' && hideSaved) return null;
 
-  const isError = st === 'error';
-  const label = isError ? '保存できていません · タップで再試行'
-    : st === 'saving' ? '保存中…' : '保存しました';
-  const fg = isError ? '#fff' : T.sub;
+  const tappable = st === 'dirty' || st === 'error';
+  const onTap = tappable ? () => { window.WC.Me.commit().catch(() => {}); } : undefined;
+
+  const conf = {
+    dirty:  { bg: T.accent,  fg: T.accentInk, label: '未保存 · タップで保存', glyph: 'edit' },
+    saving: { bg: T.card,    fg: T.sub,       label: '保存中…',              glyph: 'refresh' },
+    saved:  { bg: T.card,    fg: T.sub,       label: '保存しました',          glyph: 'check' },
+    error:  { bg: '#FF6B6B', fg: '#fff',      label: '保存に失敗 · タップで再試行', glyph: 'warn' },
+  }[st] || { bg: T.card, fg: T.sub, label: '', glyph: 'check' };
 
   return (
-    <div onClick={isError ? () => window.WC.Me.retryNow() : undefined}
-      role={isError ? 'button' : 'status'} aria-live="polite"
+    <div onClick={onTap}
+      role={tappable ? 'button' : 'status'} aria-live="polite"
       style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)',
         bottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)', zIndex: 1200,
         display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: isError ? '10px 15px' : '8px 13px', borderRadius: 999,
-        background: isError ? '#FF6B6B' : T.card, color: fg,
-        fontFamily: 'inherit', fontWeight: 800, fontSize: 12.5, whiteSpace: 'nowrap',
-        cursor: isError ? 'pointer' : 'default', maxWidth: 'calc(100% - 32px)',
-        boxShadow: isError ? '0 8px 24px rgba(255,107,107,0.5)'
+        padding: tappable ? '11px 17px' : '8px 13px', borderRadius: 999,
+        background: conf.bg, color: conf.fg,
+        fontFamily: 'inherit', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap',
+        cursor: tappable ? 'pointer' : 'default', maxWidth: 'calc(100% - 32px)',
+        boxShadow: st === 'error' ? '0 8px 24px rgba(255,107,107,0.5)'
+          : st === 'dirty' ? `0 8px 24px ${T.accent}55`
           : `inset 0 0 0 1px ${T.line}, 0 4px 14px rgba(0,0,0,0.18)`,
         animation: 'wcPop .2s ease both' }}>
-      {isError ? (
+      {conf.glyph === 'warn' ? (
         <span style={{ fontSize: 14, lineHeight: 1 }}>⚠️</span>
       ) : (
         <span style={{ display: 'grid', placeItems: 'center',
           animation: st === 'saving' ? 'wcSpin 0.7s linear infinite' : 'none' }}>
-          <Icon name={st === 'saving' ? 'refresh' : 'check'} size={14} color={fg} sw={2.6} />
+          <Icon name={conf.glyph} size={14} color={conf.fg} sw={2.6} />
         </span>
       )}
-      {label}
+      {conf.label}
     </div>
   );
 }

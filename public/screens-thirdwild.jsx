@@ -113,8 +113,8 @@ function ThirdWildScreen({ T, member, pred, setThirdGroups, goBack, wide = false
         </div>
       )}
 
-      <OptionSaveBar T={T} onSave={goBack}
-        hint="選択はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
+      <OptionSaveBar T={T} onSave={async () => { await window.WC.Me.commit(); goBack(); }}
+        hint="「保存」を押すと予想を保存して予想ハブに戻ります。押すまで保存されません。" />
     </div>
   );
 }

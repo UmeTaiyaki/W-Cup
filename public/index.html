@@ -47,7 +47,7 @@
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="data.js?v=7"></script>
-  <script src="identity.js?v=5"></script>
+  <script src="identity.js?v=6"></script>
   <script type="module">
     import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign } from './lib/bracket.js';
     import { THIRD_ALLOCATION, thirdAllocation } from './lib/third-allocation.js';
@@ -66,17 +66,17 @@
   </script>
   <script type="text/babel" src="tweaks-panel.jsx?v=2"></script>
   <script type="text/babel" src="ios-frame.jsx?v=2"></script>
-  <script type="text/babel" src="ui.jsx?v=9"></script>
-  <script type="text/babel" src="app-shell.jsx?v=5"></script>
-  <script type="text/babel" src="screens-core.jsx?v=13"></script>
-  <script type="text/babel" src="screens-knockout.jsx?v=5"></script>
+  <script type="text/babel" src="ui.jsx?v=10"></script>
+  <script type="text/babel" src="app-shell.jsx?v=6"></script>
+  <script type="text/babel" src="screens-core.jsx?v=14"></script>
+  <script type="text/babel" src="screens-knockout.jsx?v=6"></script>
   <script type="text/babel" src="screens-rank.jsx?v=6"></script>
   <script type="text/babel" src="screens-group.jsx?v=4"></script>
-  <script type="text/babel" src="screens-grouprank.jsx?v=5"></script>
-  <script type="text/babel" src="screens-thirdwild.jsx?v=5"></script>
+  <script type="text/babel" src="screens-grouprank.jsx?v=6"></script>
+  <script type="text/babel" src="screens-thirdwild.jsx?v=6"></script>
   <script type="text/babel" src="screens-share.jsx?v=4"></script>
   <script type="text/babel" src="screens-optview.jsx?v=9"></script>
-  <script type="text/babel" src="onboarding.jsx?v=8"></script>
+  <script type="text/babel" src="onboarding.jsx?v=9"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=9"></script>
   <script type="text/babel" src="screens-home.jsx?v=3"></script>
 
@@ -431,7 +431,7 @@
         const minSpin = new Promise((r) => setTimeout(r, 650)); // 最低限スピンを見せる
         try {
           const u = await window.WC.Me.refresh();         // 自分の最新データを再取得
-          if (u) setMe(u);
+          if (u) setMe(window.WC.Me.withDraft(u));         // 未保存の下書きは温存
         } catch (e) { /* 失敗してもUIは維持 */ }
         await minSpin;
         setRefreshing(false);
@@ -440,8 +440,8 @@
       const pred = me.pred || window.WC.emptyPred();
       const member = { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' };
 
-      // 楽観更新＋debounce 保存
-      function persist(nextPred) { setMe({ ...me, pred: nextPred }); window.WC.Me.scheduleSave(nextPred); }
+      // 編集はローカル下書きへ即時保存（KVは「保存」ボタン＝commit時のみ）
+      function persist(nextPred) { setMe({ ...me, pred: nextPred }); window.WC.Me.saveDraft(nextPred); }
       function setPick(f, v) { persist({ ...pred, [f]: v }); }
       function setGroupRank(k, arr) { persist({ ...pred, groupRank: { ...(pred.groupRank || {}), [k]: arr } }); }
       function setThirdGroups(arr) { persist({ ...pred, thirdGroups: arr }); }
@@ -640,7 +640,7 @@
       const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
       const T = useTheme(t);
       const [route, setRoute] = useState(() => window.WC.Me.load() ? 'home' : 'onboarding');
-      const [me, setMe] = useState(() => window.WC.Me.cachedUser());
+      const [me, setMe] = useState(() => window.WC.Me.withDraft(window.WC.Me.cachedUser()));
       const [homeTab, setHomeTab] = useState('summary');
       const [homeKey, setHomeKey] = useState(0);          // 参加後に Home を再マウントして部屋を開く
       const [pendingJoin, setPendingJoin] = useState(readPendingJoin); // 招待リンクの参加コード
@@ -664,7 +664,7 @@
         window.WC.fetchConfig().then(() => { setSiteKey(window.WC.TURNSTILE_SITE_KEY || null); setConfigLoaded(true); });
         if (window.WC.Me.load()) {
           window.WC.Me.refresh().then((u) => {
-            if (u) { setMe(u); setRoute('home'); }
+            if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // 下書きを温存
             else { setMe(null); setRoute('onboarding'); }  // 失効/未登録
           });
         }
@@ -681,7 +681,7 @@
 
       let inner;
       if (route === 'onboarding') {
-        inner = <Onboarding T={T} siteKey={siteKey} onDone={(u, tab) => { setMe(u); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
+        inner = <Onboarding T={T} siteKey={siteKey} onDone={(u, tab) => { setMe(window.WC.Me.withDraft(u)); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
       } else if (!me) {
         inner = <Splash T={T} />;
       } else {

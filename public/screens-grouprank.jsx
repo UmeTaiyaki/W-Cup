@@ -80,8 +80,8 @@ function GroupRankScreen({ T, member, pred, setGroupRank, goBack, wide = false }
       <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(240px, 1fr))' : '1fr', gap: 12 }}>
         {GK.map((k) => <Card key={k} k={k} />)}
       </div>
-      <OptionSaveBar T={T} onSave={goBack}
-        hint="入力はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
+      <OptionSaveBar T={T} onSave={async () => { await window.WC.Me.commit(); goBack(); }}
+        hint="「保存」を押すと予想を保存して予想ハブに戻ります。押すまで保存されません。" />
     </div>
   );
 }

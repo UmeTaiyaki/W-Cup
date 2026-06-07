@@ -105,8 +105,8 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
             })}
           </div>
           {ri === ROUNDS.length - 1 && (
-            <OptionSaveBar T={T} onSave={goBack}
-              hint="勝者の選択はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
+            <OptionSaveBar T={T} onSave={async () => { await window.WC.Me.commit(); goBack(); }}
+              hint="「保存」を押すと予想を保存して予想ハブに戻ります。押すまで保存されません。" />
           )}
         </div>
         <div style={{ display: 'flex', gap: 10, padding: '10px 16px',
@@ -213,8 +213,8 @@ function KnockoutScreen({ T, member, pred, setKnockout, goBack, wide = false, av
           </div>
         </div>
       </div>
-      <OptionSaveBar T={T} onSave={goBack} style={{ maxWidth: 520, margin: '18px auto 0' }}
-        hint="勝者の選択はその場で自動保存されています。ボタンで保存を確定し、予想ハブに戻ります。" />
+      <OptionSaveBar T={T} onSave={async () => { await window.WC.Me.commit(); goBack(); }} style={{ maxWidth: 520, margin: '18px auto 0' }}
+        hint="「保存」を押すと予想を保存して予想ハブに戻ります。押すまで保存されません。" />
     </div>
   );
 }

@@ -81,7 +81,7 @@ function Onboarding({ T, onDone, siteKey }) {
     ? { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' }
     : { id: 'me', name: 'あなた', c: T.accent, initial: '?' };
 
-  function persistPred(next) { setPred(next); window.WC.Me.scheduleSave(next); }
+  function persistPred(next) { setPred(next); window.WC.Me.saveDraft(next); }
   function setPick(f, v) { persistPred({ ...pred, [f]: v }); }
   function setGroupRank(k, arr) {
     persistPred({ ...pred, groupRank: { ...(pred.groupRank || {}), [k]: arr } });
@@ -117,7 +117,12 @@ function Onboarding({ T, onDone, siteKey }) {
       setErr(e.status === 404 ? 'コードに該当するユーザーがいません' : (e.message || '復元に失敗しました'));
     } finally { setBusy(false); }
   }
-  function finish(tab) { window.WC.Me.flushSave(); onDone({ ...me, pred }, tab); }
+  // 完了時に下書きをKVへ1回だけ保存（commit）。失敗してもメイン画面で
+  // 未保存表示＋再試行できるので、ここでは止めずに進める。
+  async function finish(tab) {
+    try { await window.WC.Me.commit(); } catch (e) { /* メイン側の SaveStatus が再試行を担う */ }
+    onDone({ ...me, pred }, tab);
+  }
 
   function copyCode() {
     try {
