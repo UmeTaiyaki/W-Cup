@@ -56,6 +56,20 @@
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="data.js?v=7"></script>
   <script src="identity.js?v=7"></script>
+  <script>
+    // PWA: beforeinstallprompt は読み込み直後（AccountScreen マウント前）に発火しうるため、
+    // ここで早期に捕捉して保持する。Android/PC のみ発火（iOS は未サポート）。
+    window.__wcInstall = { prompt: null };
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__wcInstall.prompt = e;
+      window.dispatchEvent(new Event('wc-installable'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__wcInstall.prompt = null;
+      window.dispatchEvent(new Event('wc-installed'));
+    });
+  </script>
   <script type="module">
     import { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign } from './lib/bracket.js';
     import { THIRD_ALLOCATION, thirdAllocation } from './lib/third-allocation.js';
@@ -268,8 +282,42 @@
       );
     }
 
+    // PWA インストール状態。Android/PC はネイティブプロンプト、iOS は手順案内になる。
+    // standalone 起動中（インストール済み）は installed=true でボタンを隠す。
+    function usePwaInstall() {
+      const standalone = () =>
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+      const [installed, setInstalled] = useState(standalone);
+      const [canPrompt, setCanPrompt] = useState(() => !!(window.__wcInstall && window.__wcInstall.prompt));
+      useEffect(() => {
+        const onAvail = () => setCanPrompt(true);
+        const onDone = () => { setCanPrompt(false); setInstalled(true); };
+        window.addEventListener('wc-installable', onAvail);
+        window.addEventListener('wc-installed', onDone);
+        return () => {
+          window.removeEventListener('wc-installable', onAvail);
+          window.removeEventListener('wc-installed', onDone);
+        };
+      }, []);
+      const ua = window.navigator.userAgent || '';
+      const isIOS = /iphone|ipad|ipod/i.test(ua) ||
+        (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1); // iPadOS13+
+      async function promptInstall() {
+        const dp = window.__wcInstall && window.__wcInstall.prompt;
+        if (!dp) return;
+        dp.prompt();
+        try { await dp.userChoice; } catch (e) {}
+        window.__wcInstall.prompt = null;
+        setCanPrompt(false);
+      }
+      return { installed, canPrompt, isIOS, promptInstall };
+    }
+
     // アカウント画面（名前変更＋同期コード再表示＋このブラウザのデータ削除）
     function AccountScreen({ T, me, setMe, onSignOut, siteKey }) {
+      const pwa = usePwaInstall();
+      const [showIosGuide, setShowIosGuide] = useState(false);
       const [copied, setCopied] = useState(false);
       const [confirm, setConfirm] = useState(false);
       const [editing, setEditing] = useState(false);
@@ -361,6 +409,22 @@
               <b style={{ color: T.sub }}>無くすと復元できません</b>ので大切に保管してください。</p>
           </div>
 
+          {/* アプリとして使う（PWA インストール）。Android/PC はネイティブ、iOS は手順案内。 */}
+          {!pwa.installed && (pwa.canPrompt || pwa.isIOS) && (
+            <div>
+              <Eyebrow T={T}>アプリとして使う</Eyebrow>
+              <button onClick={() => { if (pwa.canPrompt) pwa.promptInstall(); else setShowIosGuide(true); }} style={{
+                width: '100%', marginTop: 8, border: 'none', borderRadius: 14, padding: '13px',
+                fontFamily: 'inherit', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                background: `${T.accent}1A`, color: T.accent,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Icon name="plus" size={17} color={T.accent} sw={2.4} />
+                ホーム画面に追加</button>
+              <p style={{ color: T.faint, fontSize: 12, lineHeight: 1.6, margin: '8px 0 0' }}>
+                ホームからアプリのように全画面で起動できます。</p>
+            </div>
+          )}
+
           {/* フィードバック */}
           <div>
             <Eyebrow T={T}>フィードバック</Eyebrow>
@@ -407,6 +471,29 @@
               </div>
             )}
           </div>
+
+          {/* iOS 用「ホーム画面に追加」手順（iOS は beforeinstallprompt 非対応のため案内のみ） */}
+          {showIosGuide && (
+            <div onClick={() => setShowIosGuide(false)} style={{ position: 'fixed', inset: 0, zIndex: 1300,
+              background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: T.bg,
+                borderRadius: 20, padding: '22px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 13, background: `${T.accent}1F`,
+                  display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+                  <Icon name="plus" size={24} color={T.accent} />
+                </div>
+                <div style={{ fontWeight: 800, color: T.text, fontSize: 18 }}>ホーム画面に追加</div>
+                <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.7, margin: '10px 0 0' }}>
+                  Safari 下部の<b style={{ color: T.text }}>共有ボタン（□に↑のマーク）</b>をタップし、
+                  メニューを下にスクロールして<b style={{ color: T.text }}>「ホーム画面に追加」</b>を選んでください。
+                  🏆 アイコンが追加され、全画面アプリとして起動できます。</p>
+                <button onClick={() => setShowIosGuide(false)} style={{
+                  width: '100%', marginTop: 18, border: 'none', borderRadius: 13, padding: '13px',
+                  fontFamily: 'inherit', fontWeight: 800, fontSize: 14.5, cursor: 'pointer',
+                  background: T.accent, color: T.accentInk }}>わかった</button>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
