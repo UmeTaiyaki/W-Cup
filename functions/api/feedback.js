@@ -3,6 +3,7 @@ import { createRateLimiter } from '../_lib/ratelimit.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
 import { validateUser } from '../_lib/users.js';
 import { maskCode, validateFeedbackText, buildDiscordPayload } from '../_lib/feedback.js';
+import { getStore } from '../_lib/store.js';
 
 // アイソレート内ソフトレート制限（KV 不使用）。フィードバックは低頻度想定なので絞る。
 const limiter = createRateLimiter({ capacity: 5, refillPerSec: 0.1 });
@@ -10,10 +11,10 @@ const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_BODY_BYTES = 6 * 1024 * 1024;
 
-async function readUser(env, id) {
+async function readUser(store, id) {
   if (!id) return null;
   try {
-    const stored = await env.CONFIG.get(`user:${id}`);
+    const stored = await store.getRaw(`user:${id}`);
     if (!stored) return null;
     return validateUser(JSON.parse(stored));
   } catch (e) {
@@ -61,7 +62,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const userId = form.get('userId') || '';
-  const user = await readUser(env, userId);
+  const user = await readUser(getStore(env), userId);
   const name = user ? user.name : '(不明)';
   const codeMasked = user ? maskCode(user.code) : '-';
   const ua = request.headers.get('user-agent') || '(不明)';

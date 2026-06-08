@@ -2,7 +2,7 @@ import { json } from '../_lib/http.js';
 import { makeRoom, addMember, ROOM_LIMITS } from '../_lib/rooms.js';
 import { validateUser, publicUser, addRoomToUser } from '../_lib/users.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
-import { createStore } from '../_lib/store.js';
+import { getStore } from '../_lib/store.js';
 import { createRateLimiter } from '../_lib/ratelimit.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
 
@@ -14,11 +14,11 @@ const uKey = (id) => `user:${id}`;
 const limiter = createRateLimiter({ capacity: 20, refillPerSec: 0.5 });
 const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 
-async function readRoom(env, id) {
+async function readRoom(store, id) {
   if (!id) return null;
   let stored = null;
   try {
-    stored = await env.CONFIG.get(rKey(id));
+    stored = await store.getRaw(rKey(id));
   } catch (e) {
     console.error('room: KV read failed', e);
     return null;
@@ -34,10 +34,10 @@ async function readRoom(env, id) {
   }
 }
 
-async function readUser(env, id) {
+async function readUser(store, id) {
   if (!id) return null;
   try {
-    const s = await env.CONFIG.get(uKey(id));
+    const s = await store.getRaw(uKey(id));
     return s ? validateUser(JSON.parse(s)) : null;
   } catch (e) {
     console.error('room: member read failed', e);
@@ -46,23 +46,23 @@ async function readUser(env, id) {
 }
 
 // User.rooms に部屋参照を追記して保存（端末またぎ用、best-effort）。
-async function attachRoomToUser(env, userId, room) {
+async function attachRoomToUser(store, userId, room) {
   try {
-    const user = await readUser(env, userId);
+    const user = await readUser(store, userId);
     if (!user) return;
     const next = addRoomToUser(user, { id: room.id, code: room.code, name: room.name });
-    await env.CONFIG.put(uKey(userId), JSON.stringify(next));
+    await store.putRaw(uKey(userId), JSON.stringify(next));
   } catch (e) {
     console.error('room: attach to user failed', e);
   }
 }
 
 // 既存 roomcode と衝突しないコードを採番（最大5回試行）。
-async function uniqueRoomCode(env) {
+async function uniqueRoomCode(store) {
   for (let i = 0; i < 5; i++) {
     const c = generateCode();
     try {
-      if (!(await env.CONFIG.get(rcKey(c)))) return c;
+      if (!(await store.getRaw(rcKey(c)))) return c;
     } catch (e) {
       console.error('room: code uniqueness check failed', e);
       return c;
@@ -74,10 +74,11 @@ async function uniqueRoomCode(env) {
 // GET /api/room?id=...  → { room, members: User[] }（見比べボード用）
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
-  const room = await readRoom(env, url.searchParams.get('id'));
+  const store = getStore(env);
+  const room = await readRoom(store, url.searchParams.get('id'));
   if (!room) return json(404, { error: '部屋が見つかりません' });
   // 各メンバーは公開ビュー（code を除く）で返す。同室者に同期コードを漏らさない。
-  const members = (await Promise.all(room.members.map((uid) => readUser(env, uid))))
+  const members = (await Promise.all(room.members.map((uid) => readUser(store, uid))))
     .filter(Boolean)
     .map(publicUser);
   return json(200, { room, members });
@@ -90,6 +91,7 @@ export async function onRequestPost({ request, env }) {
   }
   const cl = Number(request.headers.get('content-length') || 0);
   if (cl > ROOM_LIMITS.postBytes) return json(413, { error: 'データが大きすぎます' });
+  const store = getStore(env);
 
   let input;
   try {
@@ -108,18 +110,17 @@ export async function onRequestPost({ request, env }) {
     // bot による大量の部屋作成（書き込み枠の枯渇）を防ぐ。secret 未設定時は素通り。
     const verdict = await verifyTurnstile({ secret: env.TURNSTILE_SECRET, token: input.turnstileToken, ip: clientIp(request) });
     if (!verdict.ok) return json(403, { error: '人間確認に失敗しました。もう一度お試しください' });
-    const code = await uniqueRoomCode(env);
+    const code = await uniqueRoomCode(store);
     const room = makeRoom(input.name, code, input.userId);
     if (!room) return json(400, { error: '部屋名を入力してください' });
     try {
-      const store = createStore(env.CONFIG);
       await store.putJSON(rKey(room.id), room);
       await store.putRaw(rcKey(code), room.id);
     } catch (e) {
       console.error('room create: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
     }
-    await attachRoomToUser(env, input.userId, room);
+    await attachRoomToUser(store, input.userId, room);
     return json(200, { roomId: room.id, code, room });
   }
 
@@ -131,7 +132,7 @@ export async function onRequestPost({ request, env }) {
     if (!code) return json(400, { error: 'コードを入力してください' });
     let roomId = null;
     try {
-      roomId = await env.CONFIG.get(rcKey(code));
+      roomId = await store.getRaw(rcKey(code));
     } catch (e) {
       console.error('room join: KV read failed', e);
       return json(500, { error: '読み込みに失敗しました' });
@@ -142,7 +143,6 @@ export async function onRequestPost({ request, env }) {
     // 読み直して競合を検知・再適用する（store.update が担保）。
     let result;
     try {
-      const store = createStore(env.CONFIG);
       result = await store.update(rKey(roomId), (cur) => {
         if (!cur || !Array.isArray(cur.members)) return { ok: false, reason: 'gone' };
         const r = addMember(cur, input.userId);
@@ -161,7 +161,7 @@ export async function onRequestPost({ request, env }) {
       return json(400, { error: '参加に失敗しました' });
     }
     const room = result.value;
-    await attachRoomToUser(env, input.userId, room);
+    await attachRoomToUser(store, input.userId, room);
     return json(200, { roomId: room.id, room });
   }
 

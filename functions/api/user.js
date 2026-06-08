@@ -4,6 +4,7 @@ import { validatePred } from '../_lib/predictions.js';
 import { generateCode, normalizeCode } from '../_lib/codes.js';
 import { createRateLimiter } from '../_lib/ratelimit.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
+import { getStore } from '../_lib/store.js';
 import { ID_COOKIE, setIdCookie, clearIdCookie, readCookie } from '../_lib/cookies.js';
 
 const uKey = (id) => `user:${id}`;
@@ -13,11 +14,11 @@ const ucKey = (code) => `usercode:${code}`;
 const limiter = createRateLimiter({ capacity: 30, refillPerSec: 1 });
 const clientIp = (request) => request.headers.get('CF-Connecting-IP') || 'anon';
 
-async function readUser(env, id) {
+async function readUser(store, id) {
   if (!id) return null;
   let stored = null;
   try {
-    stored = await env.CONFIG.get(uKey(id));
+    stored = await store.getRaw(uKey(id));
   } catch (e) {
     console.error('user: KV read failed', e);
     return null;
@@ -32,11 +33,11 @@ async function readUser(env, id) {
 }
 
 // 既存 usercode と衝突しないコードを採番（最大5回試行）。
-async function uniqueUserCode(env) {
+async function uniqueUserCode(store) {
   for (let i = 0; i < 5; i++) {
     const c = generateCode();
     try {
-      if (!(await env.CONFIG.get(ucKey(c)))) return c;
+      if (!(await store.getRaw(ucKey(c)))) return c;
     } catch (e) {
       console.error('user: code uniqueness check failed', e);
       return c;
@@ -48,7 +49,8 @@ async function uniqueUserCode(env) {
 // GET /api/user?id=...  → User 取得
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
-  const user = await readUser(env, url.searchParams.get('id'));
+  const store = getStore(env);
+  const user = await readUser(store, url.searchParams.get('id'));
   if (!user) return json(404, { error: 'ユーザーが見つかりません' });
   // 秘密の同期コードは返さない（id を知るだけの第三者に漏らさない）。
   return json(200, publicUser(user));
@@ -64,6 +66,7 @@ export async function onRequestPost({ request, env }) {
 
   // 本番(HTTPS)のみ Secure cookie。ローカル開発(http)では Secure を外す。
   const secure = new URL(request.url).protocol === 'https:';
+  const store = getStore(env);
 
   let input;
   try {
@@ -79,12 +82,12 @@ export async function onRequestPost({ request, env }) {
     // bot による大量アカウント作成（書き込み枠の枯渇）を防ぐ。secret 未設定時は素通り。
     const verdict = await verifyTurnstile({ secret: env.TURNSTILE_SECRET, token: input.turnstileToken, ip: clientIp(request) });
     if (!verdict.ok) return json(403, { error: '人間確認に失敗しました。もう一度お試しください' });
-    const code = await uniqueUserCode(env);
+    const code = await uniqueUserCode(store);
     const user = makeUser(input.name, code);
     if (!user) return json(400, { error: '名前を入力してください' });
     try {
-      await env.CONFIG.put(uKey(user.id), JSON.stringify(user));
-      await env.CONFIG.put(ucKey(code), user.id);
+      await store.putRaw(uKey(user.id), JSON.stringify(user));
+      await store.putRaw(ucKey(code), user.id);
     } catch (e) {
       console.error('user create: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
@@ -94,7 +97,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   if (op === 'setPred') {
-    const user = await readUser(env, input.userId);
+    const user = await readUser(store, input.userId);
     if (!user) return json(404, { error: 'ユーザーが見つかりません' });
     // 本人確認（IDOR防止）: 同期コードの所持を要求する。
     // クライアントは自分の code を保持しているため UX は変わらない。
@@ -103,7 +106,7 @@ export async function onRequestPost({ request, env }) {
     }
     const next = { ...user, pred: validatePred(input.pred).value, updatedAt: new Date().toISOString() };
     try {
-      await env.CONFIG.put(uKey(user.id), JSON.stringify(next));
+      await store.putRaw(uKey(user.id), JSON.stringify(next));
     } catch (e) {
       console.error('user setPred: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
@@ -113,7 +116,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   if (op === 'setName') {
-    const user = await readUser(env, input.userId);
+    const user = await readUser(store, input.userId);
     if (!user) return json(404, { error: 'ユーザーが見つかりません' });
     // 本人確認（IDOR防止）: setPred と同様に同期コードの所持を要求する。
     if (normalizeCode(input.code) !== user.code) {
@@ -123,7 +126,7 @@ export async function onRequestPost({ request, env }) {
     if (!nm) return json(400, { error: '名前を入力してください' });
     const next = { ...user, name: nm, updatedAt: new Date().toISOString() };
     try {
-      await env.CONFIG.put(uKey(user.id), JSON.stringify(next));
+      await store.putRaw(uKey(user.id), JSON.stringify(next));
     } catch (e) {
       console.error('user setName: KV write failed', e);
       return json(500, { error: '保存に失敗しました' });
@@ -136,12 +139,12 @@ export async function onRequestPost({ request, env }) {
     if (!code) return json(400, { error: 'コードを入力してください' });
     let id = null;
     try {
-      id = await env.CONFIG.get(ucKey(code));
+      id = await store.getRaw(ucKey(code));
     } catch (e) {
       console.error('user sync: KV read failed', e);
       return json(500, { error: '読み込みに失敗しました' });
     }
-    const user = await readUser(env, id);
+    const user = await readUser(store, id);
     if (!user) return json(404, { error: 'コードに該当するユーザーがいません' });
     // 同期コードを cookie にも反映（別端末・別ブラウザでも以後は自動復元される）。
     return json(200, { userId: user.id, code, user }, { 'Set-Cookie': setIdCookie(code, { secure }) });
@@ -154,12 +157,12 @@ export async function onRequestPost({ request, env }) {
     if (!code) return json(401, { error: 'ログイン情報がありません' });
     let id = null;
     try {
-      id = await env.CONFIG.get(ucKey(code));
+      id = await store.getRaw(ucKey(code));
     } catch (e) {
       console.error('user whoami: KV read failed', e);
       return json(500, { error: '読み込みに失敗しました' });
     }
-    const user = await readUser(env, id);
+    const user = await readUser(store, id);
     // 失効した cookie は破棄して返す（蘇り防止）。
     if (!user) return json(404, { error: 'ログイン情報が無効です' }, { 'Set-Cookie': clearIdCookie({ secure }) });
     // 有効期限をローリング更新しつつ、localStorage 復元用に userId/code を返す。

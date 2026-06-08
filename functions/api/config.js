@@ -3,6 +3,7 @@ import { validateConfig } from '../_lib/validate.js';
 import { json } from '../_lib/http.js';
 import { createRateLimiter } from '../_lib/ratelimit.js';
 import { verifySession } from '../_lib/admin-auth.js';
+import { getStore } from '../_lib/store.js';
 
 const KEY = 'config:v1';
 
@@ -26,7 +27,7 @@ export async function onRequestGet(context) {
   if (hit) return hit;
 
   let stored = null;
-  try { stored = await env.CONFIG.get(KEY); } catch (e) { console.error('config GET: KV read failed', e); stored = null; }
+  try { stored = await getStore(env).getRaw(KEY); } catch (e) { console.error('config GET: KV read failed', e); stored = null; }
 
   let body;
   if (!stored) {
@@ -85,7 +86,7 @@ export async function onRequestPut(context) {
   if (!res.ok) return json(400, { error: res.error });
   const value = { ...res.value, version: 1, updatedAt: new Date().toISOString() };
   try {
-    await env.CONFIG.put(KEY, JSON.stringify(value));
+    await getStore(env).putRaw(KEY, JSON.stringify(value));
   } catch (e) {
     console.error('config PUT: KV write failed', e);
     return json(500, { error: '保存に失敗しました' });
