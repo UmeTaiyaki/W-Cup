@@ -61,3 +61,13 @@ export function createStore(kv) {
 
   return { getRaw, putRaw, getJSON, putJSON, update };
 }
+
+// 永続データ（user/room/config）のバックエンドを選ぶ唯一の入口。現在は KV（env.CONFIG）。
+// 将来 D1 や二重書き込みへ移行する際は、この関数だけ差し替えれば呼び出し側（API ハンドラ）は
+// getStore(env) のまま無改修で載せ替えられる。
+// 注意: session/otp など expirationTtl 依存の揮発データは TTL が必要なため、ここは通さず
+//       引き続き env.CONFIG を直接使う（永続データではないので移行対象外）。
+export function getStore(env) {
+  if (!env || !env.CONFIG) throw new Error('getStore: env.CONFIG is required');
+  return createStore(env.CONFIG);
+}
