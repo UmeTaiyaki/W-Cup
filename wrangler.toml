@@ -11,7 +11,7 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
 #   "d1-only"   = D1 単独・KV 書き込み停止（段4）
 # DB バインドが無ければ常に KV 単独（このフラグは無視される）。詳細は
 # docs/superpowers/plans/2026-06-08-kv-to-d1-migration.md。
-STORE_READ_BACKEND = "d1"
+STORE_READ_BACKEND = "d1-only"
 # OTPメールの差出人。Resend のDNS(SPF/DKIM)検証が完了してから下行のコメントを外す。
 # 未検証の間はコメントのままにし、email.js 既定の onboarding@resend.dev で送る
 # （Resend に umetaiyaki@umetaiyaki.com で登録すれば、検証前でも自分宛に送れる）。
