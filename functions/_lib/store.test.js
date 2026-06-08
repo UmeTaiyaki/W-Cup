@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createStore } from './store.js';
+import { createStore, getStore } from './store.js';
 
 // 最小限のフェイク KV。get/put のみ。onVerifyRead で「読み直し」時に競合を注入できる。
 function fakeKV(initial = {}) {
@@ -15,6 +15,57 @@ function fakeKV(initial = {}) {
     },
   };
 }
+
+// 最小限のフェイク D1 バインディング（getStore の backend 選択テスト用）。
+function fakeD1(initial = {}) {
+  const rows = new Map(Object.entries(initial));
+  const stmt = (sql) => ({
+    sql, args: [],
+    bind(...a) { this.args = a; return this; },
+    async first() { return /^SELECT v/i.test(sql) && rows.has(this.args[0]) ? { v: rows.get(this.args[0]) } : null; },
+    async run() {
+      if (/^INSERT/i.test(sql) && /DO UPDATE/i.test(sql)) { rows.set(this.args[0], this.args[1]); return { meta: { changes: 1 } }; }
+      return { meta: { changes: 1 } };
+    },
+  });
+  return { rows, prepare(sql) { return stmt(sql); } };
+}
+
+test('getStore: DB バインド無しは KV 単独（CONFIG に読み書き）', async () => {
+  const kv = fakeKV();
+  const store = getStore({ CONFIG: kv });
+  await store.putRaw('k', 'v');
+  assert.equal(kv.data.get('k'), 'v');
+});
+
+test('getStore: DB あり・既定(STORE_READ_BACKEND 未設定)は二重書き込み・読みは KV', async () => {
+  const kv = fakeKV({ k: 'kv-val' });
+  const d1 = fakeD1({ k: 'd1-val' });
+  const store = getStore({ CONFIG: kv, DB: d1 });
+  assert.equal(await store.getRaw('k'), 'kv-val');  // 読みは KV
+  await store.putRaw('k2', 'v2');
+  assert.equal(kv.data.get('k2'), 'v2');            // KV に書く
+  assert.equal(d1.rows.get('k2'), 'v2');            // D1 にも書く（二重書き込み）
+});
+
+test('getStore: STORE_READ_BACKEND=d1 は二重書き込み・読みは D1', async () => {
+  const kv = fakeKV({ k: 'kv-val' });
+  const d1 = fakeD1({ k: 'd1-val' });
+  const store = getStore({ CONFIG: kv, DB: d1, STORE_READ_BACKEND: 'd1' });
+  assert.equal(await store.getRaw('k'), 'd1-val');  // 読みは D1
+  await store.putRaw('k2', 'v2');
+  assert.equal(kv.data.get('k2'), 'v2');            // KV にも書く（副系）
+  assert.equal(d1.rows.get('k2'), 'v2');            // D1 に書く（正系）
+});
+
+test('getStore: STORE_READ_BACKEND=d1-only は D1 単独（KV に書かない）', async () => {
+  const kv = fakeKV();
+  const d1 = fakeD1();
+  const store = getStore({ CONFIG: kv, DB: d1, STORE_READ_BACKEND: 'd1-only' });
+  await store.putRaw('k', 'v');
+  assert.equal(d1.rows.get('k'), 'v');              // D1 に書く
+  assert.equal(kv.data.has('k'), false);            // KV には書かない
+});
 
 test('createStore は get/put 関数の無いバインディングを拒否する', () => {
   assert.throws(() => createStore(null));
