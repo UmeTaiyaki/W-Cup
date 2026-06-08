@@ -8,6 +8,9 @@
 // 大幅に減らせるが、完全な直列化が必要になったら update() を Durable Object 実装へ
 // 差し替える（このファイルだけ変えれば済む）。
 
+import { createD1Store } from './d1-store.js';
+import { createDualStore } from './dual-store.js';
+
 // 2つのドキュメントが同じ版か（updatedAt をバージョン代わりに使う）。両方欠落は同一扱い。
 function sameVersion(a, b) {
   const av = a && a.updatedAt != null ? a.updatedAt : null;
@@ -62,12 +65,27 @@ export function createStore(kv) {
   return { getRaw, putRaw, getJSON, putJSON, update };
 }
 
-// 永続データ（user/room/config）のバックエンドを選ぶ唯一の入口。現在は KV（env.CONFIG）。
-// 将来 D1 や二重書き込みへ移行する際は、この関数だけ差し替えれば呼び出し側（API ハンドラ）は
-// getStore(env) のまま無改修で載せ替えられる。
+// 永続データ（user/room/config）のバックエンドを選ぶ唯一の入口。呼び出し側（API ハンドラ）は
+// getStore(env) のまま、ここの分岐だけで KV / 二重書き込み / D1 単独を切り替えられる。
+//
+// 選択ルール（env で制御。既定は現状維持＝KV 単独で無影響）:
+//   - DB バインド無し                         → KV 単独（createStore）
+//   - DB あり & STORE_READ_BACKEND='d1-only'  → D1 単独（KV 書き込み停止）
+//   - DB あり & STORE_READ_BACKEND='d1'        → 二重書き込み・読みは D1
+//   - DB あり & それ以外（既定/'kv'）          → 二重書き込み・読みは KV
+//
+// STORE_READ_BACKEND は wrangler の [vars] で設定し、コード再デプロイ無しに段階移行・即時
+// ロールバックできる（KV→二重書き込み→読み切替→KV撤去）。
 // 注意: session/otp など expirationTtl 依存の揮発データは TTL が必要なため、ここは通さず
-//       引き続き env.CONFIG を直接使う（永続データではないので移行対象外）。
+//       引き続き env.CONFIG（KV）を直接使う（永続データではないので移行対象外）。
 export function getStore(env) {
   if (!env || !env.CONFIG) throw new Error('getStore: env.CONFIG is required');
-  return createStore(env.CONFIG);
+  const backend = env.STORE_READ_BACKEND;
+  if (!env.DB) return createStore(env.CONFIG);
+  if (backend === 'd1-only') return createD1Store(env.DB);
+  return createDualStore({
+    kvStore: createStore(env.CONFIG),
+    d1Store: createD1Store(env.DB),
+    readBackend: backend === 'd1' ? 'd1' : 'kv',
+  });
 }

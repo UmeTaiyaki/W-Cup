@@ -6,6 +6,12 @@ compatibility_date = "2026-01-01"
 # RESEND_API_KEY / ADMIN_EMAIL は secret（コードに含めない）。
 [vars]
 TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
+# 永続データ(user/room/config)の読み取り元バックエンド。KV→D1 無停止移行の切替フラグ。
+#   未設定/"kv" = 二重書き込み・読みは KV（移行 段1）/ "d1" = 二重書き込み・読みは D1（段3）
+#   "d1-only"   = D1 単独・KV 書き込み停止（段4）
+# DB バインドが無ければ常に KV 単独（このフラグは無視される）。詳細は
+# docs/superpowers/plans/2026-06-08-kv-to-d1-migration.md。
+STORE_READ_BACKEND = "kv"
 # OTPメールの差出人。Resend のDNS(SPF/DKIM)検証が完了してから下行のコメントを外す。
 # 未検証の間はコメントのままにし、email.js 既定の onboarding@resend.dev で送る
 # （Resend に umetaiyaki@umetaiyaki.com で登録すれば、検証前でも自分宛に送れる）。
@@ -17,3 +23,10 @@ id = "8c9c431e2ee146a5a8ebafed58758a45"          # 本番KV（wrangler pages dep
 # 下は `wrangler pages dev`（ローカル開発）でのみ使われるテストKV。
 # クラウドのプレビューデプロイで分けるにはダッシュボードの Preview バインディング設定が必要。
 preview_id = "f020e592e7c5484082229c56f653c465"
+
+# 永続データ移行先の D1（APAC）。binding=DB は getStore(env) が参照する名前。
+# スキーマは db/schema.sql。ローカル開発(wrangler pages dev)は同名のローカル D1 を自動使用。
+[[d1_databases]]
+binding = "DB"
+database_name = "wcup2026-db"
+database_id = "a149694b-686c-45a4-9130-01969cccd82a"
