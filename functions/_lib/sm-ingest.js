@@ -135,6 +135,26 @@ export function toLineupRows(detail) {
 		}));
 }
 
+// lineups[].details[] → sm_player_stats 行（縦持ち）
+export function toPlayerStatRows(detail) {
+	const lineups = Array.isArray(detail?.lineups) ? detail.lineups : [];
+	const rows = [];
+	for (const l of lineups) {
+		if (l?.player_id == null) continue;
+		const details = Array.isArray(l.details) ? l.details : [];
+		for (const d of details) {
+			if (d?.type_id == null) continue;
+			rows.push({
+				sm_fixture_id: l.fixture_id ?? detail?.id ?? null,
+				player_id: l.player_id,
+				type_id: d.type_id,
+				value: d?.data?.value ?? null,
+			});
+		}
+	}
+	return rows;
+}
+
 // core/types data[] → sm_types 行
 export function toTypeRows(types) {
 	const list = Array.isArray(types) ? types : [];

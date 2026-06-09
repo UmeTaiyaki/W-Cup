@@ -5,6 +5,7 @@ import {
 	toEventRows,
 	toFixtureRow,
 	toLineupRows,
+	toPlayerStatRows,
 	toStatRows,
 	toTeamRows,
 	toTypeRows,
@@ -256,4 +257,15 @@ test("toLineupRows: 先発/控えを type_id で判定し formation_field を保
 
 test("toLineupRows: lineups 欠落で空配列（障害隔離）", () => {
 	assert.deepEqual(toLineupRows({}), []);
+});
+
+test("toPlayerStatRows: details を (fixture,player,type) 縦持ちに展開", () => {
+	const rows = toPlayerStatRows(fixtureDetail);
+	const shots = rows.find((r) => r.player_id === 502 && r.type_id === 42);
+	assert.equal(shots.value, 3);
+	assert.equal(shots.sm_fixture_id, 18452339);
+});
+
+test("toPlayerStatRows: details 無しは空（障害隔離）", () => {
+	assert.deepEqual(toPlayerStatRows({}), []);
 });
