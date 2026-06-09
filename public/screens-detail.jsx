@@ -403,6 +403,10 @@ function TimelineTab({ T, detail }) {
 	});
 
 	if (sorted.length === 0) {
+		const emptyMsg =
+			fx && fx.status === "NS"
+				? "キックオフ後にイベントが表示されます"
+				: "イベントはまだありません";
 		return (
 			<div
 				style={{
@@ -413,7 +417,7 @@ function TimelineTab({ T, detail }) {
 					fontWeight: 700,
 				}}
 			>
-				イベントはまだありません
+				{emptyMsg}
 			</div>
 		);
 	}
@@ -612,6 +616,10 @@ function StatsTab({ T, detail }) {
 	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
 
 	if (stats.length === 0) {
+		const emptyMsg =
+			fx && fx.status === "NS"
+				? "試合開始後にスタッツが表示されます"
+				: "スタッツはまだありません";
 		return (
 			<div
 				style={{
@@ -622,7 +630,7 @@ function StatsTab({ T, detail }) {
 					fontWeight: 700,
 				}}
 			>
-				スタッツはまだありません
+				{emptyMsg}
 			</div>
 		);
 	}
@@ -1608,7 +1616,9 @@ function LineupTab({ T, detail }) {
 						fontWeight: 700,
 					}}
 				>
-					ラインナップは試合開始前に発表されます
+					{fx && fx.status === "NS"
+						? "スターティングメンバーは試合開始前に発表されます"
+						: "ラインナップは試合開始前に発表されます"}
 				</div>
 			) : (
 				<>
@@ -1799,6 +1809,17 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 	const [detail, setDetail] = React.useState(null);
 	const [tab, setTab] = React.useState("timeline");
 	const [loading, setLoading] = React.useState(true);
+
+	// 詳細画面マウント時にスクロールコンテナを最上部へリセット
+	React.useEffect(() => {
+		try {
+			const el = document.querySelector('[data-scroll="main"]');
+			if (el) el.scrollTop = 0;
+			if (window.scrollTo) window.scrollTo(0, 0);
+		} catch (e) {
+			/* defensive: スクロールリセット失敗は無視 */
+		}
+	}, []);
 
 	React.useEffect(() => {
 		if (fixtureId == null) return;
