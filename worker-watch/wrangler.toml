@@ -1,0 +1,18 @@
+name = "wcup2026-watch-cron"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# 同一 D1(wcup2026-db) を binding。sm_* テーブルのみ触る（既存 kv とは独立）。
+# database_id は本番で GitHub Actions / CF ダッシュボードの環境変数から注入（プレースホルダ）。
+[[d1_databases]]
+binding = "WCUP_DB"
+database_name = "wcup2026-db"
+database_id = "your-d1-database-id-here"
+
+# Cron Trigger（C案: ライブは1分間隔。Workers Cron の最小粒度=1分）
+[triggers]
+crons = ["* * * * *", "0 3 * * *"]
+
+[vars]
+# SPORTMONKS_TOKEN は Secret（wrangler secret put SPORTMONKS_TOKEN）で設定する。
+# WATCH_CRON_KEY も手動トリガ保護用に Secret 推奨。ここには置かない。
