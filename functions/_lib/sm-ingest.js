@@ -136,6 +136,7 @@ export function toLineupRows(detail) {
 }
 
 // lineups[].details[] → sm_player_stats 行（縦持ち）
+// 重複 (player_id, type_id) は sm_player_stats の PRIMARY KEY upsert 側で吸収する前提。
 export function toPlayerStatRows(detail) {
 	const lineups = Array.isArray(detail?.lineups) ? detail.lineups : [];
 	const rows = [];

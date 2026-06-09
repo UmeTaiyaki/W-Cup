@@ -190,6 +190,15 @@ test("toFixtureRow: xgfixture 欠落でも xG は null（障害隔離）", () =>
 	assert.equal(row.away_xg, null);
 });
 
+test("toFixtureRow: xGFixture(camelCase)キーでも xG を取れる", () => {
+	const row = toFixtureRow({
+		...fixtureDetail,
+		xgfixture: undefined,
+		xGFixture: fixtureDetail.xgfixture,
+	});
+	assert.equal(row.home_xg, 1.84);
+});
+
 test("toEventRows: events を行に変換し type 名を解決", () => {
 	const rows = toEventRows(fixtureDetail);
 	assert.equal(rows.length, 2);
@@ -248,6 +257,7 @@ test("toLineupRows: 先発/控えを type_id で判定し formation_field を保
 	assert.equal(hakimi.is_start, 1);
 	assert.equal(hakimi.formation_field, "2:4");
 	assert.equal(hakimi.jersey_number, 2);
+	assert.equal(hakimi.position, "25");
 	assert.equal(hakimi.xg, 0.12);
 	const morata = rows.find((r) => r.player_id === 601);
 	assert.equal(morata.is_start, 0);
@@ -261,6 +271,7 @@ test("toLineupRows: lineups 欠落で空配列（障害隔離）", () => {
 
 test("toPlayerStatRows: details を (fixture,player,type) 縦持ちに展開", () => {
 	const rows = toPlayerStatRows(fixtureDetail);
+	assert.equal(rows.length, 2); // player 502 の details 2件のみ。501/601 は details 無し
 	const shots = rows.find((r) => r.player_id === 502 && r.type_id === 42);
 	assert.equal(shots.value, 3);
 	assert.equal(shots.sm_fixture_id, 18452339);
