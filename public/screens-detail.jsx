@@ -1825,9 +1825,9 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 		if (fixtureId == null) return;
 		let alive = true;
 		let timer = null;
+		setLoading(true);
 
 		async function load() {
-			setLoading(true);
 			try {
 				const d = await window.WC.fetchFixtureDetail(fixtureId);
 				if (!alive) return;
