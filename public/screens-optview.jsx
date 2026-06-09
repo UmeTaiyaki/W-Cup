@@ -731,6 +731,7 @@ function KnockoutView({
 	ROUNDS,
 	LABELS,
 	champEmptyLabel = "優勝予想",
+	onMatchTap,
 }) {
 	const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
 	const wrapRef = React.useRef(null);
@@ -818,18 +819,12 @@ function KnockoutView({
 		const w = der.winners[round][idx];
 		const seeds =
 			(der.seeds && der.seeds[round] && der.seeds[round][idx]) || [];
-		const bothCodes = teams[0] && teams[1];
-		function handleCardClick() {
-			const id =
-				window.WC.fixtureIdForMatch &&
-				window.WC.fixtureIdForMatch({ a: teams[0], b: teams[1] });
-			if (id != null) window.WC.openDetail && window.WC.openDetail(id);
-		}
+		const tappable = onMatchTap && teams[0] && teams[1];
 		return (
 			<div
-				onClick={bothCodes ? handleCardClick : undefined}
-				role={bothCodes ? "button" : undefined}
-				tabIndex={bothCodes ? 0 : undefined}
+				onClick={tappable ? () => onMatchTap(teams[0], teams[1]) : undefined}
+				role={tappable ? "button" : undefined}
+				tabIndex={tappable ? 0 : undefined}
 				style={{
 					position: "absolute",
 					left: colX(r),
@@ -844,7 +839,7 @@ function KnockoutView({
 					justifyContent: "center",
 					padding: 3,
 					gap: 2,
-					cursor: bothCodes ? "pointer" : undefined,
+					cursor: tappable ? "pointer" : undefined,
 				}}
 			>
 				<TeamRow
