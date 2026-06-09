@@ -251,16 +251,698 @@ function PlaceholderBody({ T, label }) {
 	);
 }
 
-function TimelineTab({ T }) {
-	return <PlaceholderBody T={T} label="タイムライン" />;
+// ── 共有ヘルパー ──────────────────────────────────────────────────────────
+
+/** ミラーバー: 中央ラベル、左=ホーム値、右=アウェイ値、2分割バー */
+function MirrorBar({ T, label, unit, homeVal, awayVal }) {
+	const hv = homeVal != null ? homeVal : 0;
+	const av = awayVal != null ? awayVal : 0;
+	const total = hv + av;
+	const homePct = total > 0 ? (hv / total) * 100 : 50;
+	const awayPct = total > 0 ? (av / total) * 100 : 50;
+	const valStr = (v) =>
+		v != null ? (unit === "%" ? `${v}%` : String(v)) : "–";
+
+	return (
+		<div style={{ margin: "11px 0" }}>
+			{/* ラベル行 */}
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					fontSize: 11.5,
+					marginBottom: 5,
+				}}
+			>
+				<span style={{ fontWeight: 800, color: T.text }}>
+					{valStr(homeVal)}
+				</span>
+				<span style={{ fontWeight: 700, color: T.sub }}>{label}</span>
+				<span style={{ fontWeight: 800, color: T.text }}>
+					{valStr(awayVal)}
+				</span>
+			</div>
+			{/* バー */}
+			<div
+				style={{
+					display: "flex",
+					height: 6,
+					borderRadius: 3,
+					overflow: "hidden",
+					background: "rgba(255,255,255,0.06)",
+				}}
+			>
+				<div
+					style={{
+						width: `${homePct}%`,
+						background: T.accent,
+						borderRadius: "3px 0 0 3px",
+					}}
+				/>
+				<div
+					style={{
+						width: `${awayPct}%`,
+						background: "rgba(226,240,228,0.42)",
+						marginLeft: "auto",
+						borderRadius: "0 3px 3px 0",
+					}}
+				/>
+			</div>
+		</div>
+	);
 }
 
-function StatsTab({ T }) {
-	return <PlaceholderBody T={T} label="スタッツ" />;
+/** 選手別xG 横バー */
+function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
+	const pct = maxXg > 0 ? (xg / maxXg) * 100 : 0;
+	const barColor = isHome ? T.accent : "rgba(226,240,228,0.55)";
+
+	return (
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				gap: 9,
+				fontSize: 12,
+				padding: "7px 0",
+				borderBottom: `1px solid ${T.line}`,
+			}}
+		>
+			<span style={{ fontSize: 13 }}>⚽</span>
+			<span style={{ flex: 1, fontWeight: 700, color: T.text }}>
+				{playerName}
+			</span>
+			<div style={{ width: 60 }}>
+				<div
+					style={{
+						height: 5,
+						borderRadius: 3,
+						background: barColor,
+						width: `${pct}%`,
+					}}
+				/>
+			</div>
+			<span
+				style={{
+					fontWeight: 800,
+					fontFamily: "monospace",
+					width: 38,
+					textAlign: "right",
+					color: T.text,
+				}}
+			>
+				{xg.toFixed(2)}
+			</span>
+		</div>
+	);
 }
 
-function XgTab({ T }) {
-	return <PlaceholderBody T={T} label="xG" />;
+// ── TimelineTab ───────────────────────────────────────────────────────────
+function TimelineTab({ T, detail }) {
+	const events = (detail && detail.events) || [];
+	const fx = detail && detail.fixture;
+	const homeTeamId = fx && fx.home && fx.home.team_id;
+
+	/** 分文字列: "45+3'" など */
+	function fmtMin(ev) {
+		if (ev.extra_minute != null && ev.extra_minute > 0) {
+			return `${ev.minute}+${ev.extra_minute}'`;
+		}
+		return `${ev.minute}'`;
+	}
+
+	/** typeからアイコン文字列を返す */
+	function eventIcon(type) {
+		switch (type) {
+			case "goal":
+			case "penalty":
+			case "pen_shootout_goal":
+				return "⚽";
+			case "own_goal":
+				return "⚽";
+			case "yellowcard":
+				return "🟨";
+			case "redcard":
+			case "yellowredcard":
+				return "🟥";
+			case "substitution":
+				return "🔁";
+			case "missed_penalty":
+			case "pen_shootout_miss":
+				return "✖";
+			default:
+				return "●";
+		}
+	}
+
+	// sort_order → minute の順にソート
+	const sorted = [...events].sort((a, b) => {
+		const sa = a.sort_order != null ? a.sort_order : a.minute * 60;
+		const sb = b.sort_order != null ? b.sort_order : b.minute * 60;
+		return sa - sb;
+	});
+
+	if (sorted.length === 0) {
+		return (
+			<div
+				style={{
+					padding: "40px 16px",
+					textAlign: "center",
+					color: T.faint,
+					fontSize: 13,
+					fontWeight: 700,
+				}}
+			>
+				イベントはまだありません
+			</div>
+		);
+	}
+
+	return (
+		<div style={{ padding: "14px" }}>
+			{/* 中心ライン付き タイムライン */}
+			<div style={{ position: "relative" }}>
+				{/* 縦中心線 */}
+				<div
+					style={{
+						position: "absolute",
+						left: "50%",
+						top: 4,
+						bottom: 4,
+						width: 2,
+						transform: "translateX(-50%)",
+						background: T.line,
+					}}
+				/>
+
+				{sorted.map((ev, i) => {
+					const isHome = ev.team_id === homeTeamId;
+					const icon = eventIcon(ev.type);
+					const isOwnGoal = ev.type === "own_goal";
+					const isSub = ev.type === "substitution";
+					const playerColor = isOwnGoal ? T.sub : T.text;
+
+					// ホーム→左側、アウェイ→右側
+					return (
+						<div
+							key={ev.sm_event_id || `ev-${i}`}
+							style={{
+								display: "flex",
+								alignItems: "center",
+								margin: "13px 0",
+								fontSize: 12,
+								position: "relative",
+							}}
+						>
+							{/* ホーム側 (左) */}
+							<div
+								style={{
+									flex: 1,
+									display: "flex",
+									alignItems: "center",
+									gap: 6,
+									justifyContent: "flex-end",
+									paddingRight: 38,
+									textAlign: "right",
+								}}
+							>
+								{isHome && (
+									<>
+										{isSub && ev.related_player_name && (
+											<span style={{ color: T.sub, fontSize: 10.5 }}>
+												→{ev.related_player_name}
+											</span>
+										)}
+										<span style={{ fontWeight: 700, color: playerColor }}>
+											{ev.player_name}
+										</span>
+										<span>{icon}</span>
+									</>
+								)}
+							</div>
+
+							{/* 中心: 分表示 */}
+							<span
+								style={{
+									position: "absolute",
+									left: "50%",
+									transform: "translateX(-50%)",
+									fontSize: 9.5,
+									fontWeight: 800,
+									color: T.sub,
+									background: T.bg,
+									padding: "2px 0",
+									width: 32,
+									textAlign: "center",
+									zIndex: 1,
+								}}
+							>
+								{fmtMin(ev)}
+							</span>
+
+							{/* アウェイ側 (右) */}
+							<div
+								style={{
+									flex: 1,
+									display: "flex",
+									alignItems: "center",
+									gap: 6,
+									justifyContent: "flex-start",
+									paddingLeft: 38,
+								}}
+							>
+								{!isHome && (
+									<>
+										<span>{icon}</span>
+										<span style={{ fontWeight: 700, color: playerColor }}>
+											{ev.player_name}
+										</span>
+										{isSub && ev.related_player_name && (
+											<span style={{ color: T.sub, fontSize: 10.5 }}>
+												→{ev.related_player_name}
+											</span>
+										)}
+									</>
+								)}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
+// ── StatsTab ──────────────────────────────────────────────────────────────
+const STAT_LABELS = [
+	[45, "ボール支配", "%"],
+	[42, "シュート", ""],
+	[86, "枠内シュート", ""],
+	[34, "コーナー", ""],
+	[56, "ファウル", ""],
+	[84, "イエロー", ""],
+	[80, "パス", ""],
+	[82, "パス成功率", "%"],
+];
+
+/** スタッツ配列 → { [typeId]: { home: val, away: val } } に折りたたむ */
+function foldStats(stats, homeTeamId, awayTeamId) {
+	const map = {};
+	(stats || []).forEach((row) => {
+		const tid = row.type_id;
+		if (!map[tid]) map[tid] = { home: null, away: null };
+		if (row.team_id === homeTeamId) map[tid].home = row.value;
+		else if (row.team_id === awayTeamId) map[tid].away = row.value;
+	});
+	return map;
+}
+
+/** 自動読み解き文章: 1〜2文 */
+function statInsight(homeName, awayName, statsByType, fixture) {
+	const parts = [];
+
+	// ボール支配 (type_id 45)
+	const poss = statsByType[45];
+	if (poss && (poss.home != null || poss.away != null)) {
+		const hv = poss.home != null ? poss.home : 0;
+		const av = poss.away != null ? poss.away : 0;
+		if (hv !== av) {
+			const dominant = hv > av ? homeName : awayName;
+			const domVal = hv > av ? hv : av;
+			parts.push(`${dominant}がボールを支配（${domVal}%）。`);
+		}
+	}
+
+	// シュート (type_id 42)
+	const shots = statsByType[42];
+	if (shots && (shots.home != null || shots.away != null)) {
+		const hv = shots.home != null ? shots.home : 0;
+		const av = shots.away != null ? shots.away : 0;
+		if (hv !== av) {
+			const more = hv > av ? homeName : awayName;
+			parts.push(`シュートは${more}が上回る。`);
+		}
+	}
+
+	// xG (fixture直接)
+	const hxg = fixture && fixture.home && fixture.home.xg;
+	const axg = fixture && fixture.away && fixture.away.xg;
+	if (hxg != null && axg != null) {
+		if (Math.abs(hxg - axg) > 0.1) {
+			const better = hxg > axg ? homeName : awayName;
+			parts.push(`xGでは${better}が上回り、得点期待値で優勢。`);
+		}
+	}
+
+	return parts.join(" ");
+}
+
+function StatsTab({ T, detail }) {
+	const stats = (detail && detail.stats) || [];
+	const fx = detail && detail.fixture;
+	const homeTeamId = fx && fx.home && fx.home.team_id;
+	const awayTeamId = fx && fx.away && fx.away.team_id;
+
+	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
+	const homeInfo = teamMap[fx && fx.home && fx.home.app_code] || {};
+	const awayInfo = teamMap[fx && fx.away && fx.away.app_code] || {};
+	const homeName = homeInfo.ja || (fx && fx.home && fx.home.name) || "ホーム";
+	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
+
+	if (stats.length === 0) {
+		return (
+			<div
+				style={{
+					padding: "40px 16px",
+					textAlign: "center",
+					color: T.faint,
+					fontSize: 13,
+					fontWeight: 700,
+				}}
+			>
+				スタッツはまだありません
+			</div>
+		);
+	}
+
+	const statsByType = foldStats(stats, homeTeamId, awayTeamId);
+
+	// STAT_LABELS の順に、データにある type_id だけ描画
+	const rows = STAT_LABELS.filter(([tid]) => statsByType[tid] != null);
+
+	const insight = statInsight(homeName, awayName, statsByType, fx);
+
+	return (
+		<div style={{ padding: "14px" }}>
+			{rows.map(([tid, label, unit]) => {
+				const pair = statsByType[tid];
+				return (
+					<MirrorBar
+						key={tid}
+						T={T}
+						label={label}
+						unit={unit}
+						homeVal={pair.home}
+						awayVal={pair.away}
+					/>
+				);
+			})}
+
+			{/* 自動読み解き */}
+			{insight && (
+				<div
+					style={{
+						marginTop: 16,
+						padding: "10px 13px",
+						background: T.card,
+						borderRadius: 10,
+						border: `1px solid ${T.line}`,
+					}}
+				>
+					<div
+						style={{
+							fontSize: 9.5,
+							fontWeight: 800,
+							letterSpacing: 0.8,
+							color: T.sub,
+							marginBottom: 5,
+						}}
+					>
+						ANALYST READ-OUT
+					</div>
+					<div
+						style={{
+							fontSize: 12,
+							color: T.sub,
+							lineHeight: 1.6,
+						}}
+					>
+						{insight}
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// ── XgTab ─────────────────────────────────────────────────────────────────
+function XgTab({ T, detail }) {
+	const fx = detail && detail.fixture;
+	const lineups = (detail && detail.lineups) || [];
+
+	const homeXg = fx && fx.home && fx.home.xg != null ? fx.home.xg : null;
+	const awayXg = fx && fx.away && fx.away.xg != null ? fx.away.xg : null;
+	const homeScore =
+		fx && fx.home && fx.home.score != null ? fx.home.score : null;
+	const awayScore =
+		fx && fx.away && fx.away.score != null ? fx.away.score : null;
+	const homeTeamId = fx && fx.home && fx.home.team_id;
+	const awayTeamId = fx && fx.away && fx.away.team_id;
+
+	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
+	const homeInfo = teamMap[fx && fx.home && fx.home.app_code] || {};
+	const awayInfo = teamMap[fx && fx.away && fx.away.app_code] || {};
+	const homeName = homeInfo.ja || (fx && fx.home && fx.home.name) || "ホーム";
+	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
+
+	// 両方 null → データなしノート
+	if (homeXg == null && awayXg == null) {
+		return (
+			<div
+				style={{
+					padding: "40px 16px",
+					textAlign: "center",
+					color: T.faint,
+					fontSize: 13,
+					fontWeight: 700,
+				}}
+			>
+				xGデータは試合後に表示されます
+			</div>
+		);
+	}
+
+	// ── セクション1: チーム合計バンド ────────────────────────────────────
+	const hxgVal = homeXg != null ? homeXg : 0;
+	const axgVal = awayXg != null ? awayXg : 0;
+	const xgTotal = hxgVal + axgVal;
+	const homePct = xgTotal > 0 ? (hxgVal / xgTotal) * 100 : 50;
+	const awayPct = xgTotal > 0 ? (axgVal / xgTotal) * 100 : 50;
+
+	// ── セクション2: 効率 ─────────────────────────────────────────────────
+	function effLabel(score, xg) {
+		if (score == null || xg == null) return null;
+		if (score > xg + 0.3) return "効率良く決めた";
+		if (score < xg - 0.5) return "決定機を活かせず";
+		return "ほぼ期待通り";
+	}
+	const homeEff = effLabel(homeScore, homeXg);
+	const awayEff = effLabel(awayScore, awayXg);
+
+	// ── セクション3: 選手別xG ─────────────────────────────────────────────
+	const withXg = lineups.filter((p) => p.xg != null && p.xg > 0);
+	// チームごとに上位5人に絞る
+	const homeTopPlayers = withXg
+		.filter((p) => p.team_id === homeTeamId)
+		.sort((a, b) => b.xg - a.xg)
+		.slice(0, 5);
+	const awayTopPlayers = withXg
+		.filter((p) => p.team_id === awayTeamId)
+		.sort((a, b) => b.xg - a.xg)
+		.slice(0, 5);
+	const hasPlayerXg = homeTopPlayers.length > 0 || awayTopPlayers.length > 0;
+	const allPlayers = [...homeTopPlayers, ...awayTopPlayers];
+	const maxXg = allPlayers.reduce((m, p) => Math.max(m, p.xg), 0);
+
+	return (
+		<div style={{ padding: "14px" }}>
+			{/* セクション1: チーム合計バンド */}
+			<div
+				style={{
+					background:
+						"linear-gradient(180deg, rgba(22,48,36,0.065) 0%, transparent 100%)",
+					borderRadius: 14,
+					padding: "13px 12px",
+					boxShadow: `inset 0 0 0 1px rgba(182,255,60,0.28)`,
+					marginBottom: 14,
+				}}
+			>
+				<div
+					style={{
+						fontSize: 10,
+						fontWeight: 800,
+						letterSpacing: 1,
+						color: T.sub,
+						textAlign: "center",
+					}}
+				>
+					xG · 期待得点（チーム合計）
+				</div>
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						gap: 13,
+						marginTop: 4,
+					}}
+				>
+					<span
+						style={{
+							fontSize: 30,
+							fontWeight: 800,
+							color: homeXg != null ? T.accent : T.faint,
+						}}
+					>
+						{homeXg != null ? homeXg.toFixed(2) : "–"}
+					</span>
+					<span style={{ fontSize: 10, color: T.sub }}>xG</span>
+					<span
+						style={{
+							fontSize: 30,
+							fontWeight: 800,
+							color: awayXg != null ? "rgba(226,240,228,0.7)" : T.faint,
+						}}
+					>
+						{awayXg != null ? awayXg.toFixed(2) : "–"}
+					</span>
+				</div>
+				{/* 2分割バー */}
+				<div
+					style={{
+						display: "flex",
+						height: 8,
+						borderRadius: 4,
+						overflow: "hidden",
+						background: "rgba(255,255,255,0.06)",
+						marginTop: 10,
+					}}
+				>
+					<div
+						style={{
+							width: `${homePct}%`,
+							background: T.accent,
+							borderRadius: "4px 0 0 4px",
+						}}
+					/>
+					<div
+						style={{
+							width: `${awayPct}%`,
+							background: "rgba(226,240,228,0.42)",
+							marginLeft: "auto",
+							borderRadius: "0 4px 4px 0",
+						}}
+					/>
+				</div>
+
+				{/* セクション2: 効率 */}
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						marginTop: 11,
+						fontSize: 10.5,
+						color: T.sub,
+					}}
+				>
+					<span>
+						{homeName}: 実得点{" "}
+						<b
+							style={{
+								fontSize: 13,
+								fontWeight: 800,
+								color: homeXg != null ? T.accent : T.text,
+							}}
+						>
+							{homeScore != null ? homeScore : "–"}
+						</b>{" "}
+						/ xG {homeXg != null ? homeXg.toFixed(2) : "–"}
+						{homeEff && (
+							<span style={{ display: "block", fontSize: 10, marginTop: 2 }}>
+								{homeEff}
+							</span>
+						)}
+					</span>
+					<span style={{ textAlign: "right" }}>
+						{awayName}: 実得点{" "}
+						<b style={{ fontSize: 13, fontWeight: 800, color: T.text }}>
+							{awayScore != null ? awayScore : "–"}
+						</b>{" "}
+						/ xG {awayXg != null ? awayXg.toFixed(2) : "–"}
+						{awayEff && (
+							<span style={{ display: "block", fontSize: 10, marginTop: 2 }}>
+								{awayEff}
+							</span>
+						)}
+					</span>
+				</div>
+			</div>
+
+			{/* セクション3: 選手別xG */}
+			{hasPlayerXg && (
+				<div>
+					{homeTopPlayers.length > 0 && (
+						<>
+							<div
+								style={{
+									fontSize: 11,
+									fontWeight: 800,
+									margin: "18px 0 9px",
+									display: "flex",
+									alignItems: "center",
+									gap: 6,
+									color: T.text,
+								}}
+							>
+								{homeInfo.flag || "🏠"} {homeName}
+								<span style={{ color: T.sub, fontWeight: 700 }}>
+									選手別xG（誰が好機を作ったか）
+								</span>
+							</div>
+							{homeTopPlayers.map((p, i) => (
+								<PlayerXgBar
+									key={p.player_id || `hp-${i}`}
+									T={T}
+									playerName={p.player_name}
+									xg={p.xg}
+									maxXg={maxXg}
+									isHome={true}
+								/>
+							))}
+						</>
+					)}
+					{awayTopPlayers.length > 0 && (
+						<>
+							<div
+								style={{
+									fontSize: 11,
+									fontWeight: 800,
+									margin: "18px 0 9px",
+									display: "flex",
+									alignItems: "center",
+									gap: 6,
+									color: T.text,
+								}}
+							>
+								{awayInfo.flag || "✈️"} {awayName}
+								<span style={{ color: T.sub, fontWeight: 700 }}>選手別xG</span>
+							</div>
+							{awayTopPlayers.map((p, i) => (
+								<PlayerXgBar
+									key={p.player_id || `ap-${i}`}
+									T={T}
+									playerName={p.player_name}
+									xg={p.xg}
+									maxXg={maxXg}
+									isHome={false}
+								/>
+							))}
+						</>
+					)}
+				</div>
+			)}
+		</div>
+	);
 }
 
 function LineupTab({ T }) {
