@@ -117,6 +117,24 @@ export function toStatRows(detail) {
 		}));
 }
 
+// lineups[] → sm_lineups 行。type_id 11=先発/12=控え。xg は xglineup.value。
+export function toLineupRows(detail) {
+	const lineups = Array.isArray(detail?.lineups) ? detail.lineups : [];
+	return lineups
+		.filter((l) => l?.player_id != null)
+		.map((l) => ({
+			sm_fixture_id: l.fixture_id ?? detail?.id ?? null,
+			team_id: l.team_id ?? null,
+			player_id: l.player_id,
+			player_name: l.player_name ?? null,
+			jersey_number: l.jersey_number ?? null,
+			position: l.position_id != null ? String(l.position_id) : null,
+			formation_field: l.formation_field ?? null,
+			is_start: l.type_id === 11 ? 1 : l.type_id === 12 ? 0 : null,
+			xg: l?.xglineup?.value ?? null,
+		}));
+}
+
 // core/types data[] → sm_types 行
 export function toTypeRows(types) {
 	const list = Array.isArray(types) ? types : [];

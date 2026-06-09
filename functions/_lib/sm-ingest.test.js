@@ -4,6 +4,7 @@ import {
 	EVENT_TYPE_NAMES,
 	toEventRows,
 	toFixtureRow,
+	toLineupRows,
 	toStatRows,
 	toTeamRows,
 	toTypeRows,
@@ -104,6 +105,45 @@ const fixtureDetail = {
 		{ participant_id: 18551, location: "home", type_id: 5304, value: 1.84 },
 		{ participant_id: 18710, location: "away", type_id: 5304, value: 1.21 },
 	],
+	lineups: [
+		{
+			id: 1,
+			team_id: 18551,
+			player_id: 501,
+			player_name: "Bono",
+			jersey_number: 1,
+			formation_field: "1:1",
+			type_id: 11,
+			position_id: 24,
+			xglineup: { value: 0.0 },
+		},
+		{
+			id: 2,
+			team_id: 18551,
+			player_id: 502,
+			player_name: "Hakimi",
+			jersey_number: 2,
+			formation_field: "2:4",
+			type_id: 11,
+			position_id: 25,
+			xglineup: { value: 0.12 },
+			details: [
+				{ type_id: 42, data: { value: 3 } },
+				{ type_id: 86, data: { value: 1 } },
+			],
+		},
+		{
+			id: 3,
+			team_id: 18710,
+			player_id: 601,
+			player_name: "Morata",
+			jersey_number: 7,
+			formation_field: null,
+			type_id: 12,
+			position_id: 27,
+			xglineup: null,
+		},
+	],
 };
 
 test("toTeamRows: participants から2チーム抽出", () => {
@@ -198,4 +238,22 @@ test("壊れた入力でも例外を投げない（空配列を返す）", () =>
 	const row = toFixtureRow({ id: 5 });
 	assert.equal(row.sm_fixture_id, 5);
 	assert.equal(row.home_team_id, null);
+});
+
+test("toLineupRows: 先発/控えを type_id で判定し formation_field を保持", () => {
+	const rows = toLineupRows(fixtureDetail);
+	assert.equal(rows.length, 3);
+	const hakimi = rows.find((r) => r.player_id === 502);
+	assert.equal(hakimi.is_start, 1);
+	assert.equal(hakimi.formation_field, "2:4");
+	assert.equal(hakimi.jersey_number, 2);
+	assert.equal(hakimi.xg, 0.12);
+	const morata = rows.find((r) => r.player_id === 601);
+	assert.equal(morata.is_start, 0);
+	assert.equal(morata.formation_field, null);
+	assert.equal(morata.xg, null);
+});
+
+test("toLineupRows: lineups 欠落で空配列（障害隔離）", () => {
+	assert.deepEqual(toLineupRows({}), []);
 });
