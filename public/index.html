@@ -582,6 +582,12 @@
         setRoomView(r);
       }
 
+      const [detailFixture, setDetailFixture] = useState(null);
+      useEffect(() => {
+        window.WC.openDetail = (id) => { if (id != null) setDetailFixture(id); };
+        return () => { delete window.WC.openDetail; };
+      }, []);
+
       // ヘッダーの更新ボタンで最新データを再取得（プル更新は廃止）。
       const [roomRefreshKey, setRoomRefreshKey] = useState(0);
       const [refreshing, setRefreshing] = useState(false);
@@ -631,6 +637,9 @@
       const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
 
       function renderScreen(wide) {
+        if (detailFixture != null) {
+          return <MatchDetailScreen T={T} fixtureId={detailFixture} goBack={() => setDetailFixture(null)} />;
+        }
         if (tab === 'summary') return <HomeScreen T={T} wide={wide} />;
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
@@ -662,7 +671,7 @@
             showWordmark={t.showWordmark} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-              <div key={tab + (optScreen || '') + (roomView ? roomView.id : '')}
+              <div key={tab + (optScreen || '') + (roomView ? roomView.id : '') + (detailFixture || '')}
                 style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px',
                   animation: 'wcPop .34s cubic-bezier(.22,1,.36,1) both' }}>
                 {renderScreen(true)}
@@ -713,7 +722,7 @@
           </div>
 
           {/* 画面 */}
-          <div data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '')}
+          <div data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '') + (detailFixture || '')}
             style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1, paddingTop: 4 }}>
             <div style={{ maxWidth: 620, margin: '0 auto',
               animation: 'wcPop .34s cubic-bezier(.22,1,.36,1) both' }}>{renderScreen(false)}</div>
