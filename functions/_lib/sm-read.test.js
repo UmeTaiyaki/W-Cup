@@ -15,15 +15,17 @@ test('mapFixtureRow: フラット行を home/away ネストへ', () => {
   const row = {
     sm_fixture_id: 7, starting_at: '2026-06-11 19:00:00', starting_at_ts: 100,
     state_id: 5, round_name: 'Group A', result_info: 'A won',
-    home_team_id: 10, home_name: 'A', home_short: 'AAA', home_img: 'a.png', home_score: 2, home_xg: 1.5,
-    away_team_id: 20, away_name: 'B', away_short: 'BBB', away_img: 'b.png', away_score: 1, away_xg: 0.8,
+    home_team_id: 10, home_name: 'A', home_short: 'AAA', home_img: 'a.png', home_app: 'MEX', home_score: 2, home_xg: 1.5,
+    away_team_id: 20, away_name: 'B', away_short: 'BBB', away_img: 'b.png', away_app: 'RSA', away_score: 1, away_xg: 0.8,
   };
   const out = mapFixtureRow(row);
   assert.equal(out.id, 7);
   assert.equal(out.status, 'FT');
   assert.equal(out.home.name, 'A');
+  assert.equal(out.home.app_code, 'MEX');
   assert.equal(out.home.score, 2);
   assert.equal(out.home.xg, 1.5);
+  assert.equal(out.away.app_code, 'RSA');
   assert.equal(out.away.short_code, 'BBB');
   assert.equal(out.result_info, 'A won');
 });

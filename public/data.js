@@ -179,4 +179,56 @@
       return false;
     }
   };
+
+  // ---- 観戦ライブ（/api/live・WATCH_ENABLED）----------------------
+  // SportMonks 由来の状態＋スコアを app_code ペアで索引化。OFF/失敗時は空＝既存表示のまま。
+  window.WC.LIVE = {};
+  // 順不同の app_code ペアキー（schedule の match.a/match.b と突合）
+  window.WC.liveKey = function liveKey(a, b) {
+    if (!a || !b) return null;
+    return [a, b].sort().join('|');
+  };
+  window.WC.fetchLive = async function fetchLive() {
+    try {
+      const res = await fetch('/api/live', { cache: 'no-store' });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!data || data.enabled === false || !Array.isArray(data.fixtures)) {
+        window.WC.LIVE = {};
+        return false;
+      }
+      const index = {};
+      for (const fx of data.fixtures) {
+        const ha = fx.home && fx.home.app_code;
+        const aa = fx.away && fx.away.app_code;
+        const key = window.WC.liveKey(ha, aa);
+        if (!key) continue; // プレースホルダ(未確定)はスキップ
+        index[key] = {
+          status: fx.status, // NS / LIVE / FT
+          state_id: fx.state_id,
+          result_info: fx.result_info || null,
+          scores: { [ha]: fx.home.score, [aa]: fx.away.score },
+        };
+      }
+      window.WC.LIVE = index;
+      return true;
+    } catch (e) {
+      window.WC.LIVE = {};
+      return false;
+    }
+  };
+  // schedule の1試合に対応するライブ情報。未開始/未マッチは null（＝重ねない）。
+  window.WC.liveForMatch = function liveForMatch(match) {
+    if (!match || !window.WC.LIVE) return null;
+    const key = window.WC.liveKey(match.a, match.b);
+    if (!key) return null;
+    const live = window.WC.LIVE[key];
+    if (!live || live.status === 'NS') return null;
+    return {
+      status: live.status,
+      a: live.scores[match.a],
+      b: live.scores[match.b],
+      result_info: live.result_info,
+    };
+  };
 })();

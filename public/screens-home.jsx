@@ -6,12 +6,30 @@ function MiniFlag({ team, size = 20 }) {
   return <span style={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>{team.flag}</span>;
 }
 
-// タイムライン1行：時刻 / A vs B / 章ラベル
+// ライブ状態の小バッジ（LIVE=赤・終了=控えめ）
+function LiveBadge({ T, status }) {
+  const isLive = status === 'LIVE';
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 999,
+      background: isLive ? 'rgba(255,90,90,0.16)' : 'rgba(255,255,255,0.06)',
+      color: isLive ? '#ff5a5a' : T.sub,
+      border: `1px solid ${isLive ? 'rgba(255,90,90,0.35)' : T.line}`,
+    }}>
+      {isLive && <span style={{ width: 6, height: 6, borderRadius: 3, background: '#ff5a5a' }} />}
+      {isLive ? 'LIVE' : '終了'}
+    </span>
+  );
+}
+
+// タイムライン1行：時刻(or スコア) / A vs B / 章ラベル
 function MatchRow({ T, match, last }) {
   const teamMap = window.WC.TEAM || {};
   const a = window.WC.formatMatchTeam(match.a, teamMap, match.round);
   const b = window.WC.formatMatchTeam(match.b, teamMap, match.round);
   const label = window.WC.roundLabel(match.round);
+  const live = window.WC.liveForMatch ? window.WC.liveForMatch(match) : null;
   const sideStyle = { fontWeight: 800, fontSize: 13, color: T.text, whiteSpace: 'nowrap' };
   return (
     <div style={{
@@ -19,8 +37,12 @@ function MatchRow({ T, match, last }) {
       padding: '9px 4px',
       borderBottom: last ? 'none' : `1px solid ${T.line}`,
     }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, width: 46, flexShrink: 0 }}>
-        {match.time || '--:--'}
+      <div style={{
+        fontSize: live ? 13 : 12, fontWeight: 800,
+        color: live ? (live.status === 'LIVE' ? '#ff5a5a' : T.text) : T.accent,
+        width: 46, flexShrink: 0,
+      }}>
+        {live ? `${live.a ?? 0}-${live.b ?? 0}` : (match.time || '--:--')}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 }}>
         <MiniFlag T={T} team={a} />
@@ -88,6 +110,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
   const b = window.WC.formatMatchTeam(cur.b, teamMap, cur.round);
   const diff = daysUntil(today, dateStr);
   const countdown = diff <= 0 ? '本日' : `あと${diff}日`;
+  const live = window.WC.liveForMatch ? window.WC.liveForMatch(cur) : null;
 
   const go = (delta) => setIdx((p) => Math.max(0, Math.min(n - 1, p + delta)));
   const onTouchStart = (e) => { touch.current = e.touches[0].clientX; };
@@ -134,16 +157,36 @@ function MatchCarousel({ T, dateStr, matches, today }) {
               fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
               background: 'rgba(182,255,60,0.14)', color: T.accent, border: '1px solid rgba(182,255,60,0.25)',
             }}>{window.WC.roundLabel(cur.round)}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{countdown}</span>
+            {live
+              ? <LiveBadge T={T} status={live.status} />
+              : <span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>{countdown}</span>}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {side(a)}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 23, fontWeight: 800, color: T.text }}>{cur.time || '--:--'}</div>
-              <div style={{ fontSize: 10, color: T.faint }}>KICK OFF</div>
+            <div style={{ textAlign: 'center', minWidth: 64 }}>
+              {live
+                ? (
+                  <div>
+                    <div style={{ fontSize: 27, fontWeight: 800, color: T.text, letterSpacing: 1 }}>
+                      {live.a ?? 0}<span style={{ color: T.faint, margin: '0 6px' }}>-</span>{live.b ?? 0}
+                    </div>
+                    <div style={{ fontSize: 10, color: live.status === 'LIVE' ? '#ff5a5a' : T.faint }}>
+                      {live.status === 'LIVE' ? 'LIVE' : '終了'}
+                    </div>
+                  </div>
+                )
+                : (
+                  <div>
+                    <div style={{ fontSize: 23, fontWeight: 800, color: T.text }}>{cur.time || '--:--'}</div>
+                    <div style={{ fontSize: 10, color: T.faint }}>KICK OFF</div>
+                  </div>
+                )}
             </div>
             {side(b)}
           </div>
+          {live && live.result_info && (
+            <div style={{ textAlign: 'center', fontSize: 11, color: T.faint, marginTop: 12 }}>{live.result_info}</div>
+          )}
           {cur.note && (
             <div style={{ textAlign: 'center', fontSize: 11, color: T.faint, marginTop: 14 }}>📍 {cur.note}</div>
           )}

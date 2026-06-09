@@ -15,8 +15,8 @@ const FIXTURES_SQL = `
     f.sm_fixture_id, f.starting_at, f.starting_at_ts, f.state_id, f.round_name, f.result_info,
     f.home_team_id, f.home_score, f.home_xg,
     f.away_team_id, f.away_score, f.away_xg,
-    h.name AS home_name, h.short_code AS home_short, h.image_url AS home_img,
-    a.name AS away_name, a.short_code AS away_short, a.image_url AS away_img
+    h.name AS home_name, h.short_code AS home_short, h.image_url AS home_img, h.app_code AS home_app,
+    a.name AS away_name, a.short_code AS away_short, a.image_url AS away_img, a.app_code AS away_app
   FROM sm_fixtures f
   LEFT JOIN sm_teams h ON h.sm_team_id = f.home_team_id
   LEFT JOIN sm_teams a ON a.sm_team_id = f.away_team_id
@@ -35,6 +35,7 @@ export function mapFixtureRow(row) {
     result_info: row.result_info ?? null,
     home: {
       team_id: row.home_team_id ?? null,
+      app_code: row.home_app ?? null, // アプリのFIFAコード(schedule突合キー)
       name: row.home_name ?? null,
       short_code: row.home_short ?? null,
       image_url: row.home_img ?? null,
@@ -43,6 +44,7 @@ export function mapFixtureRow(row) {
     },
     away: {
       team_id: row.away_team_id ?? null,
+      app_code: row.away_app ?? null,
       name: row.away_name ?? null,
       short_code: row.away_short ?? null,
       image_url: row.away_img ?? null,
