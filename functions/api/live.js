@@ -13,12 +13,12 @@ export async function onRequestGet(context) {
   }
 
   // D1 未バインド → 障害隔離（500にせず空で返す）
-  if (!env.WCUP_DB) {
+  if (!env.DB) {
     return json(200, { enabled: true, fixtures: [], note: 'no-db' })
   }
 
   try {
-    const fixtures = await listFixtures(env.WCUP_DB, { limit: 120 })
+    const fixtures = await listFixtures(env.DB, { limit: 120 })
     return json(200, { enabled: true, fixtures }, {
       'cache-control': 'public, s-maxage=30, stale-while-revalidate=60',
     })

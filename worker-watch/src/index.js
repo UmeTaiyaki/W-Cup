@@ -33,19 +33,19 @@ function nowSec() {
 export default {
   // Cron Trigger エントリ。event.cron で発火スケジュールを判別。
   async scheduled(event, env, ctx) {
-    if (!env.SPORTMONKS_TOKEN || !env.WCUP_DB) {
-      console.error('watch-cron: missing SPORTMONKS_TOKEN or WCUP_DB binding');
+    if (!env.SPORTMONKS_TOKEN || !env.DB) {
+      console.error('watch-cron: missing SPORTMONKS_TOKEN or DB binding');
       return;
     }
     const { football, core } = clients(env);
     const now = nowSec();
     if (event.cron === '0 3 * * *') {
       // 日次: types マスタ更新 ＋ 2026日程/ブラケットの backfill（抽選確定で venue/round が埋まる）
-      const n = await syncTypes(core, env.WCUP_DB, now);
-      const s = await syncSeasonFixtures(football, env.WCUP_DB, SEASON_2026, now);
+      const n = await syncTypes(core, env.DB, now);
+      const s = await syncSeasonFixtures(football, env.DB, SEASON_2026, now);
       console.log(`watch-cron daily: types=${n} season=${s.count}${s.error ? ' err=' + s.error : ''}`);
     } else {
-      const r = await syncLive(football, env.WCUP_DB, now);
+      const r = await syncLive(football, env.DB, now);
       console.log(`watch-cron: live synced=${r.count}${r.error ? ' err=' + r.error : ''}`);
     }
   },
@@ -60,7 +60,7 @@ export default {
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
     if (!action) return new Response('watch-cron worker', { status: 200 });
-    if (!env.SPORTMONKS_TOKEN || !env.WCUP_DB) {
+    if (!env.SPORTMONKS_TOKEN || !env.DB) {
       return new Response('not configured', { status: 503 });
     }
     if (!env.WATCH_CRON_KEY || url.searchParams.get('key') !== env.WATCH_CRON_KEY) {
@@ -70,22 +70,22 @@ export default {
     const now = nowSec();
     try {
       if (action === 'types') {
-        const n = await syncTypes(core, env.WCUP_DB, now);
+        const n = await syncTypes(core, env.DB, now);
         return Response.json({ ok: true, types: n });
       }
       if (action === 'live') {
-        const r = await syncLive(football, env.WCUP_DB, now);
+        const r = await syncLive(football, env.DB, now);
         return Response.json({ ok: true, ...r });
       }
       if (action === 'season') {
         const id = url.searchParams.get('id') || SEASON_2026;
-        const r = await syncSeasonFixtures(football, env.WCUP_DB, id, now);
+        const r = await syncSeasonFixtures(football, env.DB, id, now);
         return Response.json({ ok: true, ...r });
       }
       if (action === 'fixture') {
         const id = url.searchParams.get('id');
         if (!id) return new Response('missing id', { status: 400 });
-        const r = await syncFixtureDetail(football, env.WCUP_DB, id, now);
+        const r = await syncFixtureDetail(football, env.DB, id, now);
         return Response.json(r);
       }
       return new Response('unknown action', { status: 400 });

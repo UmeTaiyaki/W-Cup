@@ -5,9 +5,9 @@ compatibility_date = "2024-09-23"
 # 同一 D1(wcup2026-db) を binding。sm_* テーブルのみ触る（既存 kv とは独立）。
 # database_id は本番で GitHub Actions / CF ダッシュボードの環境変数から注入（プレースホルダ）。
 [[d1_databases]]
-binding = "WCUP_DB"
+binding = "DB"
 database_name = "wcup2026-db"
-database_id = "your-d1-database-id-here"
+database_id = "a149694b-686c-45a4-9130-01969cccd82a"
 
 # Cron Trigger（C案: ライブは1分間隔。Workers Cron の最小粒度=1分）
 [triggers]
