@@ -986,10 +986,10 @@ function surname(player_name) {
 
 // ── PlayerSheet: 選手詳細ボトムシート ────────────────────────────────────
 function PlayerSheet({ T, player, playerStats, onClose }) {
-	if (!player) return null;
-
 	// スクロールロック（シート外のスクロールを止める）
+	// Rules of Hooks: フックは無条件に最初に呼ぶ
 	React.useEffect(() => {
+		if (!player) return;
 		const root = document.getElementById("wc-app-root") || document.body;
 		const locked = [];
 		root.querySelectorAll("*").forEach((el) => {
@@ -1001,18 +1001,27 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 			const scrollX =
 				(ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth;
 			if (scrollY || scrollX) {
-				locked.push([el, el.style.overflowY, el.style.overflowX]);
+				locked.push([
+					el,
+					el.style.overflowY,
+					el.style.overflowX,
+					el.style.overscrollBehavior,
+				]);
 				el.style.overflowY = "hidden";
 				el.style.overflowX = "hidden";
+				el.style.overscrollBehavior = "contain";
 			}
 		});
 		return () => {
 			locked.forEach((item) => {
 				item[0].style.overflowY = item[1];
 				item[0].style.overflowX = item[2];
+				item[0].style.overscrollBehavior = item[3];
 			});
 		};
-	}, []);
+	}, [player]);
+
+	if (!player) return null;
 
 	const stats = (playerStats || []).filter(
 		(s) => s.player_id === player.player_id,
