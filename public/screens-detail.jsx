@@ -688,6 +688,9 @@ function StatsTab({ T, detail }) {
 }
 
 // ── XgTab ─────────────────────────────────────────────────────────────────
+// セクション1: チーム合計バンド(accent枠) — 両xGともnull時は早期return
+// セクション2: 効率判定: score>xg+0.3→効率良く / score<xg-0.5→決定機活かせず / else→ほぼ期待通り
+// セクション3: 選手別xG horizontal bars — lineups.xg から top5/チーム
 function XgTab({ T, detail }) {
 	const fx = detail && detail.fixture;
 	const lineups = (detail && detail.lineups) || [];
