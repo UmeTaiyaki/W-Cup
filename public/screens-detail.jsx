@@ -950,8 +950,684 @@ function XgTab({ T, detail }) {
 	);
 }
 
-function LineupTab({ T }) {
-	return <PlaceholderBody T={T} label="布陣" />;
+// ── 布陣タブ (LineupTab) ──────────────────────────────────────────────────
+
+/** 選手スタッツ type_id → ラベル */
+const PLAYER_STAT_LABELS = {
+	118: "評価",
+	42: "シュート",
+	86: "枠内",
+	79: "アシスト",
+	80: "パス",
+	82: "パス成功率(%)",
+	83: "タックル",
+	84: "ファウル",
+	64: "ゴール",
+	116: "ドリブル成功",
+};
+
+/** formation_field "row:col" → { row: int, col: int } または null */
+function parseField(formation_field) {
+	if (!formation_field) return null;
+	const parts = String(formation_field).split(":");
+	if (parts.length < 2) return null;
+	const row = parseInt(parts[0], 10);
+	const col = parseInt(parts[1], 10);
+	if (isNaN(row) || isNaN(col)) return null;
+	return { row, col };
+}
+
+/** 選手名の苗字（スペース区切り最後のトークン）*/
+function surname(player_name) {
+	if (!player_name) return "?";
+	const tokens = player_name.trim().split(/\s+/);
+	return tokens[tokens.length - 1] || player_name;
+}
+
+// ── PlayerSheet: 選手詳細ボトムシート ────────────────────────────────────
+function PlayerSheet({ T, player, playerStats, onClose }) {
+	if (!player) return null;
+
+	// スクロールロック（シート外のスクロールを止める）
+	React.useEffect(() => {
+		const root = document.getElementById("wc-app-root") || document.body;
+		const locked = [];
+		root.querySelectorAll("*").forEach((el) => {
+			const s = window.getComputedStyle(el);
+			const oy = s.overflowY;
+			const ox = s.overflowX;
+			const scrollY =
+				(oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight;
+			const scrollX =
+				(ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth;
+			if (scrollY || scrollX) {
+				locked.push([el, el.style.overflowY, el.style.overflowX]);
+				el.style.overflowY = "hidden";
+				el.style.overflowX = "hidden";
+			}
+		});
+		return () => {
+			locked.forEach((item) => {
+				item[0].style.overflowY = item[1];
+				item[0].style.overflowX = item[2];
+			});
+		};
+	}, []);
+
+	const stats = (playerStats || []).filter(
+		(s) => s.player_id === player.player_id,
+	);
+	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
+	const teamInfo = teamMap[player._appCode] || {};
+	const flag = teamInfo.flag || "";
+
+	const node = (
+		<div
+			onClick={onClose}
+			style={{
+				position: "absolute",
+				inset: 0,
+				zIndex: 100,
+				display: "flex",
+				flexDirection: "column",
+				justifyContent: "flex-end",
+				background: "rgba(0,0,0,0.5)",
+				backdropFilter: "blur(2px)",
+			}}
+		>
+			<div
+				onClick={(e) => {
+					e.stopPropagation();
+				}}
+				style={{
+					background: T.panel,
+					borderRadius: "26px 26px 0 0",
+					boxShadow: "0 -1px 0 " + T.line,
+					maxHeight: "82%",
+					display: "flex",
+					flexDirection: "column",
+					paddingBottom: 26,
+				}}
+			>
+				{/* ドラッグハンドル */}
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "center",
+						paddingTop: 10,
+					}}
+				>
+					<div
+						style={{
+							width: 38,
+							height: 5,
+							borderRadius: 9,
+							background: T.line,
+						}}
+					/>
+				</div>
+				{/* タイトル行 */}
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						padding: "12px 18px 6px",
+						flexShrink: 0,
+					}}
+				>
+					<div>
+						<span
+							style={{
+								fontSize: 26,
+								fontWeight: 900,
+								color: T.accent,
+								marginRight: 8,
+								fontFamily: "monospace",
+							}}
+						>
+							{player.jersey_number}
+						</span>
+						<span style={{ fontSize: 17, fontWeight: 800, color: T.text }}>
+							{player.player_name}
+						</span>
+						{flag && (
+							<span style={{ marginLeft: 7, fontSize: 20 }}>{flag}</span>
+						)}
+					</div>
+					<button
+						onClick={onClose}
+						style={{
+							border: "none",
+							background: "rgba(255,255,255,0.08)",
+							width: 30,
+							height: 30,
+							borderRadius: "50%",
+							display: "grid",
+							placeItems: "center",
+							cursor: "pointer",
+							color: T.sub,
+							fontSize: 18,
+							flexShrink: 0,
+						}}
+					>
+						✕
+					</button>
+				</div>
+
+				{/* スタッツ本体 */}
+				<div
+					style={{
+						overflowY: "auto",
+						WebkitOverflowScrolling: "touch",
+						overscrollBehavior: "contain",
+						padding: "4px 18px 12px",
+					}}
+				>
+					{/* xG 行（lineups から）*/}
+					{player.xg != null && (
+						<div
+							style={{
+								display: "flex",
+								justifyContent: "space-between",
+								padding: "9px 0",
+								borderBottom: "1px solid " + T.line,
+								fontSize: 13,
+							}}
+						>
+							<span style={{ color: T.sub, fontWeight: 700 }}>xG</span>
+							<span style={{ fontWeight: 800, color: T.accent }}>
+								{Number(player.xg).toFixed(2)}
+							</span>
+						</div>
+					)}
+
+					{stats.length === 0 && player.xg == null ? (
+						<div
+							style={{
+								color: T.faint,
+								fontSize: 13,
+								fontWeight: 700,
+								padding: "22px 0",
+								textAlign: "center",
+							}}
+						>
+							この選手のスタッツはありません
+						</div>
+					) : (
+						stats.map((s, i) => {
+							const label =
+								PLAYER_STAT_LABELS[s.type_id] != null
+									? PLAYER_STAT_LABELS[s.type_id]
+									: "#" + s.type_id;
+							return (
+								<div
+									key={s.type_id != null ? s.type_id : "s" + i}
+									style={{
+										display: "flex",
+										justifyContent: "space-between",
+										padding: "9px 0",
+										borderBottom: "1px solid " + T.line,
+										fontSize: 13,
+									}}
+								>
+									<span style={{ color: T.sub, fontWeight: 700 }}>{label}</span>
+									<span style={{ fontWeight: 800, color: T.text }}>
+										{s.value != null ? s.value : "–"}
+									</span>
+								</div>
+							);
+						})
+					)}
+				</div>
+			</div>
+		</div>
+	);
+
+	const root = document.getElementById("wc-app-root");
+	return root ? ReactDOM.createPortal(node, root) : node;
+}
+
+// ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
+function PlayerDot({ T, player, topPct, leftPct, onTap }) {
+	const sn = surname(player.player_name);
+	const hasXg = player.xg != null && player.xg > 0;
+
+	return (
+		<div
+			onClick={() => {
+				onTap(player);
+			}}
+			style={{
+				position: "absolute",
+				top: topPct + "%",
+				left: leftPct + "%",
+				transform: "translate(-50%, -50%)",
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				cursor: "pointer",
+				zIndex: 2,
+				userSelect: "none",
+			}}
+		>
+			{/* 丸 */}
+			<div
+				style={{
+					width: 30,
+					height: 30,
+					borderRadius: "50%",
+					background: T.accent,
+					color: T.accentInk,
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					fontWeight: 900,
+					fontSize: 11,
+					boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
+					border: "2px solid rgba(255,255,255,0.18)",
+					position: "relative",
+				}}
+			>
+				{player.jersey_number}
+				{/* xG チップ */}
+				{hasXg && (
+					<div
+						style={{
+							position: "absolute",
+							top: -6,
+							right: -6,
+							background: "rgba(255,220,50,0.92)",
+							color: "#1a2a14",
+							fontSize: 8,
+							fontWeight: 900,
+							padding: "1px 4px",
+							borderRadius: 6,
+							lineHeight: 1.3,
+						}}
+					>
+						{Number(player.xg).toFixed(2)}
+					</div>
+				)}
+			</div>
+			{/* 苗字 */}
+			<div
+				style={{
+					fontSize: 9,
+					fontWeight: 700,
+					color: T.text,
+					marginTop: 3,
+					whiteSpace: "nowrap",
+					maxWidth: 52,
+					overflow: "hidden",
+					textOverflow: "ellipsis",
+					textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+				}}
+			>
+				{sn}
+			</div>
+		</div>
+	);
+}
+
+// ── FormationPitch: フォーメーション図 ───────────────────────────────────
+function FormationPitch({ T, starters, onTapPlayer }) {
+	// formation_field を持つスターターのみ
+	const placed = starters.filter((p) => parseField(p.formation_field) !== null);
+
+	if (placed.length === 0) {
+		return (
+			<div
+				style={{
+					padding: "28px 16px",
+					textAlign: "center",
+					color: T.faint,
+					fontSize: 13,
+					fontWeight: 700,
+				}}
+			>
+				布陣データがありません
+			</div>
+		);
+	}
+
+	// row 範囲を求める
+	const rows = placed.map((p) => parseField(p.formation_field).row);
+	const maxRow = Math.max.apply(null, rows);
+	// maxRow が 0 の場合でも安全（1 以上保証）
+	const safeMaxRow = maxRow > 0 ? maxRow : 1;
+
+	// row → players のマップ
+	const byRow = {};
+	placed.forEach((p) => {
+		const r = parseField(p.formation_field).row;
+		if (!byRow[r]) byRow[r] = [];
+		byRow[r].push(p);
+	});
+
+	// 各rowの選手をcol順にソート
+	Object.keys(byRow).forEach((r) => {
+		byRow[r].sort(
+			(a, b) =>
+				parseField(a.formation_field).col - parseField(b.formation_field).col,
+		);
+	});
+
+	// ピッチの縦横比 3:4
+	return (
+		<div
+			style={{
+				position: "relative",
+				width: "100%",
+				paddingBottom: "133%",
+				background:
+					"linear-gradient(180deg, rgba(14,54,26,0.92) 0%, rgba(10,40,20,0.97) 100%)",
+				borderRadius: 14,
+				overflow: "hidden",
+				margin: "10px 0",
+				boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.07)",
+			}}
+		>
+			{/* ピッチ装飾 */}
+			<div style={{ position: "absolute", inset: 0 }}>
+				{/* 中心線 */}
+				<div
+					style={{
+						position: "absolute",
+						left: "8%",
+						right: "8%",
+						top: "50%",
+						height: 1,
+						background: "rgba(255,255,255,0.13)",
+					}}
+				/>
+				{/* センターサークル */}
+				<div
+					style={{
+						position: "absolute",
+						left: "50%",
+						top: "50%",
+						width: 60,
+						height: 60,
+						borderRadius: "50%",
+						border: "1px solid rgba(255,255,255,0.13)",
+						transform: "translate(-50%,-50%)",
+					}}
+				/>
+				{/* ゴール前エリア（上） */}
+				<div
+					style={{
+						position: "absolute",
+						left: "25%",
+						right: "25%",
+						top: "3%",
+						height: "14%",
+						border: "1px solid rgba(255,255,255,0.11)",
+						borderBottom: "none",
+					}}
+				/>
+				{/* ゴール前エリア（下） */}
+				<div
+					style={{
+						position: "absolute",
+						left: "25%",
+						right: "25%",
+						bottom: "3%",
+						height: "14%",
+						border: "1px solid rgba(255,255,255,0.11)",
+						borderTop: "none",
+					}}
+				/>
+				{/* ピッチ外枠 */}
+				<div
+					style={{
+						position: "absolute",
+						inset: "3% 8%",
+						border: "1px solid rgba(255,255,255,0.13)",
+						pointerEvents: "none",
+					}}
+				/>
+			</div>
+
+			{/* 選手ドット */}
+			{placed.map((p) => {
+				const field = parseField(p.formation_field);
+				const row = field.row;
+
+				// rowCount はそのrowの選手数
+				const rowPlayers = byRow[row] || [];
+				const N = rowPlayers.length;
+				const colIdx = rowPlayers.indexOf(p) + 1; // 1-based
+
+				// 縦位置: GK(row=1)が下、最大row(FW)が上
+				// topPct = 100 - (row / (safeMaxRow + 1)) * 100
+				// → GK: row=1, maxRow=4: top = 100 - 1/5*100 = 80%
+				// → FW: row=4, maxRow=4: top = 100 - 4/5*100 = 20%
+				const topPct = 100 - (row / (safeMaxRow + 1)) * 100;
+
+				// 横位置: N人を均等配置
+				const leftPct = (colIdx / (N + 1)) * 100;
+
+				return (
+					<PlayerDot
+						key={p.player_id || "dot-" + row + "-" + colIdx}
+						T={T}
+						player={p}
+						topPct={topPct}
+						leftPct={leftPct}
+						onTap={onTapPlayer}
+					/>
+				);
+			})}
+		</div>
+	);
+}
+
+// ── BenchList: 控え選手リスト ─────────────────────────────────────────────
+function BenchList({ T, bench, onTapPlayer }) {
+	if (!bench || bench.length === 0) return null;
+
+	return (
+		<div style={{ marginTop: 4 }}>
+			<div
+				style={{
+					fontSize: 11,
+					fontWeight: 800,
+					letterSpacing: 0.8,
+					color: T.sub,
+					margin: "14px 0 8px",
+				}}
+			>
+				控え
+			</div>
+			{bench.map((p, i) => (
+				<div
+					key={p.player_id || "bench-" + i}
+					onClick={() => {
+						onTapPlayer(p);
+					}}
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 10,
+						padding: "8px 4px",
+						borderBottom: "1px solid " + T.line,
+						cursor: "pointer",
+					}}
+				>
+					<span
+						style={{
+							fontWeight: 900,
+							fontSize: 12,
+							color: T.accent,
+							width: 24,
+							flexShrink: 0,
+							fontFamily: "monospace",
+						}}
+					>
+						{p.jersey_number}
+					</span>
+					<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
+						{p.player_name}
+					</span>
+					{p.position && (
+						<span
+							style={{
+								fontSize: 10,
+								fontWeight: 800,
+								color: T.faint,
+								marginLeft: "auto",
+							}}
+						>
+							{p.position}
+						</span>
+					)}
+				</div>
+			))}
+		</div>
+	);
+}
+
+// ── LineupTab: メイン ─────────────────────────────────────────────────────
+function LineupTab({ T, detail }) {
+	const fx = detail && detail.fixture;
+	const lineups = (detail && detail.lineups) || [];
+	const playerStats = (detail && detail.player_stats) || [];
+
+	const homeTeamId = fx && fx.home && fx.home.team_id;
+	const awayTeamId = fx && fx.away && fx.away.team_id;
+	const homeAppCode = fx && fx.home && fx.home.app_code;
+	const awayAppCode = fx && fx.away && fx.away.app_code;
+
+	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
+	const homeInfo = teamMap[homeAppCode] || {};
+	const awayInfo = teamMap[awayAppCode] || {};
+	const homeName = homeInfo.ja || (fx && fx.home && fx.home.name) || "ホーム";
+	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
+	const homeFlag = homeInfo.flag || "";
+	const awayFlag = awayInfo.flag || "";
+
+	// チームトグル: "home" | "away"
+	const [side, setSide] = React.useState("home");
+	// 選手シート: null or lineup row
+	const [sheetPlayer, setSheetPlayer] = React.useState(null);
+
+	const selectedTeamId = side === "home" ? homeTeamId : awayTeamId;
+	const selectedAppCode = side === "home" ? homeAppCode : awayAppCode;
+
+	// 選択チームのlineup行（_appCodeを付加しておく）
+	const teamLineups = lineups
+		.filter((p) => p.team_id === selectedTeamId)
+		.map((p) => Object.assign({}, p, { _appCode: selectedAppCode }));
+
+	const starters = teamLineups.filter(
+		(p) => p.is_start === 1 || p.is_start === true,
+	);
+	const bench = teamLineups.filter(
+		(p) => p.is_start === 0 || p.is_start === false,
+	);
+
+	return (
+		<div style={{ padding: "14px" }}>
+			{/* チームトグル */}
+			<div
+				style={{
+					display: "flex",
+					gap: 6,
+					marginBottom: 10,
+					justifyContent: "center",
+				}}
+			>
+				<button
+					onClick={() => {
+						setSide("home");
+					}}
+					style={{
+						flex: 1,
+						maxWidth: 160,
+						padding: "8px 12px",
+						borderRadius: 999,
+						border: "none",
+						background: side === "home" ? T.accent : "rgba(255,255,255,0.07)",
+						color: side === "home" ? T.accentInk : T.sub,
+						fontWeight: 800,
+						fontSize: 12,
+						cursor: "pointer",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						gap: 5,
+					}}
+				>
+					<span>{homeFlag}</span>
+					<span>{homeName}</span>
+				</button>
+				<button
+					onClick={() => {
+						setSide("away");
+					}}
+					style={{
+						flex: 1,
+						maxWidth: 160,
+						padding: "8px 12px",
+						borderRadius: 999,
+						border: "none",
+						background: side === "away" ? T.accent : "rgba(255,255,255,0.07)",
+						color: side === "away" ? T.accentInk : T.sub,
+						fontWeight: 800,
+						fontSize: 12,
+						cursor: "pointer",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						gap: 5,
+					}}
+				>
+					<span>{awayFlag}</span>
+					<span>{awayName}</span>
+				</button>
+			</div>
+
+			{/* lineupが全くない場合 */}
+			{teamLineups.length === 0 ? (
+				<div
+					style={{
+						padding: "40px 16px",
+						textAlign: "center",
+						color: T.faint,
+						fontSize: 13,
+						fontWeight: 700,
+					}}
+				>
+					ラインナップは試合開始前に発表されます
+				</div>
+			) : (
+				<>
+					{/* フォーメーション図 */}
+					<FormationPitch
+						T={T}
+						starters={starters}
+						onTapPlayer={setSheetPlayer}
+					/>
+
+					{/* 控えリスト */}
+					<BenchList T={T} bench={bench} onTapPlayer={setSheetPlayer} />
+				</>
+			)}
+
+			{/* 選手詳細シート */}
+			{sheetPlayer && (
+				<PlayerSheet
+					T={T}
+					player={sheetPlayer}
+					playerStats={playerStats}
+					onClose={() => {
+						setSheetPlayer(null);
+					}}
+				/>
+			)}
+		</div>
+	);
 }
 
 function H2HPlaceholder({ T }) {
