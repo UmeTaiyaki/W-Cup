@@ -32,13 +32,9 @@ export const isInPlay = (stateId) => INPLAY_STATES.has(stateId);
 export const isFinished = (stateId) => FINISHED_STATES.has(stateId);
 
 // ライブ中＋直近終了の fixture を詳細同期対象に選ぶ（純粋）
-const LIVE_STATES = new Set([2, 3, 6, 9]);
-const DONE_STATES = new Set([5, 7, 8]);
 export function selectFixturesForDetailSync(rows) {
 	const list = Array.isArray(rows) ? rows : [];
-	return list.filter(
-		(r) => LIVE_STATES.has(r?.state_id) || DONE_STATES.has(r?.state_id),
-	);
+	return list.filter((r) => isInPlay(r?.state_id) || isFinished(r?.state_id));
 }
 
 // core/types を全ページ辿って sm_types へ。戻り値は upsert 件数。
