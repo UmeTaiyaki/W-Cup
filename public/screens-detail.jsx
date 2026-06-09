@@ -1823,38 +1823,36 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 
 	React.useEffect(() => {
 		if (fixtureId == null) return;
-		let cancelled = false;
+		let alive = true;
+		let timer = null;
 
 		async function load() {
 			setLoading(true);
 			try {
 				const d = await window.WC.fetchFixtureDetail(fixtureId);
-				if (!cancelled) {
-					setDetail(d);
-					setLoading(false);
+				if (!alive) return;
+				setDetail(d);
+				setLoading(false);
+				if (timer) {
+					clearTimeout(timer);
+					timer = null;
+				}
+				// ライブ中だけ10秒後に再取得。NS/FTは1回取得のみ。
+				if (d && d.fixture && d.fixture.status === "LIVE") {
+					timer = setTimeout(load, 10000);
 				}
 			} catch (e) {
-				if (!cancelled) {
-					setDetail(null);
-					setLoading(false);
-				}
+				if (!alive) return;
+				setDetail(null);
+				setLoading(false);
 			}
 		}
 
 		load();
 
-		const interval = setInterval(async () => {
-			try {
-				const d = await window.WC.fetchFixtureDetail(fixtureId);
-				if (!cancelled) setDetail(d);
-			} catch (e) {
-				/* サイレント失敗 */
-			}
-		}, 10000);
-
 		return () => {
-			cancelled = true;
-			clearInterval(interval);
+			alive = false;
+			if (timer) clearTimeout(timer);
 		};
 	}, [fixtureId]);
 
