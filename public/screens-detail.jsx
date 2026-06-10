@@ -1609,8 +1609,9 @@ function FormationPitch({ T, starters, onTapPlayer, events }) {
 }
 
 // ── BenchList: 控え選手リスト ─────────────────────────────────────────────
-function BenchList({ T, bench, onTapPlayer }) {
+function BenchList({ T, bench, onTapPlayer, events }) {
 	if (!bench || bench.length === 0) return null;
+	const evIndex = playerEventIndex(events);
 
 	return (
 		<div style={{ marginTop: 4 }}>
@@ -1625,50 +1626,65 @@ function BenchList({ T, bench, onTapPlayer }) {
 			>
 				控え
 			</div>
-			{bench.map((p, i) => (
-				<div
-					key={p.player_id || "bench-" + i}
-					onClick={() => {
-						onTapPlayer(p);
-					}}
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: 10,
-						padding: "8px 4px",
-						borderBottom: "1px solid " + T.line,
-						cursor: "pointer",
-					}}
-				>
-					<span
+			{bench.map((p, i) => {
+				const sub = playerEvents(evIndex, p).subOn;
+				return (
+					<div
+						key={p.player_id || "bench-" + i}
+						onClick={() => {
+							onTapPlayer(p);
+						}}
 						style={{
-							fontWeight: 900,
-							fontSize: 12,
-							color: T.accent,
-							width: 24,
-							flexShrink: 0,
-							fontFamily: "monospace",
+							display: "flex",
+							alignItems: "center",
+							gap: 10,
+							padding: "8px 4px",
+							borderBottom: "1px solid " + T.line,
+							cursor: "pointer",
 						}}
 					>
-						{p.jersey_number}
-					</span>
-					<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
-						{p.player_name}
-					</span>
-					{p.position && (
 						<span
 							style={{
-								fontSize: 10,
-								fontWeight: 800,
-								color: T.faint,
-								marginLeft: "auto",
+								fontWeight: 900,
+								fontSize: 12,
+								color: T.accent,
+								width: 24,
+								flexShrink: 0,
+								fontFamily: "monospace",
 							}}
 						>
-							{p.position}
+							{p.jersey_number}
 						</span>
-					)}
-				</div>
-			))}
+						<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
+							{p.player_name}
+						</span>
+						{sub != null ? (
+							<span
+								style={{
+									fontSize: 10,
+									fontWeight: 900,
+									color: T.accent,
+									marginLeft: "auto",
+								}}
+							>
+								↑{sub}'
+							</span>
+						) : null}
+						{p.position && (
+							<span
+								style={{
+									fontSize: 10,
+									fontWeight: 800,
+									color: T.faint,
+									marginLeft: sub != null ? 8 : "auto",
+								}}
+							>
+								{p.position}
+							</span>
+						)}
+					</div>
+				);
+			})}
 		</div>
 	);
 }
@@ -1838,7 +1854,12 @@ function LineupTab({ T, detail }) {
 					/>
 
 					{/* 控えリスト */}
-					<BenchList T={T} bench={bench} onTapPlayer={setSheetPlayer} />
+					<BenchList
+						T={T}
+						bench={bench}
+						onTapPlayer={setSheetPlayer}
+						events={detail.events}
+					/>
 				</>
 			)}
 
