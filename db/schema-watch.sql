@@ -77,3 +77,31 @@ CREATE TABLE IF NOT EXISTS sm_types (
   name       TEXT,
   updated_at INTEGER NOT NULL
 );
+
+-- 6) ラインナップ（布陣図）
+--    (fixture, player) で一意。formation_field はグリッド座標("2:3")。
+CREATE TABLE IF NOT EXISTS sm_lineups (
+  sm_fixture_id   INTEGER NOT NULL,
+  team_id         INTEGER NOT NULL,
+  player_id       INTEGER NOT NULL,
+  player_name     TEXT,
+  jersey_number   INTEGER,
+  position        TEXT,                 -- position 名 or position_id 文字列
+  formation_field TEXT,                 -- "2:3" 等。控え/不明は NULL
+  is_start        INTEGER,              -- 1=先発(type_id 11) 0=控え(12)
+  xg              REAL,                 -- per-player xG(lineups.xglineup)。無ければ NULL
+  updated_at      INTEGER NOT NULL,
+  PRIMARY KEY (sm_fixture_id, player_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sm_lineups_fixture ON sm_lineups (sm_fixture_id);
+
+-- 7) 選手別スタッツ（縦持ち＝項目増でもスキーマ不変）
+CREATE TABLE IF NOT EXISTS sm_player_stats (
+  sm_fixture_id INTEGER NOT NULL,
+  player_id     INTEGER NOT NULL,
+  type_id       INTEGER NOT NULL,
+  value         REAL,
+  updated_at    INTEGER NOT NULL,
+  PRIMARY KEY (sm_fixture_id, player_id, type_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sm_player_stats_fixture ON sm_player_stats (sm_fixture_id);
