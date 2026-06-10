@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalize, SCORING, scoreMember } from "../../public/lib/scoring.js";
+import {
+	canonicalKey,
+	normalize,
+	resolve,
+	SCORING,
+	scoreMember,
+} from "../../public/lib/scoring.js";
 import { DEFAULT_CONFIG } from "./defaults.js";
 
 const RESULT = {
@@ -138,4 +144,18 @@ test("normalize: 大文字化・アクセント除去・空白畳み", () => {
 	assert.equal(normalize("  Vinícius   Júnior "), "VINICIUS JUNIOR");
 	assert.equal(normalize("MBAPPE (FRA)"), "MBAPPE (FRA)");
 	assert.equal(normalize(null), "");
+});
+
+test("canonicalKey: NAME (CODE) を CODE::正規化名 に畳む", () => {
+	assert.equal(canonicalKey("Mbappé (FRA)"), "FRA::MBAPPE");
+	assert.equal(canonicalKey("MBAPPE (FRA)"), "FRA::MBAPPE");
+	assert.equal(canonicalKey("ムバッペ"), "ムバッペ"); // (CODE) 無しは normalize のみ
+});
+
+test("resolve: エイリアス優先・無ければ canonicalKey", () => {
+	const map = { "VINI JR. (BRA)": "BRA::VINICIUS JUNIOR" };
+	assert.equal(resolve("VINI JR. (BRA)", map), "BRA::VINICIUS JUNIOR"); // 変種
+	assert.equal(resolve("VINICIUS JUNIOR (BRA)", map), "BRA::VINICIUS JUNIOR"); // 構造フォールバック
+	assert.equal(resolve("Mbappé (FRA)", {}), "FRA::MBAPPE"); // 表なしでもアクセント差吸収
+	assert.equal(resolve("", map), "");
 });

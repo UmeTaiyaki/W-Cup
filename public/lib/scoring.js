@@ -10,13 +10,32 @@ export const SCORING = {
 const KO_ROUNDS = ["r32", "r16", "qf", "sf"];
 
 // 得点王照合用の文字列正規化（大文字化・アクセント除去・空白畳み）
+// NFD で分解しラテン系の結合分音記号(U+0300–U+036F)のみ除去 → 末尾で NFC 再合成。
+// 日本語の濁点/半濁点(U+3099/U+309A)は除去対象外なので再合成で元の表記に戻る。
 export function normalize(s) {
 	return String(s == null ? "" : s)
 		.normalize("NFD")
 		.replace(/[̀-ͯ]/g, "")
 		.toUpperCase()
 		.replace(/\s+/g, " ")
-		.trim();
+		.trim()
+		.normalize("NFC");
+}
+
+// "NAME (CODE)" を "CODE::正規化名" に畳む。(CODE) 無しは normalize のみ。
+export function canonicalKey(input) {
+	const s = String(input == null ? "" : input).trim();
+	const m = s.match(/^(.+?)\s*\(([A-Za-z]{3})\)\s*$/);
+	if (m) return `${m[2].toUpperCase()}::${normalize(m[1])}`;
+	return normalize(s);
+}
+
+// 入力を canonical へ解決。エイリアス表（normalize(変種)→canonical）優先、無ければ構造畳み。
+export function resolve(input, aliasMap = {}) {
+	if (!input) return "";
+	const norm = normalize(input);
+	if (aliasMap && aliasMap[norm]) return aliasMap[norm];
+	return canonicalKey(input);
 }
 
 export function scoreMember(pred = {}, result = {}, scoring = SCORING) {
