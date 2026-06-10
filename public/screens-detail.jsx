@@ -21,15 +21,54 @@ const DETAIL_ANIM_CSS = `
 `;
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
-function fmtKickoff(starting_at) {
-	if (!starting_at) return "--:--";
+// SportMonks の starting_at は UTC。日本時間(Asia/Tokyo)で表示する。
+// epoch(starting_at_ts) 優先＝TZ曖昧性ゼロ。無ければ "YYYY-MM-DD HH:MM:SS"(UTC) を Z 付与して解釈。
+function toJstDate(fx) {
+	if (fx && fx.starting_at_ts != null) {
+		const n = Number(fx.starting_at_ts);
+		if (!isNaN(n) && n > 0) return new Date(n * 1000);
+	}
+	const s = fx && fx.starting_at;
+	if (!s) return null;
+	let iso = String(s).trim().replace(" ", "T");
+	if (!/([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)) iso += "Z"; // TZ無し＝UTC扱い
+	const d = new Date(iso);
+	return isNaN(d.getTime()) ? null : d;
+}
+
+// JST のキックオフ時刻 "HH:MM"
+function fmtKickoff(fx) {
+	const d = toJstDate(fx);
+	if (!d) return "--:--";
 	try {
-		const d = new Date(starting_at);
-		const h = String(d.getHours()).padStart(2, "0");
-		const m = String(d.getMinutes()).padStart(2, "0");
-		return `${h}:${m}`;
+		return new Intl.DateTimeFormat("ja-JP", {
+			timeZone: "Asia/Tokyo",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		}).format(d);
 	} catch (e) {
 		return "--:--";
+	}
+}
+
+// JST の日付 "YYYY-MM-DD (曜)"
+function fmtMatchDate(fx) {
+	const d = toJstDate(fx);
+	if (!d) return "";
+	try {
+		const parts = new Intl.DateTimeFormat("ja-JP", {
+			timeZone: "Asia/Tokyo",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			weekday: "short",
+		}).formatToParts(d);
+		const get = (t) => (parts.find((p) => p.type === t) || {}).value || "";
+		const wd = get("weekday").replace(/曜日?$/, "");
+		return `${get("year")}-${get("month")}-${get("day")}（${wd}）`;
+	} catch (e) {
+		return "";
 	}
 }
 
@@ -152,7 +191,7 @@ function DetailHeader({ T, fx, goBack }) {
 					marginTop: 4,
 				}}
 			>
-				{fmtKickoff(fx.starting_at)}
+				{fmtKickoff(fx)}
 			</div>
 		);
 	}
@@ -201,7 +240,7 @@ function DetailHeader({ T, fx, goBack }) {
 					</button>
 				)}
 				<span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}>
-					{(fx.starting_at || "").slice(0, 10)}
+					{fmtMatchDate(fx)}
 				</span>
 				<span
 					style={{
