@@ -333,6 +333,69 @@
 		const live = key ? window.WC.LIVE[key] : null;
 		return live && live.id != null ? live.id : null;
 	};
+
+	// ---- 放送メディア（日本国内・サブスクなび 2026 日程表より）----------------------
+	// 全104試合で DAZN(有料) と BS4K(NHK BS4K・無料/要4K設備) は配信あり＝既定値。
+	// 地上波(NHK/日テレ/フジ・無料)は一部試合のみ。下表は liveKey 同様のソート済み
+	// app_code ペア（決勝Tはスロット表記 '2E|2I' / 'W74|W77'）をキーに地上波局を保持。
+	// 3位決定戦・決勝は round で判定して NHK を付与する（スロットが流動的なため）。
+	window.WC.MEDIA_TERRESTRIAL = {
+		"MEX|RSA": ["NHK"],
+		"BIH|CAN": ["NHK"],
+		"HAI|SCO": ["NHK"],
+		"AUS|TUR": ["日テレ"],
+		"JPN|NED": ["NHK"],
+		"SWE|TUN": ["日テレ"],
+		"CPV|ESP": ["NHK"],
+		"BEL|EGY": ["NHK"],
+		"FRA|SEN": ["フジ"],
+		"ALG|ARG": ["NHK"],
+		"COD|POR": ["フジ"],
+		"CZE|RSA": ["日テレ"],
+		"KOR|MEX": ["NHK"],
+		"AUS|USA": ["NHK"],
+		"MAR|SCO": ["フジ"],
+		"BRA|HAI": ["NHK"],
+		"NED|SWE": ["NHK"],
+		"CIV|GER": ["日テレ"],
+		"JPN|TUN": ["NHK", "日テレ"],
+		"ESP|KSA": ["NHK"],
+		"NOR|SEN": ["NHK"],
+		"POR|UZB": ["NHK"],
+		"CRO|PAN": ["フジ"],
+		"COD|COL": ["日テレ"],
+		"CAN|SUI": ["NHK"],
+		"CZE|MEX": ["NHK"],
+		"JPN|SWE": ["NHK"],
+		"TUR|USA": ["日テレ"],
+		"FRA|NOR": ["NHK"],
+		"ESP|URU": ["日テレ"],
+		"BEL|NZL": ["日テレ"],
+		"COL|POR": ["フジ"],
+		"ARG|JOR": ["NHK"],
+		"2E|2I": ["日テレ"],
+		"2K|2L": ["日テレ"],
+		"1J|2H": ["日テレ"],
+		"W74|W77": ["日テレ"],
+		"W83|W84": ["日テレ"],
+	};
+	// 1試合の放送メディア一覧 → [{ name, kind:'paid'|'free' }]。
+	// 既定 DAZN(paid)+BS4K(free) に、該当すれば地上波(free)を末尾追加。新規配列を返す（不変）。
+	window.WC.mediaForMatch = function mediaForMatch(match) {
+		const media = [
+			{ name: "DAZN", kind: "paid" },
+			{ name: "BS4K", kind: "free" },
+		];
+		if (!match) return media;
+		const key = window.WC.liveKey(match.a, match.b);
+		let terrestrial = (key && window.WC.MEDIA_TERRESTRIAL[key]) || null;
+		if (!terrestrial && (match.round === "決勝" || match.round === "3位")) {
+			terrestrial = ["NHK"];
+		}
+		return terrestrial
+			? [...media, ...terrestrial.map((name) => ({ name, kind: "free" }))]
+			: media;
+	};
 	// /api/fixture?id= を取得。失敗/OFF/未マッチ時は null（既存に波及させない）
 	window.WC.fetchFixtureDetail = async function fetchFixtureDetail(id) {
 		if (id == null) return null;
