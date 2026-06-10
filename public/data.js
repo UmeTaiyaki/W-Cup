@@ -380,11 +380,11 @@
 		"W83|W84": ["日テレ"],
 	};
 	// 1試合の放送メディア一覧 → [{ name, kind:'paid'|'free' }]。
-	// 既定 DAZN(paid)+BS4K(free) に、該当すれば地上波(free)を末尾追加。新規配列を返す（不変）。
+	// 既定 DAZN(paid)+BS4K(paid) に、該当すれば地上波(free)を末尾追加。新規配列を返す（不変）。
 	window.WC.mediaForMatch = function mediaForMatch(match) {
 		const media = [
 			{ name: "DAZN", kind: "paid" },
-			{ name: "BS4K", kind: "free" },
+			{ name: "BS4K", kind: "paid" },
 		];
 		if (!match) return media;
 		const key = window.WC.liveKey(match.a, match.b);
