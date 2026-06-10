@@ -78,7 +78,7 @@
       "sections": [
         { "id": "profile", "heading": "チームの横顔",   "body": "string" },
         { "id": "style",   "heading": "プレースタイル", "body": "string" },
-        { "id": "players", "heading": "注目選手",       "body": "string" },
+        { "id": "players", "heading": "注目選手",       "body": "string", "picks": ["S. GIMENEZ", "RAÚL"] },
         { "id": "context", "heading": "今大会の構図",   "body": "string" }
       ]
     }
@@ -88,6 +88,7 @@
 
 - `teams` のキーはアプリのチームコード（`JPN` 等）。
 - `sections[].body` は短い段落テキスト（軽量レンダラで描画。外部Markdownライブラリは導入しない）。
+- `players` セクションのみ `picks`（採用選手名の配列）を持つ。各要素は **そのチーム名簿の `name` と完全一致**。フロントはチップ表示にも使える。
 - `journey` セクションは大会中のみ存在しうる（任意）。
 
 ### スキーマ検証ルール
@@ -95,7 +96,7 @@
 - トップレベルに `generatedAt`(ISO文字列) / `model`(文字列) / `teams`(オブジェクト) が存在。
 - 各チームに `summary`(非空文字列) と `sections`(配列) が存在。
 - 各 section に `id` / `heading` / `body`(非空) が存在。
-- `players` セクション本文に挙がる選手名は、そのチームの名簿に実在すること（名簿外を検出したら不合格）。
+- `players` セクションの `picks[]` は各要素がそのチーム名簿の `name` と完全一致すること（名簿外を1件でも検出したら不合格）。
 
 ## 6. 生成スクリプト（`scripts/gen-ai-teams.mjs`）
 
