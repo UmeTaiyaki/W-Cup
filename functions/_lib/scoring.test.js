@@ -159,3 +159,24 @@ test("resolve: エイリアス優先・無ければ canonicalKey", () => {
 	assert.equal(resolve("Mbappé (FRA)", {}), "FRA::MBAPPE"); // 表なしでもアクセント差吸収
 	assert.equal(resolve("", map), "");
 });
+
+test("得点王: アクセント差のみは表なしで一致", () => {
+	const s = scoreMember({ topScorer: "Mbappé (FRA)" }, { topScorer: "MBAPPE (FRA)" });
+	assert.equal(s.core.topScorer, 20);
+});
+
+test("得点王: 変種は aliasMap 経由で一致", () => {
+	const map = { "VINI JR. (BRA)": "BRA::VINICIUS JUNIOR" };
+	const s = scoreMember({ topScorer: "VINI JR. (BRA)" }, { topScorer: "VINICIUS JUNIOR (BRA)" }, SCORING, map);
+	assert.equal(s.core.topScorer, 20);
+});
+
+test("得点王: 別人は不一致", () => {
+	const s = scoreMember({ topScorer: "KANE (ENG)" }, { topScorer: "MBAPPE (FRA)" });
+	assert.equal(s.core.topScorer, 0);
+});
+
+test("得点王: aliasMap 省略時は従来挙動（完全一致相当）", () => {
+	const s = scoreMember({ topScorer: "ムバッペ" }, { topScorer: "ムバッペ" });
+	assert.equal(s.core.topScorer, 20);
+});

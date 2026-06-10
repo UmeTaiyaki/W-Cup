@@ -38,7 +38,12 @@ export function resolve(input, aliasMap = {}) {
 	return canonicalKey(input);
 }
 
-export function scoreMember(pred = {}, result = {}, scoring = SCORING) {
+export function scoreMember(
+	pred = {},
+	result = {},
+	scoring = SCORING,
+	aliasMap = {},
+) {
 	// ---- コア ----
 	const champion =
 		pred.champion && pred.champion === result.champion ? scoring.champion : 0;
@@ -47,7 +52,7 @@ export function scoreMember(pred = {}, result = {}, scoring = SCORING) {
 	const topScorer =
 		pred.topScorer &&
 		result.topScorer &&
-		pred.topScorer.trim() === result.topScorer.trim()
+		resolve(pred.topScorer, aliasMap) === resolve(result.topScorer, aliasMap)
 			? scoring.topScorer
 			: 0;
 	const coreTotal = champion + runnerUp + topScorer;
