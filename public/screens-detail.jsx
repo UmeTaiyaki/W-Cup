@@ -1206,7 +1206,7 @@ function PlayerSheet({ T, player, onClose }) {
 		return () => {
 			alive = false;
 		};
-	}, [player && player.player_id]);
+	}, [player ? player.player_id : null]);
 	const [statSeasonIdx, setStatSeasonIdx] = React.useState(0);
 
 	if (!player) return null;
@@ -1326,6 +1326,30 @@ function PlayerSheet({ T, player, onClose }) {
 						✕
 					</button>
 				</div>
+
+				{/* クラブ・国籍行 */}
+				{prof && prof.profile && (prof.profile.club_name || prof.profile.nationality_name) && (
+					<div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 18px 8px", flexWrap: "wrap" }}>
+						{prof.profile.club_name && (
+							<span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: T.sub }}>
+								{prof.profile.club_image && (
+									<img src={prof.profile.club_image} alt="" onError={(e) => { e.target.style.display = "none"; }}
+										style={{ width: 16, height: 16, objectFit: "contain" }} />
+								)}
+								{prof.profile.club_name}
+							</span>
+						)}
+						{prof.profile.nationality_name && (
+							<span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: T.sub }}>
+								{prof.profile.nationality_image && (
+									<img src={prof.profile.nationality_image} alt="" onError={(e) => { e.target.style.display = "none"; }}
+										style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }} />
+								)}
+								{prof.profile.nationality_name}
+							</span>
+						)}
+					</div>
+				)}
 
 				{/* スタッツ本体 */}
 				<div

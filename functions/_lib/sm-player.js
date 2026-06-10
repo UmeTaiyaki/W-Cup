@@ -65,6 +65,7 @@ export function normalizePlayer(data) {
 			season_name: s.season?.name ?? null,
 			league_name: s.season?.league?.name ?? null,
 			stats: statsFromDetails(s.details),
-		}));
+		}))
+		.sort((a, b) => b.season_id - a.season_id);
 	return { profile, seasons };
 }
