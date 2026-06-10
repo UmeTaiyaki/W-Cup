@@ -93,7 +93,7 @@
   </script>
   <script type="text/babel" src="tweaks-panel.jsx?v=3"></script>
   <script type="text/babel" src="ios-frame.jsx?v=3"></script>
-  <script type="text/babel" src="ui.jsx?v=13"></script>
+  <script type="text/babel" src="ui.jsx?v=14"></script>
   <script type="text/babel" src="app-shell.jsx?v=10"></script>
   <script type="text/babel" src="screens-core.jsx?v=17"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=8"></script>
@@ -416,11 +416,7 @@
             <div style={{ fontSize: 19, fontWeight: 900, color: T.text }}>設定</div>
           </div>
 
-          {/* 未登録：ニックネーム登録（登録するまで「名前を変更」は出さない） */}
-          {!me && (
-            <IdentityGate T={T} siteKey={siteKey} purpose="account" onCreated={onCreated} />
-          )}
-
+          {/* 未登録時はアカウント関連セクションごと非表示。登録は予想・部屋タブで行う。 */}
           {me && (
           <div>
             <Eyebrow T={T}>アカウント</Eyebrow>
