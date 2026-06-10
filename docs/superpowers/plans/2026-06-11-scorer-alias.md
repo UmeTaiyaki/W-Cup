@@ -62,13 +62,16 @@ Expected: FAIL（`normalize is not a function` / export されていない）
 
 ```js
 // 得点王照合用の文字列正規化（大文字化・アクセント除去・空白畳み）
+// NFD 分解→ラテン系結合分音記号(U+0300–U+036F)のみ除去→末尾 NFC 再合成。
+// 日本語の濁点/半濁点(U+3099/U+309A)は除去対象外。NFC で元表記に戻し round-trip を保証。
 export function normalize(s) {
   return String(s == null ? '' : s)
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toUpperCase()
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .normalize('NFC');
 }
 ```
 
