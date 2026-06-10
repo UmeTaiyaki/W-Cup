@@ -1356,9 +1356,8 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 }
 
 // ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
-function PlayerDot({ T, player, topPct, leftPct, onTap }) {
+function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 	const sn = surname(player.player_name);
-	const hasXg = player.xg != null && player.xg > 0;
 
 	return (
 		<div
@@ -1397,23 +1396,40 @@ function PlayerDot({ T, player, topPct, leftPct, onTap }) {
 				}}
 			>
 				{player.jersey_number}
-				{/* xG チップ */}
-				{hasXg && (
+				{/* カード（最重を優先表示: 赤系 > 黄） */}
+				{ev && ev.cards && ev.cards.length > 0 && (
 					<div
 						style={{
 							position: "absolute",
 							top: -6,
 							right: -6,
-							background: "rgba(255,220,50,0.92)",
-							color: "#1a2a14",
-							fontSize: 8,
-							fontWeight: 900,
-							padding: "1px 4px",
-							borderRadius: 6,
-							lineHeight: 1.3,
+							fontSize: 12,
+							lineHeight: 1,
 						}}
 					>
-						{Number(player.xg).toFixed(2)}
+						{ev.cards.some(
+							(c) => c.type === "redcard" || c.type === "yellowredcard",
+						)
+							? "🟥"
+							: "🟨"}
+					</div>
+				)}
+				{/* 交代OUT（先発が退く） */}
+				{ev && ev.subOff != null && (
+					<div
+						style={{
+							position: "absolute",
+							bottom: -7,
+							right: -8,
+							background: "rgba(255,90,90,0.92)",
+							color: "#1a0c0c",
+							fontSize: 7.5,
+							fontWeight: 900,
+							padding: "0 3px",
+							borderRadius: 5,
+						}}
+					>
+						↓{ev.subOff}'
 					</div>
 				)}
 			</div>
@@ -1438,7 +1454,8 @@ function PlayerDot({ T, player, topPct, leftPct, onTap }) {
 }
 
 // ── FormationPitch: フォーメーション図 ───────────────────────────────────
-function FormationPitch({ T, starters, onTapPlayer }) {
+function FormationPitch({ T, starters, onTapPlayer, events }) {
+	const evIndex = playerEventIndex(events);
 	// formation_field を持つスターターのみ
 	const placed = starters.filter((p) => parseField(p.formation_field) !== null);
 
@@ -1580,6 +1597,7 @@ function FormationPitch({ T, starters, onTapPlayer }) {
 						key={p.player_id || "dot-" + row + "-" + colIdx}
 						T={T}
 						player={p}
+						ev={playerEvents(evIndex, p)}
 						topPct={topPct}
 						leftPct={leftPct}
 						onTap={onTapPlayer}
@@ -1816,6 +1834,7 @@ function LineupTab({ T, detail }) {
 						T={T}
 						starters={starters}
 						onTapPlayer={setSheetPlayer}
+						events={detail.events}
 					/>
 
 					{/* 控えリスト */}
