@@ -1655,6 +1655,45 @@ function BenchList({ T, bench, onTapPlayer }) {
 	);
 }
 
+// detail.events を player_id で索引化。各選手の {cards:[{type,minute}], subOff, subOn} を返す。
+// player_id 欠落の旧データは player_name フォールバック（完全一致のみ）。
+function playerEventIndex(events) {
+	const byId = {};
+	const byName = {};
+	const ensure = (map, key) => {
+		if (key == null) return null;
+		if (!map[key]) map[key] = { cards: [], subOff: null, subOn: null };
+		return map[key];
+	};
+	(events || []).forEach((e) => {
+		const t = e.type;
+		if (t === "yellowcard" || t === "redcard" || t === "yellowredcard") {
+			const slot = ensure(byId, e.player_id) || ensure(byName, e.player_name);
+			if (slot) slot.cards.push({ type: t, minute: e.minute });
+		} else if (t === "substitution") {
+			const inSlot = ensure(byId, e.player_id) || ensure(byName, e.player_name);
+			if (inSlot) inSlot.subOn = e.minute;
+			const outSlot =
+				ensure(byId, e.related_player_id) ||
+				ensure(byName, e.related_player_name);
+			if (outSlot) outSlot.subOff = e.minute;
+		}
+	});
+	return { byId, byName };
+}
+
+// 1選手のイベント要約を索引から取り出す（player_id優先・名前フォールバック）。
+function playerEvents(index, player) {
+	return (
+		(index.byId && index.byId[player.player_id]) ||
+		(index.byName && index.byName[player.player_name]) || {
+			cards: [],
+			subOff: null,
+			subOn: null,
+		}
+	);
+}
+
 // ── LineupTab: メイン ─────────────────────────────────────────────────────
 function LineupTab({ T, detail }) {
 	const fx = detail && detail.fixture;
