@@ -66,13 +66,16 @@ function eventStatement(row, updatedAt) {
 	return {
 		sql: `INSERT INTO sm_events
             (sm_event_id, sm_fixture_id, minute, extra_minute, type, type_id,
-             team_id, player_name, related_player_name, sort_order, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             team_id, player_name, related_player_name, player_id, related_player_id,
+             sort_order, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(sm_event_id) DO UPDATE SET
             sm_fixture_id=excluded.sm_fixture_id, minute=excluded.minute,
             extra_minute=excluded.extra_minute, type=excluded.type, type_id=excluded.type_id,
             team_id=excluded.team_id, player_name=excluded.player_name,
-            related_player_name=excluded.related_player_name, sort_order=excluded.sort_order,
+            related_player_name=excluded.related_player_name,
+            player_id=excluded.player_id, related_player_id=excluded.related_player_id,
+            sort_order=excluded.sort_order,
             updated_at=excluded.updated_at`,
 		args: [
 			row.sm_event_id,
@@ -84,6 +87,8 @@ function eventStatement(row, updatedAt) {
 			row.team_id,
 			row.player_name,
 			row.related_player_name,
+			row.player_id ?? null,
+			row.related_player_id ?? null,
 			row.sort_order,
 			updatedAt,
 		],
@@ -114,13 +119,24 @@ function lineupStatement(row, updatedAt) {
 	return {
 		sql: `INSERT INTO sm_lineups
             (sm_fixture_id, team_id, player_id, player_name, jersey_number,
-             position, formation_field, is_start, xg, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             position, formation_field, is_start, xg,
+             date_of_birth, height, weight, nationality_id, nationality_name,
+             detailed_position, club_name, club_image, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(sm_fixture_id, player_id) DO UPDATE SET
             team_id=excluded.team_id, player_name=excluded.player_name,
             jersey_number=excluded.jersey_number, position=excluded.position,
             formation_field=excluded.formation_field, is_start=excluded.is_start,
-            xg=COALESCE(excluded.xg, sm_lineups.xg), updated_at=excluded.updated_at`,
+            xg=COALESCE(excluded.xg, sm_lineups.xg),
+            date_of_birth=COALESCE(excluded.date_of_birth, sm_lineups.date_of_birth),
+            height=COALESCE(excluded.height, sm_lineups.height),
+            weight=COALESCE(excluded.weight, sm_lineups.weight),
+            nationality_id=COALESCE(excluded.nationality_id, sm_lineups.nationality_id),
+            nationality_name=COALESCE(excluded.nationality_name, sm_lineups.nationality_name),
+            detailed_position=COALESCE(excluded.detailed_position, sm_lineups.detailed_position),
+            club_name=COALESCE(excluded.club_name, sm_lineups.club_name),
+            club_image=COALESCE(excluded.club_image, sm_lineups.club_image),
+            updated_at=excluded.updated_at`,
 		args: [
 			row.sm_fixture_id,
 			row.team_id,
@@ -131,6 +147,14 @@ function lineupStatement(row, updatedAt) {
 			row.formation_field,
 			row.is_start,
 			row.xg,
+			row.date_of_birth ?? null,
+			row.height ?? null,
+			row.weight ?? null,
+			row.nationality_id ?? null,
+			row.nationality_name ?? null,
+			row.detailed_position ?? null,
+			row.club_name ?? null,
+			row.club_image ?? null,
 			updatedAt,
 		],
 	};
