@@ -8,8 +8,8 @@
 -- 1) sm_teams (2 rows)
 -- -------------------------------------------------------------------------
 INSERT OR REPLACE INTO sm_teams (sm_team_id, app_code, name, short_code, image_url, updated_at) VALUES
-  (9100001, 'JPN', 'Japan', 'JPN', NULL, 1781000000),
-  (9100002, 'GER', 'Germany', 'GER', NULL, 1781000000);
+  (9100001, 'JPN', 'Japan', 'JPN', 'https://flagcdn.com/w160/jp.png', 1781000000),
+  (9100002, 'GER', 'Germany', 'GER', 'https://flagcdn.com/w160/de.png', 1781000000);
 
 -- -------------------------------------------------------------------------
 -- 2) sm_fixtures (1 row): FT, JPN 2-1 GER, Group F

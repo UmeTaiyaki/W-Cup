@@ -25,6 +25,30 @@ function fmtKickoff(starting_at) {
 	}
 }
 
+// ── TeamCrest（チームロゴ。実画像優先・読込失敗や未設定時は絵文字旗にフォールバック）──
+function TeamCrest({ imageUrl, flag, size = 54 }) {
+	const [err, setErr] = React.useState(false);
+	if (imageUrl && !err) {
+		return (
+			<img
+				src={imageUrl}
+				alt=""
+				onError={() => setErr(true)}
+				style={{
+					width: size,
+					height: size,
+					objectFit: "contain",
+					display: "block",
+					margin: "0 auto",
+				}}
+			/>
+		);
+	}
+	return (
+		<div style={{ fontSize: size * 0.74, lineHeight: 1 }}>{flag || "🏳️"}</div>
+	);
+}
+
 // ── DetailHeader ──────────────────────────────────────────────────────────
 function DetailHeader({ T, fx }) {
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
@@ -124,19 +148,22 @@ function DetailHeader({ T, fx }) {
 				borderBottom: `1px solid ${T.line}`,
 			}}
 		>
-			{/* ラウンド名 */}
-			{fx.round_name && (
-				<div
-					style={{
-						fontSize: 10.5,
-						color: T.sub,
-						fontWeight: 700,
-						marginBottom: 4,
-					}}
-				>
-					{fx.round_name}
-				</div>
-			)}
+			{/* メタ情報行（日付・ラウンド） */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					fontSize: 10.5,
+					color: T.faint,
+					fontWeight: 700,
+					marginBottom: 6,
+					padding: "0 2px",
+				}}
+			>
+				<span>{(fx.starting_at || "").slice(0, 10)}</span>
+				<span style={{ color: T.sub }}>{fx.round_name || ""}</span>
+			</div>
 			{/* スコア行 */}
 			<div
 				style={{
@@ -147,13 +174,13 @@ function DetailHeader({ T, fx }) {
 				}}
 			>
 				{/* ホーム */}
-				<div style={{ flex: 1, textAlign: "center" }}>
-					<div style={{ fontSize: 34, lineHeight: 1 }}>{homeFlag}</div>
+				<div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+					<TeamCrest imageUrl={fx.home.image_url} flag={homeFlag} />
 					<div
 						style={{
 							fontWeight: 800,
-							fontSize: 12,
-							marginTop: 4,
+							fontSize: 13,
+							marginTop: 7,
 							color: T.text,
 						}}
 					>
@@ -175,13 +202,13 @@ function DetailHeader({ T, fx }) {
 					{statusBadge}
 				</div>
 				{/* アウェイ */}
-				<div style={{ flex: 1, textAlign: "center" }}>
-					<div style={{ fontSize: 34, lineHeight: 1 }}>{awayFlag}</div>
+				<div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+					<TeamCrest imageUrl={fx.away.image_url} flag={awayFlag} />
 					<div
 						style={{
 							fontWeight: 800,
-							fontSize: 12,
-							marginTop: 4,
+							fontSize: 13,
+							marginTop: 7,
 							color: T.text,
 						}}
 					>
@@ -199,37 +226,50 @@ function DetailTabBar({ T, tab, setTab }) {
 		<div
 			style={{
 				display: "flex",
-				gap: 4,
-				padding: "9px 10px",
-				overflowX: "auto",
+				justifyContent: "center",
+				padding: "12px 10px",
 				borderBottom: `1px solid ${T.line}`,
-				msOverflowStyle: "none",
-				scrollbarWidth: "none",
 			}}
 		>
-			{DETAIL_TABS.map((t) => {
-				const active = tab === t.id;
-				return (
-					<button
-						key={t.id}
-						onClick={() => setTab(t.id)}
-						style={{
-							flexShrink: 0,
-							fontSize: 12,
-							fontWeight: 800,
-							padding: "7px 13px",
-							borderRadius: 999,
-							background: active ? T.accent : "transparent",
-							color: active ? T.accentInk : T.sub,
-							border: "none",
-							cursor: "pointer",
-							whiteSpace: "nowrap",
-						}}
-					>
-						{t.label}
-					</button>
-				);
-			})}
+			<div
+				style={{
+					display: "inline-flex",
+					gap: 2,
+					padding: 4,
+					borderRadius: 999,
+					background: "rgba(255,255,255,0.05)",
+					boxShadow: `inset 0 0 0 1px ${T.line}`,
+					maxWidth: "100%",
+					overflowX: "auto",
+					msOverflowStyle: "none",
+					scrollbarWidth: "none",
+				}}
+			>
+				{DETAIL_TABS.map((t) => {
+					const active = tab === t.id;
+					return (
+						<button
+							key={t.id}
+							onClick={() => setTab(t.id)}
+							style={{
+								flexShrink: 0,
+								fontSize: 12.5,
+								fontWeight: 800,
+								padding: "7px 14px",
+								borderRadius: 999,
+								background: active ? T.accent : "transparent",
+								color: active ? T.accentInk : T.sub,
+								border: "none",
+								cursor: "pointer",
+								whiteSpace: "nowrap",
+								transition: ".15s ease",
+							}}
+						>
+							{t.label}
+						</button>
+					);
+				})}
+			</div>
 		</div>
 	);
 }
