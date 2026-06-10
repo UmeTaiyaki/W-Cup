@@ -621,7 +621,7 @@
       function setGroupRank(k, arr) { persist({ ...pred, groupRank: { ...(pred.groupRank || {}), [k]: arr } }); }
       function setThirdGroups(arr) { persist({ ...pred, thirdGroups: arr }); }
       function setKnockout(w) { persist({ ...pred, knockout: w }); }
-      function goTab(id) { setOptScreen(null); setTab(id); }
+      function goTab(id) { setOptScreen(null); setDetailFixture(null); setTab(id); }
 
       // 既存 screens は state.members/preds を参照するため単一メンバーのシムを渡す
       const soloState = { current: me.id, members: [member], preds: { [me.id]: pred } };
