@@ -1111,19 +1111,6 @@ function XgTab({ T, detail }) {
 // ── 布陣タブ (LineupTab) ──────────────────────────────────────────────────
 
 /** 選手スタッツ type_id → ラベル */
-const PLAYER_STAT_LABELS = {
-	118: "評価",
-	42: "シュート",
-	86: "枠内",
-	79: "アシスト",
-	80: "パス",
-	82: "パス成功率(%)",
-	83: "タックル",
-	84: "ファウル",
-	64: "ゴール",
-	116: "ドリブル成功",
-};
-
 /** formation_field "row:col" → { row: int, col: int } または null */
 function parseField(formation_field) {
 	if (!formation_field) return null;
@@ -1159,7 +1146,7 @@ function ageFromDob(dob) {
 }
 
 // ── PlayerSheet: 選手詳細ボトムシート ────────────────────────────────────
-function PlayerSheet({ T, player, playerStats, events, onClose }) {
+function PlayerSheet({ T, player, onClose }) {
 	// スクロールロック（シート外のスクロールを止める）
 	// Rules of Hooks: フックは無条件に最初に呼ぶ
 	React.useEffect(() => {
@@ -1195,11 +1182,35 @@ function PlayerSheet({ T, player, playerStats, events, onClose }) {
 		};
 	}, [player]);
 
+	const [prof, setProf] = React.useState(null);
+	const [profLoading, setProfLoading] = React.useState(false);
+	React.useEffect(() => {
+		if (!player || player.player_id == null) {
+			setProf(null);
+			return;
+		}
+		let alive = true;
+		setProfLoading(true);
+		setProf(null);
+		setStatSeasonIdx(0);
+		(async () => {
+			const d =
+				window.WC && window.WC.fetchPlayerProfile
+					? await window.WC.fetchPlayerProfile(player.player_id)
+					: null;
+			if (alive) {
+				setProf(d);
+				setProfLoading(false);
+			}
+		})();
+		return () => {
+			alive = false;
+		};
+	}, [player && player.player_id]);
+	const [statSeasonIdx, setStatSeasonIdx] = React.useState(0);
+
 	if (!player) return null;
 
-	const stats = (playerStats || []).filter(
-		(s) => s.player_id === player.player_id,
-	);
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
 	const teamInfo = teamMap[player._appCode] || {};
 	const flag = teamInfo.flag || "";
@@ -1260,6 +1271,24 @@ function PlayerSheet({ T, player, playerStats, events, onClose }) {
 					}}
 				>
 					<div>
+						{prof && prof.profile && prof.profile.image_path && (
+							<img
+								src={prof.profile.image_path}
+								alt=""
+								onError={(e) => {
+									e.target.style.display = "none";
+								}}
+								style={{
+									width: 44,
+									height: 44,
+									borderRadius: "50%",
+									objectFit: "cover",
+									marginRight: 10,
+									background: "rgba(255,255,255,0.08)",
+									verticalAlign: "middle",
+								}}
+							/>
+						)}
 						<span
 							style={{
 								fontSize: 26,
@@ -1307,130 +1336,173 @@ function PlayerSheet({ T, player, playerStats, events, onClose }) {
 						padding: "4px 18px 12px",
 					}}
 				>
-					{/* プロフィール */}
+					{/* 今までのデータ: リッチプロフィール */}
 					{(() => {
-						const age = ageFromDob(player.date_of_birth);
-						const pos = player.detailed_position || player.position;
+						const p0 = (prof && prof.profile) || null;
+						const bio = p0 || {
+							height: player.height,
+							weight: player.weight,
+							date_of_birth: player.date_of_birth,
+							preferred_foot: null,
+							detailed_position: player.detailed_position || player.position,
+							nationality_name: player.nationality_name,
+							club_name: player.club_name,
+							club_image: player.club_image,
+							image_path: null,
+						};
+						const age = ageFromDob(bio.date_of_birth);
 						const rows = [];
-						if (pos)
+						if (bio.detailed_position)
 							rows.push([
 								"ポジション",
-								`${pos}　#${player.jersey_number ?? "-"}`,
+								`${bio.detailed_position}　#${player.jersey_number ?? "-"}`,
 							]);
-						if (age != null || player.height || player.weight)
+						if (age != null || bio.height || bio.weight)
 							rows.push([
 								"年齢/身長/体重",
-								`${age != null ? age + "歳" : "-"} / ${player.height ? player.height + "cm" : "-"} / ${player.weight ? player.weight + "kg" : "-"}`,
+								`${age != null ? age + "歳" : "-"} / ${bio.height ? bio.height + "cm" : "-"} / ${bio.weight ? bio.weight + "kg" : "-"}`,
 							]);
-						if (player.nationality_name)
-							rows.push(["国籍", player.nationality_name]);
-						if (player.club_name) rows.push(["所属クラブ", player.club_name]);
-						return rows.map(([k, v]) => (
-							<div
-								key={k}
-								style={{
-									display: "flex",
-									justifyContent: "space-between",
-									padding: "9px 0",
-									borderBottom: "1px solid " + T.line,
-									fontSize: 13,
-								}}
-							>
-								<span style={{ color: T.sub, fontWeight: 700 }}>{k}</span>
-								<span style={{ fontWeight: 800, color: T.text }}>{v}</span>
-							</div>
-						));
-					})()}
-					{/* この試合: カード/交代 */}
-					{(() => {
-						const idx = playerEventIndex(events);
-						const e = playerEvents(idx, player);
-						const items = [];
-						e.goals.forEach((g) =>
-							items.push([
-								g.own ? "オウンゴール" : g.pen ? "ゴール(PK)" : "ゴール",
-								`${g.minute}'`,
-							]),
+						if (bio.preferred_foot)
+							rows.push([
+								"利き足",
+								bio.preferred_foot === "right"
+									? "右"
+									: bio.preferred_foot === "left"
+										? "左"
+										: bio.preferred_foot,
+							]);
+						if (bio.nationality_name) rows.push(["国籍", bio.nationality_name]);
+						if (bio.club_name) rows.push(["所属クラブ", bio.club_name]);
+						return (
+							<>
+								{profLoading && (
+									<div
+										style={{
+											color: T.faint,
+											fontSize: 12,
+											fontWeight: 700,
+											padding: "10px 0",
+										}}
+									>
+										読み込み中…
+									</div>
+								)}
+								{rows.map(([k, v]) => (
+									<div
+										key={k}
+										style={{
+											display: "flex",
+											justifyContent: "space-between",
+											padding: "9px 0",
+											borderBottom: "1px solid " + T.line,
+											fontSize: 13,
+										}}
+									>
+										<span style={{ color: T.sub, fontWeight: 700 }}>{k}</span>
+										<span style={{ fontWeight: 800, color: T.text }}>{v}</span>
+									</div>
+								))}
+								{p0 &&
+									prof.seasons &&
+									prof.seasons.length > 0 &&
+									(() => {
+										const idx = Math.min(
+											statSeasonIdx,
+											prof.seasons.length - 1,
+										);
+										const s = prof.seasons[idx];
+										const cell = (key, unit) =>
+											s.stats[key] != null ? (
+												<div
+													key={key}
+													style={{
+														flex: "1 0 30%",
+														padding: "8px 0",
+														textAlign: "center",
+													}}
+												>
+													<div
+														style={{
+															fontSize: 15,
+															fontWeight: 900,
+															color: T.text,
+														}}
+													>
+														{s.stats[key]}
+														{unit || ""}
+													</div>
+													<div
+														style={{
+															fontSize: 10,
+															color: T.sub,
+															fontWeight: 700,
+														}}
+													>
+														{key}
+													</div>
+												</div>
+											) : null;
+										return (
+											<div style={{ marginTop: 12 }}>
+												<div
+													style={{
+														display: "flex",
+														gap: 8,
+														alignItems: "center",
+														marginBottom: 6,
+													}}
+												>
+													<span
+														style={{
+															fontSize: 12,
+															fontWeight: 800,
+															color: T.text,
+														}}
+													>
+														シーズン統計
+													</span>
+													{prof.seasons.length > 1 && (
+														<select
+															value={idx}
+															onChange={(e) =>
+																setStatSeasonIdx(Number(e.target.value))
+															}
+															style={{
+																marginLeft: "auto",
+																background: "rgba(255,255,255,0.06)",
+																color: T.text,
+																border: "1px solid " + T.line,
+																borderRadius: 8,
+																fontSize: 11,
+																padding: "3px 6px",
+															}}
+														>
+															{prof.seasons.map((se, i) => (
+																<option key={se.season_id} value={i}>
+																	{se.league_name ? se.league_name + " " : ""}
+																	{se.season_name || se.season_id}
+																</option>
+															))}
+														</select>
+													)}
+												</div>
+												<div style={{ display: "flex", flexWrap: "wrap" }}>
+													{cell("appearances")}
+													{cell("goals")}
+													{cell("assists")}
+													{cell("minutes", "分")}
+													{cell("rating")}
+													{cell("yellowcards")}
+													{cell("shots_total")}
+													{cell("shots_on_target")}
+													{cell("passes")}
+												</div>
+											</div>
+										);
+									})()}
+							</>
 						);
-						e.cards.forEach((c) =>
-							items.push([
-								c.type === "yellowcard" ? "イエロー" : "レッド/退場",
-								`${c.minute}'`,
-							]),
-						);
-						if (e.subOff != null) items.push(["交代OUT", `${e.subOff}'`]);
-						if (e.subOn != null) items.push(["交代IN", `${e.subOn}'`]);
-						return items.map(([k, v], i) => (
-							<div
-								key={"ev" + i}
-								style={{
-									display: "flex",
-									justifyContent: "space-between",
-									padding: "9px 0",
-									borderBottom: "1px solid " + T.line,
-									fontSize: 13,
-								}}
-							>
-								<span style={{ color: T.sub, fontWeight: 700 }}>{k}</span>
-								<span style={{ fontWeight: 800, color: T.text }}>{v}</span>
-							</div>
-						));
 					})()}
-					{/* xG 行（lineups から）*/}
-					{player.xg != null && (
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "space-between",
-								padding: "9px 0",
-								borderBottom: "1px solid " + T.line,
-								fontSize: 13,
-							}}
-						>
-							<span style={{ color: T.sub, fontWeight: 700 }}>xG</span>
-							<span style={{ fontWeight: 800, color: T.accent }}>
-								{Number(player.xg).toFixed(2)}
-							</span>
-						</div>
-					)}
-
-					{stats.length === 0 && player.xg == null ? (
-						<div
-							style={{
-								color: T.faint,
-								fontSize: 13,
-								fontWeight: 700,
-								padding: "22px 0",
-								textAlign: "center",
-							}}
-						>
-							この選手のスタッツはありません
-						</div>
-					) : (
-						stats.map((s, i) => {
-							const label =
-								PLAYER_STAT_LABELS[s.type_id] != null
-									? PLAYER_STAT_LABELS[s.type_id]
-									: "#" + s.type_id;
-							return (
-								<div
-									key={s.type_id != null ? s.type_id : "s" + i}
-									style={{
-										display: "flex",
-										justifyContent: "space-between",
-										padding: "9px 0",
-										borderBottom: "1px solid " + T.line,
-										fontSize: 13,
-									}}
-								>
-									<span style={{ color: T.sub, fontWeight: 700 }}>{label}</span>
-									<span style={{ fontWeight: 800, color: T.text }}>
-										{s.value != null ? s.value : "–"}
-									</span>
-								</div>
-							);
-						})
-					)}
 				</div>
 			</div>
 		</div>
@@ -1829,7 +1901,6 @@ function playerEvents(index, player) {
 function LineupTab({ T, detail }) {
 	const fx = detail && detail.fixture;
 	const lineups = (detail && detail.lineups) || [];
-	const playerStats = (detail && detail.player_stats) || [];
 
 	const homeTeamId = fx && fx.home && fx.home.team_id;
 	const awayTeamId = fx && fx.away && fx.away.team_id;
@@ -1965,8 +2036,6 @@ function LineupTab({ T, detail }) {
 				<PlayerSheet
 					T={T}
 					player={sheetPlayer}
-					playerStats={playerStats}
-					events={detail.events}
 					onClose={() => {
 						setSheetPlayer(null);
 					}}
