@@ -27,6 +27,18 @@
     window.WC = window.WC || {};
     // D1/API を使わず埋め込みモックを返す（プレビュー/本番どこでも動く）
     window.WC.fetchFixtureDetail = async function () { return MOCK; };
+    window.WC.fetchPlayerProfile = async function () {
+      return { enabled: true, profile: {
+        id: 21773355, name: "Ayase Ueda", image_path: "https://cdn.sportmonks.com/images/soccer/players/27/21773355.png",
+        height: 182, weight: 76, date_of_birth: "1998-08-28", preferred_foot: "right",
+        position: "Attacker", detailed_position: "Centre Forward",
+        nationality_name: "Japan", nationality_image: null,
+        club_name: "Feyenoord", club_image: "https://cdn.sportmonks.com/images/soccer/teams/25/3057.png"
+      }, seasons: [
+        { season_id: 22294, season_name: "2024/2025", league_name: "Eredivisie",
+          stats: { appearances: 3, goals: 8, minutes: 245, rating: 6.95, passes: 39, shots_total: 4, shots_on_target: 2 } }
+      ] };
+    };
     const base = (window.WC.THEMES && window.WC.THEMES.pitch) || {};
     const T = { ...base, accent: base.accent || "#B6FF3C", accentInk: "#0A1410" };
     function Demo() {
