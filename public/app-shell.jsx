@@ -43,6 +43,8 @@ function Sidebar({
 	onReset,
 	showWordmark,
 	solo = false,
+	onSettings,
+	settingsActive = false,
 }) {
 	const NavItem = ({ tb }) => {
 		const active = tab === tb.id;
@@ -276,6 +278,44 @@ function Sidebar({
 						</span>
 					</button>
 				</React.Fragment>
+			)}
+
+			{/* 設定（歯車）— アカウント機能はここに集約 */}
+			{onSettings && (
+				<button
+					onClick={onSettings}
+					title="設定"
+					style={{
+						marginTop: "auto",
+						display: "flex",
+						alignItems: "center",
+						gap: 12,
+						width: "100%",
+						border: "none",
+						cursor: "pointer",
+						fontFamily: "inherit",
+						textAlign: "left",
+						padding: "11px 13px",
+						borderRadius: 13,
+						background: settingsActive ? `${T.accent}1A` : "transparent",
+						boxShadow: settingsActive
+							? `inset 0 0 0 1px ${T.accent}3D`
+							: "none",
+						color: settingsActive ? T.accent : T.sub,
+					}}
+				>
+					<Icon
+						name="gear"
+						size={21}
+						color={settingsActive ? T.accent : T.faint}
+						sw={settingsActive ? 2.2 : 1.9}
+					/>
+					<span
+						style={{ fontWeight: settingsActive ? 800 : 700, fontSize: 15 }}
+					>
+						設定
+					</span>
+				</button>
 			)}
 		</div>
 	);
