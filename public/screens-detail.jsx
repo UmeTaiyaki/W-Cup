@@ -1142,8 +1142,24 @@ function surname(player_name) {
 	return tokens[tokens.length - 1] || player_name;
 }
 
+// "YYYY-MM-DD" → 満年齢（タイムゾーン非依存の単純年差）。不正は null。
+function ageFromDob(dob) {
+	if (!dob) return null;
+	const m = String(dob).match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (!m) return null;
+	const y = +m[1],
+		mo = +m[2],
+		d = +m[3];
+	const now = new Date();
+	let age = now.getFullYear() - y;
+	const mm = now.getMonth() + 1,
+		dd = now.getDate();
+	if (mm < mo || (mm === mo && dd < d)) age -= 1;
+	return age >= 0 && age < 130 ? age : null;
+}
+
 // ── PlayerSheet: 選手詳細ボトムシート ────────────────────────────────────
-function PlayerSheet({ T, player, playerStats, onClose }) {
+function PlayerSheet({ T, player, playerStats, events, onClose }) {
 	// スクロールロック（シート外のスクロールを止める）
 	// Rules of Hooks: フックは無条件に最初に呼ぶ
 	React.useEffect(() => {
@@ -1291,6 +1307,69 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 						padding: "4px 18px 12px",
 					}}
 				>
+					{/* プロフィール */}
+					{(() => {
+						const age = ageFromDob(player.date_of_birth);
+						const pos = player.detailed_position || player.position;
+						const rows = [];
+						if (pos)
+							rows.push([
+								"ポジション",
+								`${pos}　#${player.jersey_number ?? "-"}`,
+							]);
+						if (age != null || player.height || player.weight)
+							rows.push([
+								"年齢/身長/体重",
+								`${age != null ? age + "歳" : "-"} / ${player.height ? player.height + "cm" : "-"} / ${player.weight ? player.weight + "kg" : "-"}`,
+							]);
+						if (player.nationality_name)
+							rows.push(["国籍", player.nationality_name]);
+						if (player.club_name) rows.push(["所属クラブ", player.club_name]);
+						return rows.map(([k, v]) => (
+							<div
+								key={k}
+								style={{
+									display: "flex",
+									justifyContent: "space-between",
+									padding: "9px 0",
+									borderBottom: "1px solid " + T.line,
+									fontSize: 13,
+								}}
+							>
+								<span style={{ color: T.sub, fontWeight: 700 }}>{k}</span>
+								<span style={{ fontWeight: 800, color: T.text }}>{v}</span>
+							</div>
+						));
+					})()}
+					{/* この試合: カード/交代 */}
+					{(() => {
+						const idx = playerEventIndex(events);
+						const e = playerEvents(idx, player);
+						const items = [];
+						e.cards.forEach((c) =>
+							items.push([
+								c.type === "yellowcard" ? "イエロー" : "レッド/退場",
+								`${c.minute}'`,
+							]),
+						);
+						if (e.subOff != null) items.push(["交代OUT", `${e.subOff}'`]);
+						if (e.subOn != null) items.push(["交代IN", `${e.subOn}'`]);
+						return items.map(([k, v], i) => (
+							<div
+								key={"ev" + i}
+								style={{
+									display: "flex",
+									justifyContent: "space-between",
+									padding: "9px 0",
+									borderBottom: "1px solid " + T.line,
+									fontSize: 13,
+								}}
+							>
+								<span style={{ color: T.sub, fontWeight: 700 }}>{k}</span>
+								<span style={{ fontWeight: 800, color: T.text }}>{v}</span>
+							</div>
+						));
+					})()}
 					{/* xG 行（lineups から）*/}
 					{player.xg != null && (
 						<div
@@ -1869,6 +1948,7 @@ function LineupTab({ T, detail }) {
 					T={T}
 					player={sheetPlayer}
 					playerStats={playerStats}
+					events={detail.events}
 					onClose={() => {
 						setSheetPlayer(null);
 					}}
