@@ -379,7 +379,7 @@ function OptionViewScreen({
 						>
 							{ranked.map((c) => (
 								<span key={c} style={{ opacity: c === auto4 ? 0.45 : 1 }}>
-									{TEAM[c]?.flag}
+									<Flag code={c} size={16} />
 								</span>
 							))}
 						</span>
@@ -447,9 +447,7 @@ function OptionViewScreen({
 										>
 											{meta.n}
 										</span>
-										<span style={{ fontSize: 16, flexShrink: 0 }}>
-											{tm.flag}
-										</span>
+										<Flag code={code} size={16} style={{ flexShrink: 0 }} />
 										<span
 											style={{
 												fontWeight: 700,
@@ -501,9 +499,11 @@ function OptionViewScreen({
 				>
 					{slot}
 				</span>
-				<span style={{ fontSize: 16, flexShrink: 0 }}>
-					{tm ? tm.flag : "⚪️"}
-				</span>
+				{tm ? (
+					<Flag code={code} size={16} style={{ flexShrink: 0 }} />
+				) : (
+					<span style={{ fontSize: 16, flexShrink: 0 }}>⚪️</span>
+				)}
 				<span
 					style={{
 						fontWeight: 700,
@@ -591,7 +591,7 @@ function OptionViewScreen({
 							}}
 						>
 							{flags.map((c, i) => (
-								<span key={c + i}>{TEAM[c]?.flag}</span>
+								<Flag key={c + i} code={c} size={15} />
 							))}
 						</span>
 					)}
@@ -755,9 +755,11 @@ function KnockoutView({
 				cursor: team ? "pointer" : "default",
 			}}
 		>
-			<span style={{ fontSize: 18, flexShrink: 0 }}>
-				{team ? window.WC.TEAM[team]?.flag : "⚪️"}
-			</span>
+			{team ? (
+				<Flag code={team} size={18} style={{ flexShrink: 0 }} />
+			) : (
+				<span style={{ fontSize: 18, flexShrink: 0 }}>⚪️</span>
+			)}
 			<span
 				style={{
 					fontSize: team ? 13.5 : 12,
@@ -998,7 +1000,9 @@ function KnockoutView({
 								}}
 							>
 								<Icon name="trophy" size={24} color={T.gold} />
-								<div style={{ fontSize: 28 }}>{champ ? champ.flag : "🏆"}</div>
+								<div style={{ fontSize: 28 }}>
+									{champ ? <Flag code={champ.code} size={28} /> : "🏆"}
+								</div>
 								<div
 									style={{
 										fontWeight: 800,

@@ -176,7 +176,7 @@ function LeagueTables({ T }) {
 										>
 											{i + 1}
 										</span>
-										<span style={{ fontSize: 18 }}>{tm.flag}</span>
+										<Flag code={r.code} size={18} />
 										<span
 											onClick={() => setSquadCode(r.code)}
 											style={{
@@ -264,7 +264,7 @@ function LeagueTables({ T }) {
 									>
 										{pos >= 0 ? pos + 1 : "–"}
 									</span>
-									<span style={{ fontSize: 20 }}>{tm.flag}</span>
+									<Flag code={code} size={20} />
 									<span
 										onClick={() => setSquadCode(code)}
 										style={{

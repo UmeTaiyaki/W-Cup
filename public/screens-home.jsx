@@ -3,11 +3,7 @@
 // 小さな旗（枠なしの絵文字）。未確定チームは何も表示しない。
 function MiniFlag({ team, size = 20 }) {
 	if (!team.resolved) return null;
-	return (
-		<span style={{ fontSize: size, lineHeight: 1, flexShrink: 0 }}>
-			{team.flag}
-		</span>
-	);
+	return <Flag code={team.code} size={size} style={{ flexShrink: 0 }} />;
 }
 
 // ライブ状態の小バッジ（LIVE=赤・終了=控えめ）
@@ -280,9 +276,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 					justifyContent: "center",
 				}}
 			>
-				{team.resolved && (
-					<span style={{ fontSize: 42, lineHeight: 1 }}>{team.flag}</span>
-				)}
+				{team.resolved && <Flag code={team.code} size={42} />}
 			</div>
 			<div
 				style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}
