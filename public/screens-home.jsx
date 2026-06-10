@@ -39,7 +39,47 @@ function LiveBadge({ T, status }) {
 	);
 }
 
-// タイムライン1行：時刻(or スコア) / A vs B / 章ラベル
+// 放送メディアのタグ列（茶=有料DAZN / 緑=無料BS4K・地上波）。折返し可。
+function MediaTags({ T, match, justify = "flex-start" }) {
+	const list =
+		(window.WC.mediaForMatch && window.WC.mediaForMatch(match)) || [];
+	if (!list.length) return null;
+	return (
+		<div
+			style={{
+				display: "flex",
+				flexWrap: "wrap",
+				gap: 5,
+				justifyContent: justify,
+			}}
+		>
+			{list.map((m) => {
+				const paid = m.kind === "paid";
+				return (
+					<span
+						key={m.name}
+						style={{
+							fontSize: 10,
+							fontWeight: 700,
+							padding: "2px 7px",
+							borderRadius: 999,
+							background: paid
+								? "rgba(240,160,48,0.14)"
+								: "rgba(52,211,153,0.14)",
+							color: paid ? "#f0a030" : "#34d399",
+							border: `1px solid ${paid ? "rgba(240,160,48,0.30)" : "rgba(52,211,153,0.30)"}`,
+							whiteSpace: "nowrap",
+						}}
+					>
+						{m.name}
+					</span>
+				);
+			})}
+		</div>
+	);
+}
+
+// タイムライン1行：時刻(or スコア) / A vs B / 章ラベル + 放送メディア
 function MatchRow({ T, match, last }) {
 	const teamMap = window.WC.TEAM || {};
 	const a = window.WC.formatMatchTeam(match.a, teamMap, match.round);
@@ -63,9 +103,6 @@ function MatchRow({ T, match, last }) {
 			tabIndex={0}
 			onClick={handleClick}
 			style={{
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "space-between",
 				padding: "9px 4px",
 				borderBottom: last ? "none" : `1px solid ${T.line}`,
 				cursor: "pointer",
@@ -73,58 +110,69 @@ function MatchRow({ T, match, last }) {
 		>
 			<div
 				style={{
-					fontSize: live ? 13 : 12,
-					fontWeight: 800,
-					color: live
-						? live.status === "LIVE"
-							? "#ff5a5a"
-							: T.text
-						: T.accent,
-					width: 46,
-					flexShrink: 0,
-				}}
-			>
-				{live ? `${live.a ?? 0}-${live.b ?? 0}` : match.time || "--:--"}
-			</div>
-			<div
-				style={{
 					display: "flex",
 					alignItems: "center",
-					gap: 6,
-					flex: 1,
-					minWidth: 0,
+					justifyContent: "space-between",
 				}}
 			>
-				<MiniFlag T={T} team={a} />
-				<span style={sideStyle}>{a.resolved ? a.code : a.label}</span>
+				<div
+					style={{
+						fontSize: live ? 13 : 12,
+						fontWeight: 800,
+						color: live
+							? live.status === "LIVE"
+								? "#ff5a5a"
+								: T.text
+							: T.accent,
+						width: 46,
+						flexShrink: 0,
+					}}
+				>
+					{live ? `${live.a ?? 0}-${live.b ?? 0}` : match.time || "--:--"}
+				</div>
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 6,
+						flex: 1,
+						minWidth: 0,
+					}}
+				>
+					<MiniFlag T={T} team={a} />
+					<span style={sideStyle}>{a.resolved ? a.code : a.label}</span>
+					<span
+						style={{
+							fontSize: 11,
+							fontWeight: 800,
+							color: T.faint,
+							padding: "0 6px",
+						}}
+					>
+						vs
+					</span>
+					<span style={sideStyle}>{b.resolved ? b.code : b.label}</span>
+					<MiniFlag T={T} team={b} />
+				</div>
 				<span
 					style={{
 						fontSize: 11,
-						fontWeight: 800,
-						color: T.faint,
-						padding: "0 6px",
+						fontWeight: 700,
+						padding: "3px 9px",
+						borderRadius: 999,
+						background: "rgba(255,255,255,0.06)",
+						color: T.sub,
+						border: `1px solid ${T.line}`,
+						flexShrink: 0,
+						marginLeft: 8,
 					}}
 				>
-					vs
+					{label}
 				</span>
-				<span style={sideStyle}>{b.resolved ? b.code : b.label}</span>
-				<MiniFlag T={T} team={b} />
 			</div>
-			<span
-				style={{
-					fontSize: 11,
-					fontWeight: 700,
-					padding: "3px 9px",
-					borderRadius: 999,
-					background: "rgba(255,255,255,0.06)",
-					color: T.sub,
-					border: `1px solid ${T.line}`,
-					flexShrink: 0,
-					marginLeft: 8,
-				}}
-			>
-				{label}
-			</span>
+			<div style={{ marginTop: 7, paddingLeft: 46 }}>
+				<MediaTags T={T} match={match} />
+			</div>
 		</div>
 	);
 }
@@ -383,6 +431,15 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 							)}
 						</div>
 						{side(b)}
+					</div>
+					<div
+						style={{
+							marginTop: 14,
+							paddingTop: 12,
+							borderTop: `1px solid ${T.line}`,
+						}}
+					>
+						<MediaTags T={T} match={cur} justify="center" />
 					</div>
 					{live && live.result_info && (
 						<div
