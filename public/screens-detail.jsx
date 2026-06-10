@@ -50,7 +50,7 @@ function TeamCrest({ imageUrl, flag, size = 54 }) {
 }
 
 // ── DetailHeader ──────────────────────────────────────────────────────────
-function DetailHeader({ T, fx }) {
+function DetailHeader({ T, fx, goBack }) {
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
 	const homeInfo = teamMap[fx.home.app_code] || {};
 	const awayInfo = teamMap[fx.away.app_code] || {};
@@ -141,28 +141,59 @@ function DetailHeader({ T, fx }) {
 	return (
 		<div
 			style={{
-				padding: "4px 14px 14px",
+				padding: "10px 12px 14px",
 				textAlign: "center",
 				background:
 					"radial-gradient(120% 90% at 50% -10%, rgba(22,56,38,0.31) 0%, transparent 60%)",
 				borderBottom: `1px solid ${T.line}`,
 			}}
 		>
-			{/* メタ情報行（日付・ラウンド） */}
+			{/* 上部バー: 戻る + 日付 + ラウンド（ヘッダーに内包＝浮かせない） */}
 			<div
 				style={{
 					display: "flex",
 					alignItems: "center",
-					justifyContent: "space-between",
-					fontSize: 10.5,
-					color: T.faint,
-					fontWeight: 700,
-					marginBottom: 6,
-					padding: "0 2px",
+					gap: 8,
+					marginBottom: 10,
 				}}
 			>
-				<span>{(fx.starting_at || "").slice(0, 10)}</span>
-				<span style={{ color: T.sub }}>{fx.round_name || ""}</span>
+				{goBack && (
+					<button
+						onClick={goBack}
+						aria-label="戻る"
+						style={{
+							border: "none",
+							background: "rgba(255,255,255,0.06)",
+							borderRadius: 999,
+							width: 28,
+							height: 28,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							cursor: "pointer",
+							color: T.sub,
+							fontSize: 17,
+							lineHeight: 1,
+							boxShadow: `inset 0 0 0 1px ${T.line}`,
+							flexShrink: 0,
+						}}
+					>
+						‹
+					</button>
+				)}
+				<span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}>
+					{(fx.starting_at || "").slice(0, 10)}
+				</span>
+				<span
+					style={{
+						marginLeft: "auto",
+						fontSize: 10.5,
+						color: T.sub,
+						fontWeight: 700,
+					}}
+				>
+					{fx.round_name || ""}
+				</span>
 			</div>
 			{/* スコア行 */}
 			<div
@@ -1919,48 +1950,8 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 				flexDirection: "column",
 			}}
 		>
-			{/* 戻るボタン */}
-			<div
-				style={{
-					padding: "12px 14px 4px",
-					display: "flex",
-					alignItems: "center",
-					flexShrink: 0,
-				}}
-			>
-				<button
-					onClick={goBack}
-					style={{
-						border: "none",
-						background: "rgba(255,255,255,0.06)",
-						borderRadius: 999,
-						width: 32,
-						height: 32,
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						cursor: "pointer",
-						color: T.sub,
-						fontSize: 18,
-						boxShadow: `inset 0 0 0 1px ${T.line}`,
-					}}
-				>
-					‹
-				</button>
-				<span
-					style={{
-						fontSize: 11,
-						fontWeight: 700,
-						color: T.sub,
-						marginLeft: 10,
-					}}
-				>
-					戻る
-				</span>
-			</div>
-
-			{/* 固定スコアヘッダー */}
-			<DetailHeader T={T} fx={fx} />
+			{/* 固定スコアヘッダー（戻るボタンを内包） */}
+			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
 			{/* タブバー */}
 			<DetailTabBar T={T} tab={tab} setTab={setTab} />
