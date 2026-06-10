@@ -1588,7 +1588,7 @@ function FormationPitch({ T, starters, onTapPlayer, events }) {
 			style={{
 				position: "relative",
 				width: "100%",
-				paddingBottom: "133%",
+				paddingBottom: "118%",
 				background:
 					"linear-gradient(180deg, rgba(14,54,26,0.92) 0%, rgba(10,40,20,0.97) 100%)",
 				borderRadius: 14,
@@ -1707,9 +1707,11 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 					letterSpacing: 0.8,
 					color: T.sub,
 					margin: "14px 0 8px",
+					borderTop: "1px solid " + T.line,
+					paddingTop: 12,
 				}}
 			>
-				控え
+				{`控え ${bench.length}`}
 			</div>
 			{bench.map((p, i) => {
 				const sub = playerEvents(evIndex, p).subOn;
