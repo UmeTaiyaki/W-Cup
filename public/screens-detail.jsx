@@ -1217,49 +1217,26 @@ function PlayerSheet({ T, player, onClose }) {
 
 	const node = (
 		<div
-			onClick={onClose}
 			style={{
 				position: "absolute",
 				inset: 0,
 				zIndex: 100,
 				display: "flex",
 				flexDirection: "column",
-				justifyContent: "flex-end",
-				background: "rgba(0,0,0,0.5)",
-				backdropFilter: "blur(2px)",
+				background: T.bg,
 			}}
 		>
 			<div
-				onClick={(e) => {
-					e.stopPropagation();
-				}}
 				style={{
-					background: T.panel,
-					borderRadius: "26px 26px 0 0",
-					boxShadow: "0 -1px 0 " + T.line,
-					maxHeight: "82%",
+					background: T.bg,
+					height: "100%",
 					display: "flex",
 					flexDirection: "column",
 					paddingBottom: 26,
 				}}
 			>
-				{/* ドラッグハンドル */}
-				<div
-					style={{
-						display: "flex",
-						justifyContent: "center",
-						paddingTop: 10,
-					}}
-				>
-					<div
-						style={{
-							width: 38,
-							height: 5,
-							borderRadius: 9,
-							background: T.line,
-						}}
-					/>
-				</div>
+				{/* 上部セーフエリア */}
+				<div style={{ height: 10 }} />
 				{/* タイトル行 */}
 				<div
 					style={{
@@ -1328,28 +1305,73 @@ function PlayerSheet({ T, player, onClose }) {
 				</div>
 
 				{/* クラブ・国籍行 */}
-				{prof && prof.profile && (prof.profile.club_name || prof.profile.nationality_name) && (
-					<div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 18px 8px", flexWrap: "wrap" }}>
-						{prof.profile.club_name && (
-							<span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: T.sub }}>
-								{prof.profile.club_image && (
-									<img src={prof.profile.club_image} alt="" onError={(e) => { e.target.style.display = "none"; }}
-										style={{ width: 16, height: 16, objectFit: "contain" }} />
-								)}
-								{prof.profile.club_name}
-							</span>
-						)}
-						{prof.profile.nationality_name && (
-							<span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: T.sub }}>
-								{prof.profile.nationality_image && (
-									<img src={prof.profile.nationality_image} alt="" onError={(e) => { e.target.style.display = "none"; }}
-										style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover" }} />
-								)}
-								{prof.profile.nationality_name}
-							</span>
-						)}
-					</div>
-				)}
+				{prof &&
+					prof.profile &&
+					(prof.profile.club_name || prof.profile.nationality_name) && (
+						<div
+							style={{
+								display: "flex",
+								alignItems: "center",
+								gap: 12,
+								padding: "0 18px 8px",
+								flexWrap: "wrap",
+							}}
+						>
+							{prof.profile.club_name && (
+								<span
+									style={{
+										display: "inline-flex",
+										alignItems: "center",
+										gap: 5,
+										fontSize: 12,
+										fontWeight: 700,
+										color: T.sub,
+									}}
+								>
+									{prof.profile.club_image && (
+										<img
+											src={prof.profile.club_image}
+											alt=""
+											onError={(e) => {
+												e.target.style.display = "none";
+											}}
+											style={{ width: 16, height: 16, objectFit: "contain" }}
+										/>
+									)}
+									{prof.profile.club_name}
+								</span>
+							)}
+							{prof.profile.nationality_name && (
+								<span
+									style={{
+										display: "inline-flex",
+										alignItems: "center",
+										gap: 5,
+										fontSize: 12,
+										fontWeight: 700,
+										color: T.sub,
+									}}
+								>
+									{prof.profile.nationality_image && (
+										<img
+											src={prof.profile.nationality_image}
+											alt=""
+											onError={(e) => {
+												e.target.style.display = "none";
+											}}
+											style={{
+												width: 16,
+												height: 16,
+												borderRadius: "50%",
+												objectFit: "cover",
+											}}
+										/>
+									)}
+									{prof.profile.nationality_name}
+								</span>
+							)}
+						</div>
+					)}
 
 				{/* スタッツ本体 */}
 				<div
@@ -1358,6 +1380,8 @@ function PlayerSheet({ T, player, onClose }) {
 						WebkitOverflowScrolling: "touch",
 						overscrollBehavior: "contain",
 						padding: "4px 18px 12px",
+						flex: 1,
+						minHeight: 0,
 					}}
 				>
 					{/* 今までのデータ: リッチプロフィール */}
