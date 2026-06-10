@@ -62,9 +62,23 @@ export function toTeamRows(detail) {
 		}));
 }
 
+// periods[] から進行中(ticking)ピリオドの経過分とアディショナルを抽出（純粋）。
+// SportMonks: ticking=true のピリオドが現在進行中。minutes=経過分、time_added=アディショナル分。
+// 進行中ピリオドが無い（未開始/ハーフタイム/終了）場合は両方 null＝表示側はステータスへフォールバック。
+export function liveMinute(detail) {
+	const periods = Array.isArray(detail?.periods) ? detail.periods : [];
+	const p = periods.find((x) => x?.ticking);
+	if (!p) return { minute: null, added: null };
+	const minute = typeof p.minutes === "number" ? p.minutes : null;
+	const added =
+		typeof p.time_added === "number" && p.time_added > 0 ? p.time_added : null;
+	return { minute, added };
+}
+
 // fixture detail → sm_fixtures 1行
 export function toFixtureRow(detail) {
 	const { home, away } = participantsByLocation(detail);
+	const { minute, added } = liveMinute(detail);
 	return {
 		sm_fixture_id: detail?.id ?? null,
 		league_id: detail?.league_id ?? null,
@@ -82,6 +96,8 @@ export function toFixtureRow(detail) {
 		away_xg: xgFor(detail, "away"),
 		venue: null, // venue_id のみ。名称は venues include で後付け
 		result_info: detail?.result_info ?? null,
+		minute, // 進行中ピリオドの経過分（無→null）
+		added_time: added, // アディショナル分（無→null）
 	};
 }
 

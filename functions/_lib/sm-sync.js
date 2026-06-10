@@ -9,10 +9,11 @@ import {
 } from "./sm-store.js";
 
 // fixture 詳細の include。ラインナップ・xG を含む完全版（lineups/xGFixture を追加）。
+// periods: 進行中ピリオドの経過分(minutes/time_added)取得用。
 export const FIXTURE_DETAIL_INCLUDE =
-	"participants;scores;statistics;events;events.type;events.player;xGFixture;lineups;lineups.details;lineups.xglineup;lineups.player;lineups.player.nationality;lineups.player.teams";
-// livescores の軽量 include（書き込み節約）
-export const LIVE_INCLUDE = "scores;participants;events";
+	"participants;scores;statistics;events;events.type;events.player;xGFixture;lineups;lineups.details;lineups.xglineup;lineups.player;lineups.player.nationality;lineups.player.teams;periods";
+// livescores の軽量 include（書き込み節約）。periods=経過分表示用。
+export const LIVE_INCLUDE = "scores;participants;events;periods";
 // season スケジュール backfill の include（各 fixture にチームをネスト）
 export const SEASON_FIXTURES_INCLUDE = "fixtures.participants";
 
