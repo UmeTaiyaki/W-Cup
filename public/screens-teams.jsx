@@ -158,6 +158,47 @@ function SectionHeader({ T, label }) {
 	);
 }
 
+// ---- 詳細のサブタブ（メンバー / 日程 を下線で切替）----------
+function DetailTabs({ T, value, onChange, tabs }) {
+	return (
+		<div
+			style={{
+				display: "flex",
+				gap: 4,
+				borderBottom: `1px solid ${T.line}`,
+				margin: "16px 2px 0",
+			}}
+		>
+			{tabs.map((tb) => {
+				const active = value === tb.id;
+				return (
+					<button
+						key={tb.id}
+						onClick={() => onChange(tb.id)}
+						style={{
+							border: "none",
+							background: "transparent",
+							cursor: "pointer",
+							fontFamily: "inherit",
+							fontWeight: active ? 800 : 700,
+							fontSize: 15,
+							color: active ? T.text : T.faint,
+							padding: "9px 14px",
+							borderBottom: active
+								? `2.5px solid ${T.accent}`
+								: "2.5px solid transparent",
+							marginBottom: -1,
+							transition: ".15s ease",
+						}}
+					>
+						{tb.label}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
+
 // ---- 一覧の1行 ---------------------------------------------
 function TeamRow({ T, code, favs, onOpen, last }) {
 	const tm = (window.WC.TEAM || {})[code];
@@ -347,6 +388,7 @@ function TeamFixtureRow({ T, match, code, last }) {
 // ---- 詳細画面（ヘッダー＋名簿＋日程）-----------------------
 function TeamDetail({ T, code, onBack }) {
 	const favs = useFavs();
+	const [subtab, setSubtab] = React.useState("squad"); // squad | schedule
 	const tm = (window.WC.TEAM || {})[code];
 	const lib = window.WC.teamsLib || {};
 	if (!tm) return null;
@@ -442,98 +484,111 @@ function TeamDetail({ T, code, onBack }) {
 				<FavButton T={T} code={code} favs={favs} big />
 			</div>
 
+			{/* サブタブ（メンバー / 日程 を切替） */}
+			<DetailTabs
+				T={T}
+				value={subtab}
+				onChange={setSubtab}
+				tabs={[
+					{ id: "squad", label: "メンバー" },
+					{ id: "schedule", label: "日程" },
+				]}
+			/>
+
 			{/* 名簿 */}
-			<SectionHeader T={T} label="メンバー" />
-			<Card T={T} style={{ padding: "8px 14px 12px" }}>
-				{squad.length === 0 ? (
-					<div
-						style={{
-							color: T.faint,
-							fontSize: 14,
-							padding: "20px 0",
-							textAlign: "center",
-							fontWeight: 700,
-						}}
-					>
-						メンバーはまだ登録されていません
-					</div>
-				) : (
-					<React.Fragment>
-						{TEAMS_POS_ORDER.map(
-							(pos) =>
-								grouped[pos].length > 0 && (
-									<div key={pos} style={{ marginBottom: 10 }}>
-										<div
-											style={{
-												fontFamily: "Archivo",
-												fontWeight: 800,
-												fontSize: 11,
-												letterSpacing: 1,
-												color: T.faint,
-												margin: "8px 0 4px",
-											}}
-										>
-											{pos}{" "}
-											<span style={{ color: T.sub }}>
-												{TEAMS_POS_LABEL[pos]}
-											</span>
+			{subtab === "squad" && (
+				<Card T={T} style={{ padding: "8px 14px 12px", marginTop: 10 }}>
+					{squad.length === 0 ? (
+						<div
+							style={{
+								color: T.faint,
+								fontSize: 14,
+								padding: "20px 0",
+								textAlign: "center",
+								fontWeight: 700,
+							}}
+						>
+							メンバーはまだ登録されていません
+						</div>
+					) : (
+						<React.Fragment>
+							{TEAMS_POS_ORDER.map(
+								(pos) =>
+									grouped[pos].length > 0 && (
+										<div key={pos} style={{ marginBottom: 10 }}>
+											<div
+												style={{
+													fontFamily: "Archivo",
+													fontWeight: 800,
+													fontSize: 11,
+													letterSpacing: 1,
+													color: T.faint,
+													margin: "8px 0 4px",
+												}}
+											>
+												{pos}{" "}
+												<span style={{ color: T.sub }}>
+													{TEAMS_POS_LABEL[pos]}
+												</span>
+											</div>
+											{grouped[pos].map((p, i) => (
+												<PlayerLine key={i} T={T} pos={pos} player={p} />
+											))}
 										</div>
-										{grouped[pos].map((p, i) => (
-											<PlayerLine key={i} T={T} pos={pos} player={p} />
-										))}
+									),
+							)}
+							{other.length > 0 && (
+								<div style={{ marginBottom: 10 }}>
+									<div
+										style={{
+											fontFamily: "Archivo",
+											fontWeight: 800,
+											fontSize: 11,
+											letterSpacing: 1,
+											color: T.faint,
+											margin: "8px 0 4px",
+										}}
+									>
+										その他
 									</div>
-								),
-						)}
-						{other.length > 0 && (
-							<div style={{ marginBottom: 10 }}>
-								<div
-									style={{
-										fontFamily: "Archivo",
-										fontWeight: 800,
-										fontSize: 11,
-										letterSpacing: 1,
-										color: T.faint,
-										margin: "8px 0 4px",
-									}}
-								>
-									その他
+									{other.map((p, i) => (
+										<PlayerLine key={i} T={T} pos={p.pos} player={p} />
+									))}
 								</div>
-								{other.map((p, i) => (
-									<PlayerLine key={i} T={T} pos={p.pos} player={p} />
-								))}
-							</div>
-						)}
-					</React.Fragment>
-				)}
-			</Card>
+							)}
+						</React.Fragment>
+					)}
+				</Card>
+			)}
 
 			{/* 日程 */}
-			<SectionHeader T={T} label="日程" />
-			<Card T={T} style={{ padding: "2px 14px" }}>
-				{fixtures.length === 0 ? (
-					<div
-						style={{
-							color: T.faint,
-							fontSize: 14,
-							padding: "20px 0",
-							textAlign: "center",
-							fontWeight: 700,
-						}}
-					>
-						日程は未定です
-					</div>
-				) : (
-					fixtures.map((m, i) => (
-						<TeamFixtureRow
-							key={`${m.date || "x"}-${m.a}-${m.b}`}
-							T={T}
-							match={m}
-							code={code}
-							last={i === fixtures.length - 1}
-						/>
-					))
-				)}
-			</Card>
+			{subtab === "schedule" && (
+				<Card T={T} style={{ padding: "2px 14px", marginTop: 10 }}>
+					{fixtures.length === 0 ? (
+						<div
+							style={{
+								color: T.faint,
+								fontSize: 14,
+								padding: "20px 0",
+								textAlign: "center",
+								fontWeight: 700,
+							}}
+						>
+							日程は未定です
+						</div>
+					) : (
+						fixtures.map((m, i) => (
+							<TeamFixtureRow
+								key={`${m.date || "x"}-${m.a}-${m.b}`}
+								T={T}
+								match={m}
+								code={code}
+								last={i === fixtures.length - 1}
+							/>
+						))
+					)}
+				</Card>
+			)}
 		</div>
 	);
 }
