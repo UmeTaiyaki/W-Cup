@@ -12,6 +12,14 @@ const DETAIL_TABS = [
 	{ id: "h2h", label: "H2H" },
 ];
 
+// ライブ更新の控えめなアニメーション。詳細画面に自己完結で注入（本番/ハーネス両対応）。
+const DETAIL_ANIM_CSS = `
+@keyframes wcScorePop { 0%{transform:scale(1)} 38%{transform:scale(1.22)} 100%{transform:scale(1)} }
+@keyframes wcEventIn { from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:translateY(0)} }
+@keyframes wcEventFlash { from{background:rgba(182,255,60,0.14)} to{background:transparent} }
+@keyframes wcLivePulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.35; transform:scale(.62)} }
+`;
+
 // ── ヘルパー ──────────────────────────────────────────────────────────────
 function fmtKickoff(starting_at) {
 	if (!starting_at) return "--:--";
@@ -66,6 +74,16 @@ function DetailHeader({ T, fx, goBack }) {
 			? `${homeScore} - ${awayScore}`
 			: "–";
 
+	// スコアが変化したら数字をポップさせる（key を変えて再マウント＝アニメ再生）
+	const [scorePop, setScorePop] = React.useState(0);
+	const prevScoreRef = React.useRef(scoreStr);
+	React.useEffect(() => {
+		if (prevScoreRef.current !== scoreStr) {
+			prevScoreRef.current = scoreStr;
+			setScorePop((n) => n + 1);
+		}
+	}, [scoreStr]);
+
 	// ステータスバッジ
 	let statusBadge = null;
 	if (fx.status === "LIVE") {
@@ -92,6 +110,7 @@ function DetailHeader({ T, fx, goBack }) {
 						borderRadius: 3,
 						background: "#ff5a5a",
 						display: "inline-block",
+						animation: "wcLivePulse 1.5s ease-in-out infinite",
 					}}
 				/>
 				LIVE
@@ -221,11 +240,15 @@ function DetailHeader({ T, fx, goBack }) {
 				{/* スコア + バッジ */}
 				<div style={{ textAlign: "center" }}>
 					<div
+						key={scorePop}
 						style={{
 							fontSize: 32,
 							fontWeight: 800,
 							letterSpacing: 1,
 							color: T.text,
+							animation: scorePop
+								? "wcScorePop .55s cubic-bezier(.22,1.4,.4,1) both"
+								: undefined,
 						}}
 					>
 						{scoreStr}
@@ -434,6 +457,18 @@ function TimelineTab({ T, detail }) {
 	const fx = detail && detail.fixture;
 	const homeTeamId = fx && fx.home && fx.home.team_id;
 
+	// 新着イベントだけアニメ（初回ロードは静か＝既存全件を seen に積む）
+	const seenRef = React.useRef(new Set());
+	const firstRef = React.useRef(true);
+	const ids = events.map((e) => e.sm_event_id).filter((id) => id != null);
+	const newIdSet = new Set(
+		firstRef.current ? [] : ids.filter((id) => !seenRef.current.has(id)),
+	);
+	React.useEffect(() => {
+		ids.forEach((id) => seenRef.current.add(id));
+		firstRef.current = false;
+	});
+
 	/** 分文字列: "45+3'" など */
 	function fmtMin(ev) {
 		if (ev.extra_minute != null && ev.extra_minute > 0) {
@@ -516,6 +551,7 @@ function TimelineTab({ T, detail }) {
 					const isOwnGoal = ev.type === "own_goal";
 					const isSub = ev.type === "substitution";
 					const playerColor = isOwnGoal ? T.sub : T.text;
+					const isNew = ev.sm_event_id != null && newIdSet.has(ev.sm_event_id);
 
 					// ホーム→左側、アウェイ→右側
 					return (
@@ -527,6 +563,10 @@ function TimelineTab({ T, detail }) {
 								margin: "13px 0",
 								fontSize: 12,
 								position: "relative",
+								borderRadius: 8,
+								animation: isNew
+									? "wcEventIn .45s ease both, wcEventFlash 1.4s ease both"
+									: undefined,
 							}}
 						>
 							{/* ホーム側 (左) */}
@@ -1950,6 +1990,7 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 				flexDirection: "column",
 			}}
 		>
+			<style>{DETAIL_ANIM_CSS}</style>
 			{/* 固定スコアヘッダー（戻るボタンを内包） */}
 			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
