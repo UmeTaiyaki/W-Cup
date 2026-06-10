@@ -119,6 +119,13 @@ export function toStatRows(detail) {
 		}));
 }
 
+// lineups.player.teams から現所属クラブ（meta.active=true 優先・無ければ先頭）を返す。
+function activeClub(l) {
+	const teams = Array.isArray(l?.player?.teams) ? l.player.teams : [];
+	if (teams.length === 0) return null;
+	return teams.find((t) => t?.meta?.active === true) ?? teams[0] ?? null;
+}
+
 // lineups[] → sm_lineups 行。type_id 11=先発/12=控え。xg は xglineup.value。
 export function toLineupRows(detail) {
 	const lineups = Array.isArray(detail?.lineups) ? detail.lineups : [];
@@ -134,6 +141,15 @@ export function toLineupRows(detail) {
 			formation_field: l.formation_field ?? null,
 			is_start: l.type_id === 11 ? 1 : l.type_id === 12 ? 0 : null,
 			xg: l?.xglineup?.value ?? null,
+			date_of_birth: l?.player?.date_of_birth ?? null,
+			height: l?.player?.height ?? null,
+			weight: l?.player?.weight ?? null,
+			nationality_id: l?.player?.nationality_id ?? null,
+			nationality_name: l?.player?.nationality?.name ?? null,
+			detailed_position:
+				l.detailed_position ?? l?.player?.detailedposition?.name ?? null,
+			club_name: activeClub(l)?.name ?? null,
+			club_image: activeClub(l)?.image_path ?? null,
 		}));
 }
 
