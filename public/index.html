@@ -84,7 +84,9 @@
     import { drawShareCard } from './lib/share-draw.js';
     import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
     import { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday } from './lib/schedule-view.js';
+    import { parseFavs, toggleFav, teamFixtures, groupOf } from './lib/teams.js';
     window.WC = window.WC || {};
+    window.WC.teamsLib = { parseFavs, toggleFav, teamFixtures, groupOf };
     Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings });
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
     Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday });
@@ -93,7 +95,7 @@
   </script>
   <script type="text/babel" src="tweaks-panel.jsx?v=3"></script>
   <script type="text/babel" src="ios-frame.jsx?v=3"></script>
-  <script type="text/babel" src="ui.jsx?v=14"></script>
+  <script type="text/babel" src="ui.jsx?v=15"></script>
   <script type="text/babel" src="app-shell.jsx?v=10"></script>
   <script type="text/babel" src="screens-core.jsx?v=17"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=8"></script>
@@ -107,6 +109,7 @@
   <script type="text/babel" src="screens-rooms.jsx?v=11"></script>
   <script type="text/babel" src="screens-home.jsx?v=7"></script>
   <script type="text/babel" src="screens-detail.jsx?v=12"></script>
+  <script type="text/babel" src="screens-teams.jsx?v=2"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
@@ -656,6 +659,7 @@
         { id: 'input',   label: '予想',   icon: 'edit' },
         { id: 'rooms',   label: '部屋',   icon: 'people' },
         { id: 'group',   label: '大会結果', icon: 'grid' },
+        { id: 'teams',   label: 'チーム', icon: 'shield' },
       ];
 
       const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
@@ -671,6 +675,7 @@
         }
         if (tab === 'summary') return <HomeScreen T={T} wide={wide} />;
         if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
+        if (tab === 'teams') return <TeamsScreen T={T} wide={wide} />;
         // 以下は identity 必須。匿名ならタブ内に作成ゲートを出す。
         if (!me && (tab === 'input' || tab === 'rooms')) {
           return <IdentityGate T={T} siteKey={siteKey} purpose={tab} onCreated={handleIdentityCreated} />;
