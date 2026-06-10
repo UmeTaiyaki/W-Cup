@@ -39,6 +39,12 @@ for i in $(seq 1 "$TICKS"); do
     sql "UPDATE sm_fixtures SET updated_at=$now WHERE sm_fixture_id=$FX;"
     echo "  tick $i (min~$min): tick"
   fi
+  # チームスタッツも毎 tick 動かす（スタッツタブのライブ反映を検証できるように）
+  hp=$(( 50 + (i % 7) - 3 ))   # 支配率 47〜53% で揺らす
+  sql "UPDATE sm_stats SET value=$hp,          updated_at=$now WHERE sm_fixture_id=$FX AND team_id=9100001 AND type_id=45;"  # JPN 支配率
+  sql "UPDATE sm_stats SET value=$((100-hp)),  updated_at=$now WHERE sm_fixture_id=$FX AND team_id=9100002 AND type_id=45;"  # GER 支配率
+  sql "UPDATE sm_stats SET value=value+1,      updated_at=$now WHERE sm_fixture_id=$FX AND team_id=9100001 AND type_id=42;"  # JPN シュート
+  sql "UPDATE sm_stats SET value=value+1,      updated_at=$now WHERE sm_fixture_id=$FX AND team_id=9100002 AND type_id=86;"  # GER 枠内
   sleep "$INT"
 done
 echo "done. インプレーのまま。終了状態にするには: wrangler d1 execute $DB --local --command \"UPDATE sm_fixtures SET state_id=5 WHERE sm_fixture_id=$FX;\""
