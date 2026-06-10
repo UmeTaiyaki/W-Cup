@@ -263,6 +263,8 @@
 	// ---- 観戦ライブ（/api/live・WATCH_ENABLED）----------------------
 	// SportMonks 由来の状態＋スコアを app_code ペアで索引化。OFF/失敗時は空＝既存表示のまま。
 	window.WC.LIVE = {};
+	// チームロゴ URL 索引（/api/live の image_url 由来）。OFF/失敗時は {} のまま。
+	window.WC.TEAM_LOGOS = {};
 	// 順不同の app_code ペアキー（schedule の match.a/match.b と突合）
 	window.WC.liveKey = function liveKey(a, b) {
 		if (!a || !b) return null;
@@ -275,9 +277,11 @@
 			const data = await res.json();
 			if (!data || data.enabled === false || !Array.isArray(data.fixtures)) {
 				window.WC.LIVE = {};
+				window.WC.TEAM_LOGOS = {};
 				return false;
 			}
 			const index = {};
+			const logos = {};
 			for (const fx of data.fixtures) {
 				const ha = fx.home && fx.home.app_code;
 				const aa = fx.away && fx.away.app_code;
@@ -290,13 +294,23 @@
 					result_info: fx.result_info || null,
 					scores: { [ha]: fx.home.score, [aa]: fx.away.score },
 				};
+				// ロゴ URL 索引（app_code → image_url）
+				if (ha && fx.home.image_url) logos[ha] = fx.home.image_url;
+				if (aa && fx.away.image_url) logos[aa] = fx.away.image_url;
 			}
 			window.WC.LIVE = index;
+			window.WC.TEAM_LOGOS = logos;
 			return true;
 		} catch (e) {
 			window.WC.LIVE = {};
+			window.WC.TEAM_LOGOS = {};
 			return false;
 		}
+	};
+	// app_code → チームロゴURL（/api/live 由来）。無ければ null（呼び出し側で絵文字旗にフォールバック）。
+	window.WC.teamLogo = function teamLogo(code) {
+		if (!code || !window.WC.TEAM_LOGOS) return null;
+		return window.WC.TEAM_LOGOS[code] || null;
 	};
 	// schedule の1試合に対応するライブ情報。未開始/未マッチは null（＝重ねない）。
 	window.WC.liveForMatch = function liveForMatch(match) {
