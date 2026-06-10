@@ -12,16 +12,63 @@ const DETAIL_TABS = [
 	{ id: "h2h", label: "H2H" },
 ];
 
+// ライブ更新の控えめなアニメーション。詳細画面に自己完結で注入（本番/ハーネス両対応）。
+const DETAIL_ANIM_CSS = `
+@keyframes wcScorePop { 0%{transform:scale(1)} 38%{transform:scale(1.22)} 100%{transform:scale(1)} }
+@keyframes wcEventIn { from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:translateY(0)} }
+@keyframes wcEventFlash { from{background:rgba(182,255,60,0.14)} to{background:transparent} }
+@keyframes wcLivePulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.35; transform:scale(.62)} }
+`;
+
 // ── ヘルパー ──────────────────────────────────────────────────────────────
-function fmtKickoff(starting_at) {
-	if (!starting_at) return "--:--";
+// SportMonks の starting_at は UTC。日本時間(Asia/Tokyo)で表示する。
+// epoch(starting_at_ts) 優先＝TZ曖昧性ゼロ。無ければ "YYYY-MM-DD HH:MM:SS"(UTC) を Z 付与して解釈。
+function toJstDate(fx) {
+	if (fx && fx.starting_at_ts != null) {
+		const n = Number(fx.starting_at_ts);
+		if (!isNaN(n) && n > 0) return new Date(n * 1000);
+	}
+	const s = fx && fx.starting_at;
+	if (!s) return null;
+	let iso = String(s).trim().replace(" ", "T");
+	if (!/([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)) iso += "Z"; // TZ無し＝UTC扱い
+	const d = new Date(iso);
+	return isNaN(d.getTime()) ? null : d;
+}
+
+// JST のキックオフ時刻 "HH:MM"
+function fmtKickoff(fx) {
+	const d = toJstDate(fx);
+	if (!d) return "--:--";
 	try {
-		const d = new Date(starting_at);
-		const h = String(d.getHours()).padStart(2, "0");
-		const m = String(d.getMinutes()).padStart(2, "0");
-		return `${h}:${m}`;
+		return new Intl.DateTimeFormat("ja-JP", {
+			timeZone: "Asia/Tokyo",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		}).format(d);
 	} catch (e) {
 		return "--:--";
+	}
+}
+
+// JST の日付 "YYYY-MM-DD (曜)"
+function fmtMatchDate(fx) {
+	const d = toJstDate(fx);
+	if (!d) return "";
+	try {
+		const parts = new Intl.DateTimeFormat("ja-JP", {
+			timeZone: "Asia/Tokyo",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			weekday: "short",
+		}).formatToParts(d);
+		const get = (t) => (parts.find((p) => p.type === t) || {}).value || "";
+		const wd = get("weekday").replace(/曜日?$/, "");
+		return `${get("year")}-${get("month")}-${get("day")}（${wd}）`;
+	} catch (e) {
+		return "";
 	}
 }
 
@@ -66,6 +113,16 @@ function DetailHeader({ T, fx, goBack }) {
 			? `${homeScore} - ${awayScore}`
 			: "–";
 
+	// スコアが変化したら数字をポップさせる（key を変えて再マウント＝アニメ再生）
+	const [scorePop, setScorePop] = React.useState(0);
+	const prevScoreRef = React.useRef(scoreStr);
+	React.useEffect(() => {
+		if (prevScoreRef.current !== scoreStr) {
+			prevScoreRef.current = scoreStr;
+			setScorePop((n) => n + 1);
+		}
+	}, [scoreStr]);
+
 	// ステータスバッジ
 	let statusBadge = null;
 	if (fx.status === "LIVE") {
@@ -92,6 +149,7 @@ function DetailHeader({ T, fx, goBack }) {
 						borderRadius: 3,
 						background: "#ff5a5a",
 						display: "inline-block",
+						animation: "wcLivePulse 1.5s ease-in-out infinite",
 					}}
 				/>
 				LIVE
@@ -133,7 +191,7 @@ function DetailHeader({ T, fx, goBack }) {
 					marginTop: 4,
 				}}
 			>
-				{fmtKickoff(fx.starting_at)}
+				{fmtKickoff(fx)}
 			</div>
 		);
 	}
@@ -182,7 +240,7 @@ function DetailHeader({ T, fx, goBack }) {
 					</button>
 				)}
 				<span style={{ fontSize: 10.5, color: T.faint, fontWeight: 700 }}>
-					{(fx.starting_at || "").slice(0, 10)}
+					{fmtMatchDate(fx)}
 				</span>
 				<span
 					style={{
@@ -221,11 +279,15 @@ function DetailHeader({ T, fx, goBack }) {
 				{/* スコア + バッジ */}
 				<div style={{ textAlign: "center" }}>
 					<div
+						key={scorePop}
 						style={{
 							fontSize: 32,
 							fontWeight: 800,
 							letterSpacing: 1,
 							color: T.text,
+							animation: scorePop
+								? "wcScorePop .55s cubic-bezier(.22,1.4,.4,1) both"
+								: undefined,
 						}}
 					>
 						{scoreStr}
@@ -434,6 +496,18 @@ function TimelineTab({ T, detail }) {
 	const fx = detail && detail.fixture;
 	const homeTeamId = fx && fx.home && fx.home.team_id;
 
+	// 新着イベントだけアニメ（初回ロードは静か＝既存全件を seen に積む）
+	const seenRef = React.useRef(new Set());
+	const firstRef = React.useRef(true);
+	const ids = events.map((e) => e.sm_event_id).filter((id) => id != null);
+	const newIdSet = new Set(
+		firstRef.current ? [] : ids.filter((id) => !seenRef.current.has(id)),
+	);
+	React.useEffect(() => {
+		ids.forEach((id) => seenRef.current.add(id));
+		firstRef.current = false;
+	});
+
 	/** 分文字列: "45+3'" など */
 	function fmtMin(ev) {
 		if (ev.extra_minute != null && ev.extra_minute > 0) {
@@ -516,6 +590,7 @@ function TimelineTab({ T, detail }) {
 					const isOwnGoal = ev.type === "own_goal";
 					const isSub = ev.type === "substitution";
 					const playerColor = isOwnGoal ? T.sub : T.text;
+					const isNew = ev.sm_event_id != null && newIdSet.has(ev.sm_event_id);
 
 					// ホーム→左側、アウェイ→右側
 					return (
@@ -527,6 +602,10 @@ function TimelineTab({ T, detail }) {
 								margin: "13px 0",
 								fontSize: 12,
 								position: "relative",
+								borderRadius: 8,
+								animation: isNew
+									? "wcEventIn .45s ease both, wcEventFlash 1.4s ease both"
+									: undefined,
 							}}
 						>
 							{/* ホーム側 (左) */}
@@ -1950,6 +2029,7 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 				flexDirection: "column",
 			}}
 		>
+			<style>{DETAIL_ANIM_CSS}</style>
 			{/* 固定スコアヘッダー（戻るボタンを内包） */}
 			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
