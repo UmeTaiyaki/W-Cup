@@ -103,7 +103,7 @@
   <script type="text/babel" src="screens-thirdwild.jsx?v=9"></script>
   <script type="text/babel" src="screens-share.jsx?v=5"></script>
   <script type="text/babel" src="screens-optview.jsx?v=12"></script>
-  <script type="text/babel" src="onboarding.jsx?v=14"></script>
+  <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=11"></script>
   <script type="text/babel" src="screens-home.jsx?v=7"></script>
   <script type="text/babel" src="screens-detail.jsx?v=12"></script>
@@ -573,7 +573,7 @@
       const [roomView, setRoomView] = useState(() => {
         try {
           const last = localStorage.getItem(LAST_ROOM_KEY);
-          const rooms = me.rooms || [];
+          const rooms = (me && me.rooms) || [];
           return last ? (rooms.find((r) => r.id === last) || null) : null;
         } catch (e) { return null; }
       });
@@ -612,8 +612,11 @@
         if (cu && cu.updatedAt) setMe((prev) => ({ ...prev, updatedAt: cu.updatedAt }));
       }), []);
 
-      const pred = me.pred || window.WC.emptyPred();
-      const member = { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' };
+      // me は匿名（null）を取りうる。予想/部屋/アカウントに入った時だけ IdentityGate を出す。
+      const pred = me ? (me.pred || window.WC.emptyPred()) : window.WC.emptyPred();
+      const member = me ? { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' } : null;
+      // IdentityGate 作成/復元完了 → me を確定し、タブ本体を表示。
+      function handleIdentityCreated(u) { setMe(window.WC.Me.withDraft(u)); }
 
       // 編集はローカル下書きへ即時保存（KVは「保存」ボタン＝commit時のみ）
       function persist(nextPred) { setMe({ ...me, pred: nextPred }); window.WC.Me.saveDraft(nextPred); }
@@ -624,7 +627,7 @@
       function goTab(id) { setOptScreen(null); setDetailFixture(null); setTab(id); }
 
       // 既存 screens は state.members/preds を参照するため単一メンバーのシムを渡す
-      const soloState = { current: me.id, members: [member], preds: { [me.id]: pred } };
+      const soloState = me ? { current: me.id, members: [member], preds: { [me.id]: pred } } : null;
 
       const TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
@@ -641,6 +644,11 @@
           return <MatchDetailScreen T={T} fixtureId={detailFixture} goBack={() => setDetailFixture(null)} />;
         }
         if (tab === 'summary') return <HomeScreen T={T} wide={wide} />;
+        if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
+        // 以下は identity 必須。匿名ならタブ内に作成ゲートを出す。
+        if (!me && (tab === 'input' || tab === 'rooms' || tab === 'account')) {
+          return <IdentityGate T={T} siteKey={siteKey} purpose={tab} onCreated={handleIdentityCreated} />;
+        }
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
@@ -656,7 +664,6 @@
             goBack={() => setRoomView(null)} wide={wide} availWidth={contentAvail} refreshKey={roomRefreshKey} />;
           return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={openRoom} wide={wide} siteKey={siteKey} />;
         }
-        if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
         if (tab === 'account') return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} siteKey={siteKey} />;
         return null;
       }
@@ -712,11 +719,19 @@
                     <Icon name="refresh" size={16} color={refreshing ? T.accent : T.sub} />
                   </span>
                 </button>
-                <button onClick={() => goTab('account')} title="アカウント" style={{
-                  border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
-                  display: 'grid', placeItems: 'center' }}>
-                  <Avatar m={member} size={34} active={tab === 'account'} T={T} />
-                </button>
+                {member ? (
+                  <button onClick={() => goTab('account')} title="アカウント" style={{
+                    border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
+                    display: 'grid', placeItems: 'center' }}>
+                    <Avatar m={member} size={34} active={tab === 'account'} T={T} />
+                  </button>
+                ) : (
+                  <button onClick={() => goTab('account')} title="登録" style={{
+                    border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 800, fontSize: 13,
+                    color: T.accentInk, background: T.accent, borderRadius: 999, padding: '7px 14px' }}>
+                    登録
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -844,16 +859,19 @@
           // 観戦ライブ（状態＋スコア）を取得。完了で再レンダリングして反映。OFF/失敗は既存表示のまま。
           window.WC.fetchLive().then(() => setConfigLoaded((v) => !v));
         });
+        // identity の有無に関わらず home に着地する（匿名閲覧可）。
+        // 予想/部屋/アカウントに入った時だけタブ内で IdentityGate を出す。
+        if (pendingJoin) setHomeTab('rooms');  // 招待リンクは部屋タブに着地
         if (window.WC.Me.load()) {
           window.WC.Me.refresh().then((u) => {
-            if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // 下書きを温存
-            else { setMe(null); setRoute('onboarding'); }  // 失効/未登録
+            setMe(u ? window.WC.Me.withDraft(u) : null);  // 下書きを温存。失効時は匿名
+            setRoute('home');
           });
         } else {
           // localStorage に identity が無い → cookie からサーバー復元を試す（iOS Safari ITP 対策）。
           window.WC.Me.restore().then((u) => {
-            if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // cookie から自動ログイン
-            else { setMe(null); setRoute('onboarding'); }  // cookie 無し/失効 → 新規登録
+            setMe(u ? window.WC.Me.withDraft(u) : null);  // cookie から自動ログイン、無ければ匿名
+            setRoute('home');
           });
         }
       }, []);
@@ -868,14 +886,13 @@
       const isDesktop = mode === 'desktop';
 
       let inner;
-      if (route === 'onboarding') {
-        inner = <Onboarding T={T} siteKey={siteKey} onDone={(u, tab) => { setMe(window.WC.Me.withDraft(u)); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
-      } else if (route === 'restoring' || !me) {
+      if (route === 'restoring') {
+        // cookie 復元の解決待ち。me は null でも 'home' になれば匿名表示する。
         inner = <Splash T={T} />;
       } else {
         inner = <Home key={homeKey} T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}
           isDesktop={isDesktop} contW={contW} mode={mode} initialTab={homeTab} siteKey={siteKey}
-          onSignOut={() => { window.WC.Me.clear(); setMe(null); setRoute('onboarding'); }} />;
+          onSignOut={() => { window.WC.Me.clear(); setMe(null); setHomeTab('summary'); setHomeKey((k) => k + 1); }} />;
       }
 
       // 外側：プレビュー枠処理
