@@ -93,8 +93,8 @@
   </script>
   <script type="text/babel" src="tweaks-panel.jsx?v=3"></script>
   <script type="text/babel" src="ios-frame.jsx?v=3"></script>
-  <script type="text/babel" src="ui.jsx?v=12"></script>
-  <script type="text/babel" src="app-shell.jsx?v=9"></script>
+  <script type="text/babel" src="ui.jsx?v=14"></script>
+  <script type="text/babel" src="app-shell.jsx?v=10"></script>
   <script type="text/babel" src="screens-core.jsx?v=17"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=8"></script>
   <script type="text/babel" src="screens-rank.jsx?v=8"></script>
@@ -103,7 +103,7 @@
   <script type="text/babel" src="screens-thirdwild.jsx?v=9"></script>
   <script type="text/babel" src="screens-share.jsx?v=5"></script>
   <script type="text/babel" src="screens-optview.jsx?v=12"></script>
-  <script type="text/babel" src="onboarding.jsx?v=14"></script>
+  <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=11"></script>
   <script type="text/babel" src="screens-home.jsx?v=7"></script>
   <script type="text/babel" src="screens-detail.jsx?v=12"></script>
@@ -371,13 +371,13 @@
     }
 
     // アカウント画面（名前変更＋同期コード再表示＋このブラウザのデータ削除）
-    function AccountScreen({ T, me, setMe, onSignOut, siteKey }) {
+    function AccountScreen({ T, me, setMe, onSignOut, siteKey, goBack, onCreated }) {
       const pwa = usePwaInstall();
       const [showIosGuide, setShowIosGuide] = useState(false);
       const [copied, setCopied] = useState(false);
       const [confirm, setConfirm] = useState(false);
       const [editing, setEditing] = useState(false);
-      const [draft, setDraft] = useState(me.name || '');
+      const [draft, setDraft] = useState((me && me.name) || '');
       const [saving, setSaving] = useState(false);
       const [nameErr, setNameErr] = useState('');
       const [showFeedback, setShowFeedback] = useState(false);
@@ -401,9 +401,23 @@
           setNameErr(e && e.message ? e.message : '変更に失敗しました');
         } finally { setSaving(false); }
       }
-      const avatar = { c: T.accent, initial: Array.from(me.name || '?')[0] || '?' };
+      const avatar = { c: T.accent, initial: Array.from((me && me.name) || '?')[0] || '?' };
       return (
         <div style={{ padding: '4px 16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* 戻るヘッダー（旧アカウントタブ → 歯車から開くオーバーレイ） */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '2px 0 2px -6px' }}>
+            {goBack && (
+              <button onClick={goBack} title="戻る" style={{
+                border: 'none', background: 'transparent', cursor: 'pointer', padding: 6,
+                display: 'grid', placeItems: 'center', transform: 'scaleX(-1)' }}>
+                <Icon name="chevron" size={22} color={T.sub} sw={2.4} />
+              </button>
+            )}
+            <div style={{ fontSize: 19, fontWeight: 900, color: T.text }}>設定</div>
+          </div>
+
+          {/* 未登録時はアカウント関連セクションごと非表示。登録は予想・部屋タブで行う。 */}
+          {me && (
           <div>
             <Eyebrow T={T}>アカウント</Eyebrow>
             {!editing ? (
@@ -445,8 +459,10 @@
               </div>
             )}
           </div>
+          )}
 
           {/* 同期コード */}
+          {me && (
           <div style={{ background: T.card, borderRadius: 18, padding: 18, boxShadow: `inset 0 0 0 1px ${T.line}` }}>
             <Eyebrow T={T}>同期コード</Eyebrow>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
@@ -464,6 +480,7 @@
               別の端末で予想を続けるときに使います。<br />
               <b style={{ color: T.sub }}>無くすと復元できません</b>ので大切に保管してください。</p>
           </div>
+          )}
 
           {/* アプリとして使う（PWA インストール）。Android/PC はネイティブ、iOS は手順案内。 */}
           {!pwa.installed && (pwa.canPrompt || pwa.isIOS) && (
@@ -498,6 +515,7 @@
           </div>
 
           {/* このブラウザからサインアウト */}
+          {me && (
           <div style={{ marginTop: 4, paddingTop: 16, borderTop: `1px solid ${T.line}` }}>
             {!confirm ? (
               <button onClick={() => setConfirm(true)} style={{
@@ -527,6 +545,7 @@
               </div>
             )}
           </div>
+          )}
 
           {/* ビルドバージョン表示。Web版とPWA版でこの値が一致していれば最新（旧版判定の目安）。 */}
           <p style={{ color: T.faint, fontSize: 11, textAlign: 'center', letterSpacing: 0.4,
@@ -573,7 +592,7 @@
       const [roomView, setRoomView] = useState(() => {
         try {
           const last = localStorage.getItem(LAST_ROOM_KEY);
-          const rooms = me.rooms || [];
+          const rooms = (me && me.rooms) || [];
           return last ? (rooms.find((r) => r.id === last) || null) : null;
         } catch (e) { return null; }
       });
@@ -587,6 +606,9 @@
         window.WC.openDetail = (id) => { if (id != null) setDetailFixture(id); };
         return () => { delete window.WC.openDetail; };
       }, []);
+
+      // 設定（旧アカウントタブ）。歯車から開くオーバーレイ画面。
+      const [settingsOpen, setSettingsOpen] = useState(false);
 
       // ヘッダーの更新ボタンで最新データを再取得（プル更新は廃止）。
       const [roomRefreshKey, setRoomRefreshKey] = useState(0);
@@ -612,8 +634,11 @@
         if (cu && cu.updatedAt) setMe((prev) => ({ ...prev, updatedAt: cu.updatedAt }));
       }), []);
 
-      const pred = me.pred || window.WC.emptyPred();
-      const member = { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' };
+      // me は匿名（null）を取りうる。予想/部屋/アカウントに入った時だけ IdentityGate を出す。
+      const pred = me ? (me.pred || window.WC.emptyPred()) : window.WC.emptyPred();
+      const member = me ? { id: me.id, name: me.name, c: T.accent, initial: Array.from(me.name)[0] || '?' } : null;
+      // IdentityGate 作成/復元完了 → me を確定し、タブ本体を表示。
+      function handleIdentityCreated(u) { setMe(window.WC.Me.withDraft(u)); }
 
       // 編集はローカル下書きへ即時保存（KVは「保存」ボタン＝commit時のみ）
       function persist(nextPred) { setMe({ ...me, pred: nextPred }); window.WC.Me.saveDraft(nextPred); }
@@ -621,26 +646,35 @@
       function setGroupRank(k, arr) { persist({ ...pred, groupRank: { ...(pred.groupRank || {}), [k]: arr } }); }
       function setThirdGroups(arr) { persist({ ...pred, thirdGroups: arr }); }
       function setKnockout(w) { persist({ ...pred, knockout: w }); }
-      function goTab(id) { setOptScreen(null); setDetailFixture(null); setTab(id); }
+      function goTab(id) { setOptScreen(null); setDetailFixture(null); setSettingsOpen(false); setTab(id); }
 
       // 既存 screens は state.members/preds を参照するため単一メンバーのシムを渡す
-      const soloState = { current: me.id, members: [member], preds: { [me.id]: pred } };
+      const soloState = me ? { current: me.id, members: [member], preds: { [me.id]: pred } } : null;
 
       const TABS = [
         { id: 'summary', label: 'ホーム', icon: 'trophy' },
         { id: 'input',   label: '予想',   icon: 'edit' },
         { id: 'rooms',   label: '部屋',   icon: 'people' },
         { id: 'group',   label: '大会結果', icon: 'grid' },
-        { id: 'account', label: 'アカウント', icon: 'user' },
       ];
 
       const contentAvail = Math.max(360, contW - (isDesktop ? 256 : 0) - 72);
 
       function renderScreen(wide) {
+        // 設定（歯車）は全タブより優先するオーバーレイ。
+        if (settingsOpen) {
+          return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} siteKey={siteKey}
+            goBack={() => setSettingsOpen(false)} onCreated={handleIdentityCreated} />;
+        }
         if (detailFixture != null) {
           return <MatchDetailScreen T={T} fixtureId={detailFixture} goBack={() => setDetailFixture(null)} />;
         }
         if (tab === 'summary') return <HomeScreen T={T} wide={wide} />;
+        if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
+        // 以下は identity 必須。匿名ならタブ内に作成ゲートを出す。
+        if (!me && (tab === 'input' || tab === 'rooms')) {
+          return <IdentityGate T={T} siteKey={siteKey} purpose={tab} onCreated={handleIdentityCreated} />;
+        }
         if (tab === 'input') {
           if (optScreen === 'grouprank') return <GroupRankScreen T={T} member={member} pred={pred}
             setGroupRank={setGroupRank} goBack={() => setOptScreen(null)} wide={wide} />;
@@ -656,8 +690,6 @@
             goBack={() => setRoomView(null)} wide={wide} availWidth={contentAvail} refreshKey={roomRefreshKey} />;
           return <RoomsScreen T={T} me={me} setMe={setMe} onOpenRoom={openRoom} wide={wide} siteKey={siteKey} />;
         }
-        if (tab === 'group') return <GroupScreen T={T} wide={wide} />;
-        if (tab === 'account') return <AccountScreen T={T} me={me} setMe={setMe} onSignOut={onSignOut} siteKey={siteKey} />;
         return null;
       }
 
@@ -668,10 +700,11 @@
         <div style={{ display: 'flex', height: '100%', background: T.bg, position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: T.grad, pointerEvents: 'none' }} />
           <window.Sidebar solo T={T} t={t} tab={tab} setTab={goTab} tabs={TABS} members={[]}
-            showWordmark={t.showWordmark} />
+            showWordmark={t.showWordmark}
+            onSettings={() => setSettingsOpen(true)} settingsActive={settingsOpen} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', position: 'relative', zIndex: 1 }}>
             <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-              <div key={tab + (optScreen || '') + (roomView ? roomView.id : '') + (detailFixture || '')}
+              <div key={tab + (optScreen || '') + (roomView ? roomView.id : '') + (detailFixture || '') + (settingsOpen ? 'S' : '')}
                 style={{ maxWidth: wrapMax, margin: '0 auto', padding: '30px 36px 40px',
                   animation: 'wcPop .34s cubic-bezier(.22,1,.36,1) both' }}>
                 {renderScreen(true)}
@@ -712,17 +745,18 @@
                     <Icon name="refresh" size={16} color={refreshing ? T.accent : T.sub} />
                   </span>
                 </button>
-                <button onClick={() => goTab('account')} title="アカウント" style={{
-                  border: 'none', background: 'transparent', padding: 0, cursor: 'pointer',
-                  display: 'grid', placeItems: 'center' }}>
-                  <Avatar m={member} size={34} active={tab === 'account'} T={T} />
+                <button onClick={() => setSettingsOpen(true)} title="設定" style={{
+                  border: 'none', background: T.card, width: 34, height: 34, borderRadius: '50%',
+                  display: 'grid', placeItems: 'center', cursor: 'pointer',
+                  boxShadow: `inset 0 0 0 1px ${settingsOpen ? T.accent : T.line}` }}>
+                  <Icon name="gear" size={17} color={settingsOpen ? T.accent : T.sub} />
                 </button>
               </div>
             </div>
           </div>
 
           {/* 画面 */}
-          <div data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '') + (detailFixture || '')}
+          <div data-scroll="main" key={tab + (optScreen || '') + (roomView ? roomView.id : '') + (detailFixture || '') + (settingsOpen ? 'S' : '')}
             style={{ flex: 1, overflow: 'auto', position: 'relative', zIndex: 1, paddingTop: 4 }}>
             <div style={{ maxWidth: 620, margin: '0 auto',
               animation: 'wcPop .34s cubic-bezier(.22,1,.36,1) both' }}>{renderScreen(false)}</div>
@@ -844,16 +878,19 @@
           // 観戦ライブ（状態＋スコア）を取得。完了で再レンダリングして反映。OFF/失敗は既存表示のまま。
           window.WC.fetchLive().then(() => setConfigLoaded((v) => !v));
         });
+        // identity の有無に関わらず home に着地する（匿名閲覧可）。
+        // 予想/部屋/アカウントに入った時だけタブ内で IdentityGate を出す。
+        if (pendingJoin) setHomeTab('rooms');  // 招待リンクは部屋タブに着地
         if (window.WC.Me.load()) {
           window.WC.Me.refresh().then((u) => {
-            if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // 下書きを温存
-            else { setMe(null); setRoute('onboarding'); }  // 失効/未登録
+            setMe(u ? window.WC.Me.withDraft(u) : null);  // 下書きを温存。失効時は匿名
+            setRoute('home');
           });
         } else {
           // localStorage に identity が無い → cookie からサーバー復元を試す（iOS Safari ITP 対策）。
           window.WC.Me.restore().then((u) => {
-            if (u) { setMe(window.WC.Me.withDraft(u)); setRoute('home'); }  // cookie から自動ログイン
-            else { setMe(null); setRoute('onboarding'); }  // cookie 無し/失効 → 新規登録
+            setMe(u ? window.WC.Me.withDraft(u) : null);  // cookie から自動ログイン、無ければ匿名
+            setRoute('home');
           });
         }
       }, []);
@@ -868,14 +905,13 @@
       const isDesktop = mode === 'desktop';
 
       let inner;
-      if (route === 'onboarding') {
-        inner = <Onboarding T={T} siteKey={siteKey} onDone={(u, tab) => { setMe(window.WC.Me.withDraft(u)); setHomeTab(tab || 'summary'); setRoute('home'); }} />;
-      } else if (route === 'restoring' || !me) {
+      if (route === 'restoring') {
+        // cookie 復元の解決待ち。me は null でも 'home' になれば匿名表示する。
         inner = <Splash T={T} />;
       } else {
         inner = <Home key={homeKey} T={T} t={t} setTweak={setTweak} me={me} setMe={setMe}
           isDesktop={isDesktop} contW={contW} mode={mode} initialTab={homeTab} siteKey={siteKey}
-          onSignOut={() => { window.WC.Me.clear(); setMe(null); setRoute('onboarding'); }} />;
+          onSignOut={() => { window.WC.Me.clear(); setMe(null); setHomeTab('summary'); setHomeKey((k) => k + 1); }} />;
       }
 
       // 外側：プレビュー枠処理
