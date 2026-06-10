@@ -100,6 +100,8 @@ export function toEventRows(detail) {
 			team_id: e.participant_id ?? null,
 			player_name: e.player_name ?? null,
 			related_player_name: e.related_player_name ?? null,
+			player_id: e.player_id ?? null,
+			related_player_id: e.related_player_id ?? null,
 			sort_order: e.sort_order ?? null,
 		}));
 }

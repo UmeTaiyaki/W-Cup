@@ -280,3 +280,34 @@ test("toPlayerStatRows: details を (fixture,player,type) 縦持ちに展開", (
 test("toPlayerStatRows: details 無しは空（障害隔離）", () => {
 	assert.deepEqual(toPlayerStatRows({}), []);
 });
+
+test("toEventRows maps player_id and related_player_id", () => {
+	const detail = {
+		id: 1,
+		events: [
+			{
+				id: 10,
+				fixture_id: 1,
+				type_id: 19,
+				minute: 41,
+				participant_id: 5,
+				player_id: 999,
+				related_player_id: null,
+			},
+			{
+				id: 11,
+				fixture_id: 1,
+				type_id: 18,
+				minute: 70,
+				participant_id: 5,
+				player_id: 100,
+				related_player_id: 200,
+			},
+		],
+	};
+	const rows = toEventRows(detail);
+	assert.equal(rows[0].player_id, 999);
+	assert.equal(rows[0].related_player_id, null);
+	assert.equal(rows[1].player_id, 100);
+	assert.equal(rows[1].related_player_id, 200);
+});
