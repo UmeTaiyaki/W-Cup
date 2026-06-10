@@ -1459,91 +1459,132 @@ function PlayerSheet({ T, player, onClose }) {
 											prof.seasons.length - 1,
 										);
 										const s = prof.seasons[idx];
-										const cell = (key, unit) =>
-											s.stats[key] != null ? (
-												<div
-													key={key}
-													style={{
-														flex: "1 0 30%",
-														padding: "8px 0",
-														textAlign: "center",
-													}}
-												>
-													<div
-														style={{
-															fontSize: 15,
-															fontWeight: 900,
-															color: T.text,
-														}}
-													>
-														{s.stats[key]}
-														{unit || ""}
-													</div>
-													<div
-														style={{
-															fontSize: 10,
-															color: T.sub,
-															fontWeight: 700,
-														}}
-													>
-														{key}
-													</div>
-												</div>
-											) : null;
+										const VIEW = [
+											["appearances", "出場", ""],
+											["goals", "ゴール", ""],
+											["assists", "アシスト", ""],
+											["rating", "評価", ""],
+											["minutes", "出場時間", "分"],
+											["yellowcards", "警告", ""],
+											["shots_total", "シュート", ""],
+											["shots_on_target", "枠内", ""],
+											["passes", "パス", ""],
+										];
+										const cells = VIEW.filter(([k]) => s.stats[k] != null);
+										const seasonLabel = (se) =>
+											(se.league_name ? se.league_name + " " : "") +
+											(se.season_name || se.season_id);
 										return (
-											<div style={{ marginTop: 12 }}>
+											<div style={{ marginTop: 18 }}>
 												<div
 													style={{
 														display: "flex",
 														gap: 8,
 														alignItems: "center",
-														marginBottom: 6,
+														marginBottom: 10,
 													}}
 												>
 													<span
 														style={{
-															fontSize: 12,
+															fontSize: 13,
 															fontWeight: 800,
 															color: T.text,
 														}}
 													>
 														シーズン統計
 													</span>
-													{prof.seasons.length > 1 && (
-														<select
-															value={idx}
-															onChange={(e) =>
-																setStatSeasonIdx(Number(e.target.value))
-															}
+													<span style={{ marginLeft: "auto" }}>
+														{prof.seasons.length > 1 ? (
+															<select
+																value={idx}
+																onChange={(e) =>
+																	setStatSeasonIdx(Number(e.target.value))
+																}
+																style={{
+																	background: "rgba(255,255,255,0.06)",
+																	color: T.text,
+																	border: "1px solid " + T.line,
+																	borderRadius: 999,
+																	fontSize: 11.5,
+																	fontWeight: 700,
+																	padding: "5px 10px",
+																}}
+															>
+																{prof.seasons.map((se, i) => (
+																	<option key={se.season_id} value={i}>
+																		{seasonLabel(se)}
+																	</option>
+																))}
+															</select>
+														) : (
+															<span
+																style={{
+																	fontSize: 11.5,
+																	fontWeight: 700,
+																	color: T.sub,
+																	background: "rgba(255,255,255,0.06)",
+																	border: "1px solid " + T.line,
+																	borderRadius: 999,
+																	padding: "5px 10px",
+																}}
+															>
+																{seasonLabel(s)}
+															</span>
+														)}
+													</span>
+												</div>
+												<div
+													style={{
+														display: "grid",
+														gridTemplateColumns: "repeat(3, 1fr)",
+														gap: 8,
+													}}
+												>
+													{cells.map(([k, label, unit]) => (
+														<div
+															key={k}
 															style={{
-																marginLeft: "auto",
-																background: "rgba(255,255,255,0.06)",
-																color: T.text,
+																boxSizing: "border-box",
+																background: "rgba(255,255,255,0.045)",
 																border: "1px solid " + T.line,
-																borderRadius: 8,
-																fontSize: 11,
-																padding: "3px 6px",
+																borderRadius: 12,
+																padding: "11px 6px",
+																textAlign: "center",
 															}}
 														>
-															{prof.seasons.map((se, i) => (
-																<option key={se.season_id} value={i}>
-																	{se.league_name ? se.league_name + " " : ""}
-																	{se.season_name || se.season_id}
-																</option>
-															))}
-														</select>
-													)}
-												</div>
-												<div style={{ display: "flex", flexWrap: "wrap" }}>
-													{cell("appearances")}
-													{cell("goals")}
-													{cell("assists")}
-													{cell("minutes", "分")}
-													{cell("rating")}
-													{cell("yellowcards")}
-													{cell("shots_total")}
-													{cell("shots_on_target")}
-													{cell("passes")}
+															<div
+																style={{
+																	fontSize: 19,
+																	fontWeight: 900,
+																	color: T.text,
+																	lineHeight: 1.1,
+																}}
+															>
+																{s.stats[k]}
+																{unit && (
+																	<span
+																		style={{
+																			fontSize: 11,
+																			fontWeight: 700,
+																			color: T.sub,
+																		}}
+																	>
+																		{unit}
+																	</span>
+																)}
+															</div>
+															<div
+																style={{
+																	fontSize: 10.5,
+																	color: T.sub,
+																	fontWeight: 700,
+																	marginTop: 4,
+																}}
+															>
+																{label}
+															</div>
+														</div>
+													))}
 												</div>
 											</div>
 										);
