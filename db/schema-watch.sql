@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS sm_events (
   team_id             INTEGER,
   player_name         TEXT,
   related_player_name TEXT,            -- アシスト/交代相手 等
+  player_id           INTEGER,         -- 主体選手(カード=対象/交代=IN)
+  related_player_id   INTEGER,         -- 交代の相手(OUT)
   sort_order          INTEGER,         -- 表示順(minute×60+extra など)
   updated_at          INTEGER NOT NULL
 );
@@ -90,6 +92,14 @@ CREATE TABLE IF NOT EXISTS sm_lineups (
   formation_field TEXT,                 -- "2:3" 等。控え/不明は NULL
   is_start        INTEGER,              -- 1=先発(type_id 11) 0=控え(12)
   xg              REAL,                 -- per-player xG(lineups.xglineup)。無ければ NULL
+  date_of_birth   TEXT,                 -- ISO "YYYY-MM-DD"
+  height          INTEGER,              -- cm
+  weight          INTEGER,              -- kg
+  nationality_id  INTEGER,              -- SportMonks nationality id
+  nationality_name TEXT,                -- 解決済み国名
+  detailed_position TEXT,               -- 詳細ポジション名(解決済み)
+  club_name       TEXT,                 -- 現所属クラブ名
+  club_image      TEXT,                 -- クラブロゴURL
   updated_at      INTEGER NOT NULL,
   PRIMARY KEY (sm_fixture_id, player_id)
 );
