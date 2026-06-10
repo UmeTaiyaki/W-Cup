@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	FIXTURE_DETAIL_INCLUDE,
 	isFinished,
 	isInPlay,
 	selectFixturesForDetailSync,
@@ -249,4 +250,9 @@ test("selectFixturesForDetailSync: ライブと直近終了を選ぶ", () => {
 
 test("selectFixturesForDetailSync: 非配列は空", () => {
 	assert.deepEqual(selectFixturesForDetailSync(null), []);
+});
+
+test("FIXTURE_DETAIL_INCLUDE requests player profile for lineups", () => {
+	assert.ok(FIXTURE_DETAIL_INCLUDE.includes("lineups.player"));
+	assert.ok(FIXTURE_DETAIL_INCLUDE.includes("lineups.player.nationality"));
 });

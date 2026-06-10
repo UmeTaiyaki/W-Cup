@@ -280,3 +280,86 @@ test("toPlayerStatRows: details を (fixture,player,type) 縦持ちに展開", (
 test("toPlayerStatRows: details 無しは空（障害隔離）", () => {
 	assert.deepEqual(toPlayerStatRows({}), []);
 });
+
+test("toLineupRows maps player bio from lineups.player", () => {
+	const detail = {
+		id: 1,
+		lineups: [
+			{
+				fixture_id: 1,
+				team_id: 5,
+				player_id: 100,
+				player_name: "Test Player",
+				jersey_number: 9,
+				position_id: 27,
+				formation_field: "4:1",
+				type_id: 11,
+				detailed_position: "Centre Forward",
+				player: {
+					date_of_birth: "1997-05-20",
+					height: 180,
+					weight: 75,
+					nationality_id: 32,
+					nationality: { name: "Japan" },
+					teams: [
+						{
+							name: "Brighton",
+							image_path: "https://cdn/club.png",
+							meta: { active: true },
+						},
+					],
+				},
+			},
+		],
+	};
+	const r = toLineupRows(detail)[0];
+	assert.equal(r.date_of_birth, "1997-05-20");
+	assert.equal(r.height, 180);
+	assert.equal(r.weight, 75);
+	assert.equal(r.nationality_id, 32);
+	assert.equal(r.nationality_name, "Japan");
+	assert.equal(r.detailed_position, "Centre Forward");
+	assert.equal(r.club_name, "Brighton");
+	assert.equal(r.club_image, "https://cdn/club.png");
+});
+
+test("toLineupRows tolerates missing bio (null)", () => {
+	const r = toLineupRows({
+		id: 1,
+		lineups: [{ player_id: 1, team_id: 5, type_id: 12 }],
+	})[0];
+	assert.equal(r.date_of_birth, null);
+	assert.equal(r.nationality_name, null);
+	assert.equal(r.club_name, null);
+});
+
+test("toEventRows maps player_id and related_player_id", () => {
+	const detail = {
+		id: 1,
+		events: [
+			{
+				id: 10,
+				fixture_id: 1,
+				type_id: 19,
+				minute: 41,
+				participant_id: 5,
+				player_id: 999,
+				related_player_id: null,
+			},
+			{
+				id: 11,
+				fixture_id: 1,
+				type_id: 18,
+				minute: 70,
+				participant_id: 5,
+				player_id: 100,
+				related_player_id: 200,
+			},
+		],
+	};
+	const rows = toEventRows(detail);
+	assert.equal(rows[0].player_id, 999);
+	assert.equal(rows[0].related_player_id, null);
+	assert.equal(rows[1].player_id, 100);
+	assert.equal(rows[1].related_player_id, 200);
+});

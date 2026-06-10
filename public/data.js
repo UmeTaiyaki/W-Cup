@@ -348,4 +348,19 @@
 			return null;
 		}
 	};
+	// /api/player?id= を取得。失敗/OFF/未マッチは null。{profile, seasons} を返す。
+	window.WC.fetchPlayerProfile = async function fetchPlayerProfile(id) {
+		if (id == null) return null;
+		try {
+			const res = await fetch("/api/player?id=" + encodeURIComponent(id), {
+				cache: "no-store",
+			});
+			if (!res.ok) return null;
+			const data = await res.json();
+			if (!data || data.enabled === false || !data.profile) return null;
+			return data; // {profile, seasons}
+		} catch (e) {
+			return null;
+		}
+	};
 })();

@@ -1111,19 +1111,6 @@ function XgTab({ T, detail }) {
 // ── 布陣タブ (LineupTab) ──────────────────────────────────────────────────
 
 /** 選手スタッツ type_id → ラベル */
-const PLAYER_STAT_LABELS = {
-	118: "評価",
-	42: "シュート",
-	86: "枠内",
-	79: "アシスト",
-	80: "パス",
-	82: "パス成功率(%)",
-	83: "タックル",
-	84: "ファウル",
-	64: "ゴール",
-	116: "ドリブル成功",
-};
-
 /** formation_field "row:col" → { row: int, col: int } または null */
 function parseField(formation_field) {
 	if (!formation_field) return null;
@@ -1142,8 +1129,24 @@ function surname(player_name) {
 	return tokens[tokens.length - 1] || player_name;
 }
 
+// "YYYY-MM-DD" → 満年齢（タイムゾーン非依存の単純年差）。不正は null。
+function ageFromDob(dob) {
+	if (!dob) return null;
+	const m = String(dob).match(/^(\d{4})-(\d{2})-(\d{2})/);
+	if (!m) return null;
+	const y = +m[1],
+		mo = +m[2],
+		d = +m[3];
+	const now = new Date();
+	let age = now.getFullYear() - y;
+	const mm = now.getMonth() + 1,
+		dd = now.getDate();
+	if (mm < mo || (mm === mo && dd < d)) age -= 1;
+	return age >= 0 && age < 130 ? age : null;
+}
+
 // ── PlayerSheet: 選手詳細ボトムシート ────────────────────────────────────
-function PlayerSheet({ T, player, playerStats, onClose }) {
+function PlayerSheet({ T, player, onClose }) {
 	// スクロールロック（シート外のスクロールを止める）
 	// Rules of Hooks: フックは無条件に最初に呼ぶ
 	React.useEffect(() => {
@@ -1179,60 +1182,61 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 		};
 	}, [player]);
 
+	const [prof, setProf] = React.useState(null);
+	const [profLoading, setProfLoading] = React.useState(false);
+	React.useEffect(() => {
+		if (!player || player.player_id == null) {
+			setProf(null);
+			return;
+		}
+		let alive = true;
+		setProfLoading(true);
+		setProf(null);
+		setStatSeasonIdx(0);
+		(async () => {
+			const d =
+				window.WC && window.WC.fetchPlayerProfile
+					? await window.WC.fetchPlayerProfile(player.player_id)
+					: null;
+			if (alive) {
+				setProf(d);
+				setProfLoading(false);
+			}
+		})();
+		return () => {
+			alive = false;
+		};
+	}, [player ? player.player_id : null]);
+	const [statSeasonIdx, setStatSeasonIdx] = React.useState(0);
+
 	if (!player) return null;
 
-	const stats = (playerStats || []).filter(
-		(s) => s.player_id === player.player_id,
-	);
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
 	const teamInfo = teamMap[player._appCode] || {};
 	const flag = teamInfo.flag || "";
 
 	const node = (
 		<div
-			onClick={onClose}
 			style={{
 				position: "absolute",
 				inset: 0,
 				zIndex: 100,
 				display: "flex",
 				flexDirection: "column",
-				justifyContent: "flex-end",
-				background: "rgba(0,0,0,0.5)",
-				backdropFilter: "blur(2px)",
+				background: T.bg,
 			}}
 		>
 			<div
-				onClick={(e) => {
-					e.stopPropagation();
-				}}
 				style={{
-					background: T.panel,
-					borderRadius: "26px 26px 0 0",
-					boxShadow: "0 -1px 0 " + T.line,
-					maxHeight: "82%",
+					background: T.bg,
+					height: "100%",
 					display: "flex",
 					flexDirection: "column",
 					paddingBottom: 26,
 				}}
 			>
-				{/* ドラッグハンドル */}
-				<div
-					style={{
-						display: "flex",
-						justifyContent: "center",
-						paddingTop: 10,
-					}}
-				>
-					<div
-						style={{
-							width: 38,
-							height: 5,
-							borderRadius: 9,
-							background: T.line,
-						}}
-					/>
-				</div>
+				{/* 上部セーフエリア */}
+				<div style={{ height: 10 }} />
 				{/* タイトル行 */}
 				<div
 					style={{
@@ -1244,6 +1248,24 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 					}}
 				>
 					<div>
+						{prof && prof.profile && prof.profile.image_path && (
+							<img
+								src={prof.profile.image_path}
+								alt=""
+								onError={(e) => {
+									e.target.style.display = "none";
+								}}
+								style={{
+									width: 44,
+									height: 44,
+									borderRadius: "50%",
+									objectFit: "cover",
+									marginRight: 10,
+									background: "rgba(255,255,255,0.08)",
+									verticalAlign: "middle",
+								}}
+							/>
+						)}
 						<span
 							style={{
 								fontSize: 26,
@@ -1282,6 +1304,75 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 					</button>
 				</div>
 
+				{/* クラブ・国籍行 */}
+				{prof &&
+					prof.profile &&
+					(prof.profile.club_name || prof.profile.nationality_name) && (
+						<div
+							style={{
+								display: "flex",
+								alignItems: "center",
+								gap: 12,
+								padding: "0 18px 8px",
+								flexWrap: "wrap",
+							}}
+						>
+							{prof.profile.club_name && (
+								<span
+									style={{
+										display: "inline-flex",
+										alignItems: "center",
+										gap: 5,
+										fontSize: 12,
+										fontWeight: 700,
+										color: T.sub,
+									}}
+								>
+									{prof.profile.club_image && (
+										<img
+											src={prof.profile.club_image}
+											alt=""
+											onError={(e) => {
+												e.target.style.display = "none";
+											}}
+											style={{ width: 16, height: 16, objectFit: "contain" }}
+										/>
+									)}
+									{prof.profile.club_name}
+								</span>
+							)}
+							{prof.profile.nationality_name && (
+								<span
+									style={{
+										display: "inline-flex",
+										alignItems: "center",
+										gap: 5,
+										fontSize: 12,
+										fontWeight: 700,
+										color: T.sub,
+									}}
+								>
+									{prof.profile.nationality_image && (
+										<img
+											src={prof.profile.nationality_image}
+											alt=""
+											onError={(e) => {
+												e.target.style.display = "none";
+											}}
+											style={{
+												width: 16,
+												height: 16,
+												borderRadius: "50%",
+												objectFit: "cover",
+											}}
+										/>
+									)}
+									{prof.profile.nationality_name}
+								</span>
+							)}
+						</div>
+					)}
+
 				{/* スタッツ本体 */}
 				<div
 					style={{
@@ -1289,63 +1380,218 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 						WebkitOverflowScrolling: "touch",
 						overscrollBehavior: "contain",
 						padding: "4px 18px 12px",
+						flex: 1,
+						minHeight: 0,
 					}}
 				>
-					{/* xG 行（lineups から）*/}
-					{player.xg != null && (
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "space-between",
-								padding: "9px 0",
-								borderBottom: "1px solid " + T.line,
-								fontSize: 13,
-							}}
-						>
-							<span style={{ color: T.sub, fontWeight: 700 }}>xG</span>
-							<span style={{ fontWeight: 800, color: T.accent }}>
-								{Number(player.xg).toFixed(2)}
-							</span>
-						</div>
-					)}
-
-					{stats.length === 0 && player.xg == null ? (
-						<div
-							style={{
-								color: T.faint,
-								fontSize: 13,
-								fontWeight: 700,
-								padding: "22px 0",
-								textAlign: "center",
-							}}
-						>
-							この選手のスタッツはありません
-						</div>
-					) : (
-						stats.map((s, i) => {
-							const label =
-								PLAYER_STAT_LABELS[s.type_id] != null
-									? PLAYER_STAT_LABELS[s.type_id]
-									: "#" + s.type_id;
-							return (
-								<div
-									key={s.type_id != null ? s.type_id : "s" + i}
-									style={{
-										display: "flex",
-										justifyContent: "space-between",
-										padding: "9px 0",
-										borderBottom: "1px solid " + T.line,
-										fontSize: 13,
-									}}
-								>
-									<span style={{ color: T.sub, fontWeight: 700 }}>{label}</span>
-									<span style={{ fontWeight: 800, color: T.text }}>
-										{s.value != null ? s.value : "–"}
-									</span>
-								</div>
-							);
-						})
-					)}
+					{/* 今までのデータ: リッチプロフィール */}
+					{(() => {
+						const p0 = (prof && prof.profile) || null;
+						const bio = p0 || {
+							height: player.height,
+							weight: player.weight,
+							date_of_birth: player.date_of_birth,
+							preferred_foot: null,
+							detailed_position: player.detailed_position || player.position,
+							nationality_name: player.nationality_name,
+							club_name: player.club_name,
+							club_image: player.club_image,
+							image_path: null,
+						};
+						const age = ageFromDob(bio.date_of_birth);
+						const rows = [];
+						if (bio.detailed_position)
+							rows.push([
+								"ポジション",
+								`${bio.detailed_position}　#${player.jersey_number ?? "-"}`,
+							]);
+						if (age != null || bio.height || bio.weight)
+							rows.push([
+								"年齢/身長/体重",
+								`${age != null ? age + "歳" : "-"} / ${bio.height ? bio.height + "cm" : "-"} / ${bio.weight ? bio.weight + "kg" : "-"}`,
+							]);
+						if (bio.preferred_foot)
+							rows.push([
+								"利き足",
+								bio.preferred_foot === "right"
+									? "右"
+									: bio.preferred_foot === "left"
+										? "左"
+										: bio.preferred_foot,
+							]);
+						if (bio.nationality_name) rows.push(["国籍", bio.nationality_name]);
+						if (bio.club_name) rows.push(["所属クラブ", bio.club_name]);
+						return (
+							<>
+								{profLoading && (
+									<div
+										style={{
+											color: T.faint,
+											fontSize: 12,
+											fontWeight: 700,
+											padding: "10px 0",
+										}}
+									>
+										読み込み中…
+									</div>
+								)}
+								{rows.map(([k, v]) => (
+									<div
+										key={k}
+										style={{
+											display: "flex",
+											justifyContent: "space-between",
+											padding: "9px 0",
+											borderBottom: "1px solid " + T.line,
+											fontSize: 13,
+										}}
+									>
+										<span style={{ color: T.sub, fontWeight: 700 }}>{k}</span>
+										<span style={{ fontWeight: 800, color: T.text }}>{v}</span>
+									</div>
+								))}
+								{p0 &&
+									prof.seasons &&
+									prof.seasons.length > 0 &&
+									(() => {
+										const idx = Math.min(
+											statSeasonIdx,
+											prof.seasons.length - 1,
+										);
+										const s = prof.seasons[idx];
+										const VIEW = [
+											["appearances", "出場", ""],
+											["goals", "ゴール", ""],
+											["assists", "アシスト", ""],
+											["rating", "評価", ""],
+											["minutes", "出場時間", "分"],
+											["yellowcards", "警告", ""],
+											["shots_total", "シュート", ""],
+											["shots_on_target", "枠内", ""],
+											["passes", "パス", ""],
+										];
+										const cells = VIEW.filter(([k]) => s.stats[k] != null);
+										const seasonLabel = (se) =>
+											(se.league_name ? se.league_name + " " : "") +
+											(se.season_name || se.season_id);
+										return (
+											<div style={{ marginTop: 18 }}>
+												<div
+													style={{
+														display: "flex",
+														gap: 8,
+														alignItems: "center",
+														marginBottom: 10,
+													}}
+												>
+													<span
+														style={{
+															fontSize: 13,
+															fontWeight: 800,
+															color: T.text,
+														}}
+													>
+														シーズン統計
+													</span>
+													<span style={{ marginLeft: "auto" }}>
+														{prof.seasons.length > 1 ? (
+															<select
+																value={idx}
+																onChange={(e) =>
+																	setStatSeasonIdx(Number(e.target.value))
+																}
+																style={{
+																	background: "rgba(255,255,255,0.06)",
+																	color: T.text,
+																	border: "1px solid " + T.line,
+																	borderRadius: 999,
+																	fontSize: 11.5,
+																	fontWeight: 700,
+																	padding: "5px 10px",
+																}}
+															>
+																{prof.seasons.map((se, i) => (
+																	<option key={se.season_id} value={i}>
+																		{seasonLabel(se)}
+																	</option>
+																))}
+															</select>
+														) : (
+															<span
+																style={{
+																	fontSize: 11.5,
+																	fontWeight: 700,
+																	color: T.sub,
+																	background: "rgba(255,255,255,0.06)",
+																	border: "1px solid " + T.line,
+																	borderRadius: 999,
+																	padding: "5px 10px",
+																}}
+															>
+																{seasonLabel(s)}
+															</span>
+														)}
+													</span>
+												</div>
+												<div
+													style={{
+														display: "grid",
+														gridTemplateColumns: "repeat(3, 1fr)",
+														gap: 8,
+													}}
+												>
+													{cells.map(([k, label, unit]) => (
+														<div
+															key={k}
+															style={{
+																boxSizing: "border-box",
+																background: "rgba(255,255,255,0.045)",
+																border: "1px solid " + T.line,
+																borderRadius: 12,
+																padding: "11px 6px",
+																textAlign: "center",
+															}}
+														>
+															<div
+																style={{
+																	fontSize: 19,
+																	fontWeight: 900,
+																	color: T.text,
+																	lineHeight: 1.1,
+																}}
+															>
+																{s.stats[k]}
+																{unit && (
+																	<span
+																		style={{
+																			fontSize: 11,
+																			fontWeight: 700,
+																			color: T.sub,
+																		}}
+																	>
+																		{unit}
+																	</span>
+																)}
+															</div>
+															<div
+																style={{
+																	fontSize: 10.5,
+																	color: T.sub,
+																	fontWeight: 700,
+																	marginTop: 4,
+																}}
+															>
+																{label}
+															</div>
+														</div>
+													))}
+												</div>
+											</div>
+										);
+									})()}
+							</>
+						);
+					})()}
 				</div>
 			</div>
 		</div>
@@ -1356,9 +1602,8 @@ function PlayerSheet({ T, player, playerStats, onClose }) {
 }
 
 // ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
-function PlayerDot({ T, player, topPct, leftPct, onTap }) {
+function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 	const sn = surname(player.player_name);
-	const hasXg = player.xg != null && player.xg > 0;
 
 	return (
 		<div
@@ -1397,23 +1642,40 @@ function PlayerDot({ T, player, topPct, leftPct, onTap }) {
 				}}
 			>
 				{player.jersey_number}
-				{/* xG チップ */}
-				{hasXg && (
+				{/* カード（最重を優先表示: 赤系 > 黄） */}
+				{ev && ev.cards && ev.cards.length > 0 && (
 					<div
 						style={{
 							position: "absolute",
 							top: -6,
 							right: -6,
-							background: "rgba(255,220,50,0.92)",
-							color: "#1a2a14",
-							fontSize: 8,
-							fontWeight: 900,
-							padding: "1px 4px",
-							borderRadius: 6,
-							lineHeight: 1.3,
+							fontSize: 12,
+							lineHeight: 1,
 						}}
 					>
-						{Number(player.xg).toFixed(2)}
+						{ev.cards.some(
+							(c) => c.type === "redcard" || c.type === "yellowredcard",
+						)
+							? "🟥"
+							: "🟨"}
+					</div>
+				)}
+				{/* 交代OUT（先発が退く） */}
+				{ev && ev.subOff != null && (
+					<div
+						style={{
+							position: "absolute",
+							bottom: -7,
+							right: -8,
+							background: "rgba(255,90,90,0.92)",
+							color: "#1a0c0c",
+							fontSize: 7.5,
+							fontWeight: 900,
+							padding: "0 3px",
+							borderRadius: 5,
+						}}
+					>
+						↓{ev.subOff}'
 					</div>
 				)}
 			</div>
@@ -1438,7 +1700,8 @@ function PlayerDot({ T, player, topPct, leftPct, onTap }) {
 }
 
 // ── FormationPitch: フォーメーション図 ───────────────────────────────────
-function FormationPitch({ T, starters, onTapPlayer }) {
+function FormationPitch({ T, starters, onTapPlayer, events }) {
+	const evIndex = playerEventIndex(events);
 	// formation_field を持つスターターのみ
 	const placed = starters.filter((p) => parseField(p.formation_field) !== null);
 
@@ -1486,7 +1749,7 @@ function FormationPitch({ T, starters, onTapPlayer }) {
 			style={{
 				position: "relative",
 				width: "100%",
-				paddingBottom: "133%",
+				paddingBottom: "118%",
 				background:
 					"linear-gradient(180deg, rgba(14,54,26,0.92) 0%, rgba(10,40,20,0.97) 100%)",
 				borderRadius: 14,
@@ -1580,6 +1843,7 @@ function FormationPitch({ T, starters, onTapPlayer }) {
 						key={p.player_id || "dot-" + row + "-" + colIdx}
 						T={T}
 						player={p}
+						ev={playerEvents(evIndex, p)}
 						topPct={topPct}
 						leftPct={leftPct}
 						onTap={onTapPlayer}
@@ -1591,8 +1855,9 @@ function FormationPitch({ T, starters, onTapPlayer }) {
 }
 
 // ── BenchList: 控え選手リスト ─────────────────────────────────────────────
-function BenchList({ T, bench, onTapPlayer }) {
+function BenchList({ T, bench, onTapPlayer, events }) {
 	if (!bench || bench.length === 0) return null;
+	const evIndex = playerEventIndex(events);
 
 	return (
 		<div style={{ marginTop: 4 }}>
@@ -1603,55 +1868,121 @@ function BenchList({ T, bench, onTapPlayer }) {
 					letterSpacing: 0.8,
 					color: T.sub,
 					margin: "14px 0 8px",
+					borderTop: "1px solid " + T.line,
+					paddingTop: 12,
 				}}
 			>
-				控え
+				{`控え ${bench.length}`}
 			</div>
-			{bench.map((p, i) => (
-				<div
-					key={p.player_id || "bench-" + i}
-					onClick={() => {
-						onTapPlayer(p);
-					}}
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: 10,
-						padding: "8px 4px",
-						borderBottom: "1px solid " + T.line,
-						cursor: "pointer",
-					}}
-				>
-					<span
+			{bench.map((p, i) => {
+				const sub = playerEvents(evIndex, p).subOn;
+				return (
+					<div
+						key={p.player_id || "bench-" + i}
+						onClick={() => {
+							onTapPlayer(p);
+						}}
 						style={{
-							fontWeight: 900,
-							fontSize: 12,
-							color: T.accent,
-							width: 24,
-							flexShrink: 0,
-							fontFamily: "monospace",
+							display: "flex",
+							alignItems: "center",
+							gap: 10,
+							padding: "8px 4px",
+							borderBottom: "1px solid " + T.line,
+							cursor: "pointer",
 						}}
 					>
-						{p.jersey_number}
-					</span>
-					<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
-						{p.player_name}
-					</span>
-					{p.position && (
 						<span
 							style={{
-								fontSize: 10,
-								fontWeight: 800,
-								color: T.faint,
-								marginLeft: "auto",
+								fontWeight: 900,
+								fontSize: 12,
+								color: T.accent,
+								width: 24,
+								flexShrink: 0,
+								fontFamily: "monospace",
 							}}
 						>
-							{p.position}
+							{p.jersey_number}
 						</span>
-					)}
-				</div>
-			))}
+						<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
+							{p.player_name}
+						</span>
+						{sub != null ? (
+							<span
+								style={{
+									fontSize: 10,
+									fontWeight: 900,
+									color: T.accent,
+									marginLeft: "auto",
+								}}
+							>
+								↑{sub}'
+							</span>
+						) : null}
+						{p.position && (
+							<span
+								style={{
+									fontSize: 10,
+									fontWeight: 800,
+									color: T.faint,
+									marginLeft: sub != null ? 8 : "auto",
+								}}
+							>
+								{p.position}
+							</span>
+						)}
+					</div>
+				);
+			})}
 		</div>
+	);
+}
+
+// detail.events を player_id で索引化。各選手の {goals:[], cards:[{type,minute}], subOff, subOn} を返す。
+// player_id 欠落の旧データは player_name フォールバック（完全一致のみ）。
+function playerEventIndex(events) {
+	const byId = {};
+	const byName = {};
+	const ensure = (map, key) => {
+		if (key == null) return null;
+		if (!map[key])
+			map[key] = { goals: [], cards: [], subOff: null, subOn: null };
+		return map[key];
+	};
+	(events || []).forEach((e) => {
+		const t = e.type;
+		if (t === "goal" || t === "penalty" || t === "owngoal") {
+			const slot = ensure(byId, e.player_id) || ensure(byName, e.player_name);
+			if (slot)
+				slot.goals.push({
+					minute: e.minute,
+					own: t === "owngoal",
+					pen: t === "penalty",
+				});
+		} else if (t === "yellowcard" || t === "redcard" || t === "yellowredcard") {
+			const slot = ensure(byId, e.player_id) || ensure(byName, e.player_name);
+			if (slot) slot.cards.push({ type: t, minute: e.minute });
+		} else if (t === "substitution") {
+			const inSlot = ensure(byId, e.player_id) || ensure(byName, e.player_name);
+			if (inSlot) inSlot.subOn = e.minute;
+			const outSlot =
+				ensure(byId, e.related_player_id) ||
+				ensure(byName, e.related_player_name);
+			if (outSlot) outSlot.subOff = e.minute;
+		}
+	});
+	return { byId, byName };
+}
+
+// 1選手のイベント要約を索引から取り出す（player_id優先・名前フォールバック）。
+function playerEvents(index, player) {
+	return (
+		(index.byId && index.byId[player.player_id]) ||
+		(index.byName && index.byName[player.player_name]) || {
+			goals: [],
+			cards: [],
+			subOff: null,
+			subOn: null,
+		}
 	);
 }
 
@@ -1659,7 +1990,6 @@ function BenchList({ T, bench, onTapPlayer }) {
 function LineupTab({ T, detail }) {
 	const fx = detail && detail.fixture;
 	const lineups = (detail && detail.lineups) || [];
-	const playerStats = (detail && detail.player_stats) || [];
 
 	const homeTeamId = fx && fx.home && fx.home.team_id;
 	const awayTeamId = fx && fx.away && fx.away.team_id;
@@ -1777,10 +2107,16 @@ function LineupTab({ T, detail }) {
 						T={T}
 						starters={starters}
 						onTapPlayer={setSheetPlayer}
+						events={detail.events}
 					/>
 
 					{/* 控えリスト */}
-					<BenchList T={T} bench={bench} onTapPlayer={setSheetPlayer} />
+					<BenchList
+						T={T}
+						bench={bench}
+						onTapPlayer={setSheetPlayer}
+						events={detail.events}
+					/>
 				</>
 			)}
 
@@ -1789,7 +2125,6 @@ function LineupTab({ T, detail }) {
 				<PlayerSheet
 					T={T}
 					player={sheetPlayer}
-					playerStats={playerStats}
 					onClose={() => {
 						setSheetPlayer(null);
 					}}

@@ -258,3 +258,53 @@ test("fixtureDetailStatements: lineups/player_stats の upsert を含む", () =>
 	assert.ok(sqls.includes("INSERT INTO sm_lineups"));
 	assert.ok(sqls.includes("INSERT INTO sm_player_stats"));
 });
+
+test("lineup statement includes bio columns and args", () => {
+	const detail = {
+		id: 1,
+		lineups: [
+			{
+				fixture_id: 1,
+				team_id: 5,
+				player_id: 100,
+				type_id: 11,
+				player: {
+					date_of_birth: "1997-05-20",
+					height: 180,
+					weight: 75,
+					nationality_id: 32,
+					nationality: { name: "Japan" },
+					teams: [],
+				},
+			},
+		],
+	};
+	const sts = fixtureDetailStatements(detail, 1781000000);
+	const lu = sts.find((s) => s.sql.includes("INTO sm_lineups"));
+	assert.ok(lu.sql.includes("date_of_birth"));
+	assert.ok(lu.sql.includes("nationality_name"));
+	assert.ok(lu.sql.includes("club_name"));
+	assert.ok(lu.args.includes("Japan"));
+});
+
+test("event statement includes player_id columns and args", () => {
+	const detail = {
+		id: 1,
+		events: [
+			{
+				id: 9,
+				fixture_id: 1,
+				type_id: 18,
+				participant_id: 5,
+				player_id: 100,
+				related_player_id: 200,
+			},
+		],
+	};
+	const sts = fixtureDetailStatements(detail, 1781000000);
+	const ev = sts.find((s) => s.sql.includes("INTO sm_events"));
+	assert.ok(ev.sql.includes("player_id"));
+	assert.ok(ev.sql.includes("related_player_id"));
+	assert.ok(ev.args.includes(100));
+	assert.ok(ev.args.includes(200));
+});
