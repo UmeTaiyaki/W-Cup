@@ -266,3 +266,29 @@ test('result.thirdGroups: 重複・不正グループ・9組超は失敗', () =>
     assert.match(r.error, /thirdGroups/);
   }
 });
+
+test('aliases 正常系', () => {
+  const r = validateConfig({ ...DEFAULT_CONFIG, aliases: [
+    { canonical: 'BRA::VINICIUS JUNIOR', variants: ['VINI JR. (BRA)'], smPlayerId: 5 },
+  ]});
+  assert.equal(r.ok, true);
+  assert.equal(r.value.aliases[0].canonical, 'BRA::VINICIUS JUNIOR');
+});
+
+test('aliases 未指定なら空配列', () => {
+  const r = validateConfig(DEFAULT_CONFIG);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.aliases, []);
+});
+
+test('aliases が非配列は失敗', () => {
+  const r = validateConfig({ ...DEFAULT_CONFIG, aliases: {} });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /aliases/);
+});
+
+test('aliases の canonical 欠落は失敗', () => {
+  const r = validateConfig({ ...DEFAULT_CONFIG, aliases: [{ variants: ['X'] }] });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /canonical/);
+});
