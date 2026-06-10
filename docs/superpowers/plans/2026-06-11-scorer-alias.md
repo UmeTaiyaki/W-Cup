@@ -374,10 +374,18 @@ export function rosterCanonicalSet(squads = {}) {
 }
 
 // SportMonks 等の選手名を解決し、名簿に存在すれば canonical、無ければ null（=手動突合送り）。
+// (CODE)/エイリアスで国が確定すれば直接一致。裸の名前は名簿の "CODE::名前" 末尾一致が
+// 一意なときだけ採用（同名が複数国にいる曖昧ケースは手動送りで null）。
 export function autoMatchScorer(name, aliasMap = {}, rosterSet = new Set()) {
   if (!name) return null;
   const canon = resolve(name, aliasMap);
-  return rosterSet.has(canon) ? canon : null;
+  if (rosterSet.has(canon)) return canon;
+  if (!canon.includes('::')) {
+    const sep = '::';
+    const hits = [...rosterSet].filter((k) => k.slice(k.indexOf(sep) + sep.length) === canon);
+    if (hits.length === 1) return hits[0];
+  }
+  return null;
 }
 ```
 
