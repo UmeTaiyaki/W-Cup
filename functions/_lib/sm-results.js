@@ -162,3 +162,19 @@ export function deriveBracket(fixtures) {
 	}
 	return out;
 }
+
+// sm_topscorers 行（配信側で app_code 解決済み）→ 採点 result.topScorer 文字列。
+// 採点 resolve() は "NAME (CODE)" を CODE::正規化名 へ畳むため、この形式に合わせる。
+export function deriveTopScorer(rows) {
+	const list = Array.isArray(rows) ? rows.slice() : [];
+	if (!list.length) return "";
+	list.sort(
+		(a, b) =>
+			(a?.position ?? 1e9) - (b?.position ?? 1e9) ||
+			(b?.goals ?? 0) - (a?.goals ?? 0),
+	);
+	const top = list[0];
+	const name = top?.player_name ?? "";
+	if (!name) return "";
+	return top?.app_code ? `${name} (${top.app_code})` : name;
+}

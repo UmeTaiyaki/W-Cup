@@ -6,6 +6,7 @@ import {
 	deriveGroupMatches,
 	deriveGroupResult,
 	deriveKnockout,
+	deriveTopScorer,
 	isFinalRound,
 	roundKey,
 } from "./sm-results.js";
@@ -116,21 +117,52 @@ test("deriveChampion は決勝が未FTなら null/null", () => {
 });
 
 const koFixtures = [
-	{ status: "FT", round_name: "Round of 16", home: { app_code: "ARG", score: 2 }, away: { app_code: "MEX", score: 0 } },
-	{ status: "FT", round_name: "Round of 16", home: { app_code: "FRA", score: 1 }, away: { app_code: "ESP", score: 0 } },
-	{ status: "FT", round_name: "Quarter-finals", home: { app_code: "ARG", score: 1 }, away: { app_code: "FRA", score: 0 } },
+	{
+		status: "FT",
+		round_name: "Round of 16",
+		home: { app_code: "ARG", score: 2 },
+		away: { app_code: "MEX", score: 0 },
+	},
+	{
+		status: "FT",
+		round_name: "Round of 16",
+		home: { app_code: "FRA", score: 1 },
+		away: { app_code: "ESP", score: 0 },
+	},
+	{
+		status: "FT",
+		round_name: "Quarter-finals",
+		home: { app_code: "ARG", score: 1 },
+		away: { app_code: "FRA", score: 0 },
+	},
 ];
 
 test("deriveKnockout は各ラウンドに到達した app_code 群（重複なし）", () => {
 	const ko = deriveKnockout(koFixtures);
-	assert.deepEqual(ko.r16.sort(), ["ARG","ESP","FRA","MEX"].sort());
-	assert.deepEqual(ko.qf.sort(), ["ARG","FRA"].sort());
+	assert.deepEqual(ko.r16.sort(), ["ARG", "ESP", "FRA", "MEX"].sort());
+	assert.deepEqual(ko.qf.sort(), ["ARG", "FRA"].sort());
 	assert.deepEqual(ko.r32, []);
 	assert.deepEqual(ko.sf, []);
 });
 
 test("deriveBracket はラウンドFT勝者コードを返す", () => {
 	const b = deriveBracket(koFixtures);
-	assert.deepEqual(b.r16.sort(), ["ARG","FRA"].sort());
+	assert.deepEqual(b.r16.sort(), ["ARG", "FRA"].sort());
 	assert.deepEqual(b.qf, ["ARG"]);
+});
+
+test("deriveTopScorer は position 最小（goals 最大）を '名前 (CODE)' で返す", () => {
+	const rows = [
+		{ player_name: "B", app_code: "FRA", goals: 4, position: 2 },
+		{ player_name: "A. Striker", app_code: "ARG", goals: 6, position: 1 },
+	];
+	assert.equal(deriveTopScorer(rows), "A. Striker (ARG)");
+});
+
+test("deriveTopScorer は app_code 欠落なら名前のみ", () => {
+	assert.equal(deriveTopScorer([{ player_name: "X", app_code: null, goals: 3, position: 1 }]), "X");
+});
+
+test("deriveTopScorer は空なら空文字", () => {
+	assert.equal(deriveTopScorer([]), "");
 });
