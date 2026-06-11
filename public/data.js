@@ -298,6 +298,7 @@
 					id: fx.id, // sm_fixture_id（詳細画面遷移に使用）
 					status: fx.status, // NS / LIVE / FT
 					state_id: fx.state_id,
+					starting_at_ts: fx.starting_at_ts ?? null, // キックオフ epoch秒（ポーリング窓判定）
 					result_info: fx.result_info || null,
 					minute: fx.minute ?? null, // 進行中ピリオドの経過分（無→null）
 					added_time: fx.added_time ?? null, // アディショナル分（無→null）
@@ -401,6 +402,26 @@
 			minute: live.minute ?? null, // 経過分（LIVE中・進行ピリオドのみ）
 			added_time: live.added_time ?? null, // アディショナル分
 		};
+	};
+	// ライブ取得のポーリングを継続すべきか。
+	// LIVE が1件でもあれば true。さらに「キックオフ間近〜開始後4時間」の NS 試合があれば true
+	// （NS→LIVE 遷移を取りこぼさないため。これが無いと開始前に開いた画面が永久に NS のまま固まる）。
+	window.WC.shouldPollLive = function shouldPollLive(nowMs) {
+		const live = window.WC.LIVE;
+		if (!live) return false;
+		const nowSec = (nowMs ?? Date.now()) / 1000;
+		const PRE = 300; // キックオフ5分前から
+		const POST = 4 * 3600; // 開始後4時間まで（延長/中断の余裕込み）
+		return Object.values(live).some((x) => {
+			if (!x) return false;
+			if (x.status === "LIVE") return true;
+			if (x.status === "NS" && x.starting_at_ts != null) {
+				return (
+					nowSec >= x.starting_at_ts - PRE && nowSec < x.starting_at_ts + POST
+				);
+			}
+			return false;
+		});
 	};
 	// schedule の1試合(app_codeペア)→ sm_fixture_id（未マッチ/未確定は null）
 	window.WC.fixtureIdForMatch = function fixtureIdForMatch(match) {

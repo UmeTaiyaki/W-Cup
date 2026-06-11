@@ -581,6 +581,8 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 		const diff = daysUntil(today, dateStr);
 		countdown = diff <= 0 ? "本日" : `あと${diff}日`;
 	}
+	// キックオフ時刻を過ぎたか。ライブ反映のラグに関係なく、応援UIは確実に消す。
+	const kickedOff = koMs != null && nowMs >= koMs;
 
 	const go = (delta) => setIdx((p) => Math.max(0, Math.min(n - 1, p + delta)));
 	const onTouchStart = (e) => {
@@ -755,7 +757,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 						</div>
 						{side(b)}
 					</div>
-					{!live && <CheerBar T={T} match={cur} a={a} b={b} />}
+					{!live && !kickedOff && <CheerBar T={T} match={cur} a={a} b={b} />}
 					<div
 						style={{
 							marginTop: 14,
