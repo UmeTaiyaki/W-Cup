@@ -9,6 +9,7 @@
 // Secret: SPORTMONKS_TOKEN（wrangler secret put で設定。コード/設定に直書きしない）
 
 import {
+	callGeminiText,
 	makeVertexCaller,
 	maybeGenerateMatchAi,
 } from "../../functions/_lib/ai-match.js";
@@ -107,29 +108,42 @@ export default {
 			if (tsLive.error)
 				console.error("watch-cron: topscorers err=" + tsLive.error);
 
-			// AI分析: スタメン/HT/FT の検知駆動生成（Vertex AI / サービスアカウント認証）。
-			// 詳細同期とは別の障害隔離。GCP_SERVICE_ACCOUNT(secret) と AI_MATCH_ENABLED=true で発火。
-			if (env.AI_MATCH_ENABLED === "true" && env.GCP_SERVICE_ACCOUNT) {
+			// AI分析: スタメン/HT/FT の検知駆動生成（詳細同期とは別の障害隔離）。
+			// プロバイダ自動選択: GCP_SERVICE_ACCOUNT があれば Vertex(SA認証)、無ければ
+			// GEMINI_API_KEY があれば Gemini Developer API。AI_MATCH_ENABLED=true で発火。
+			if (env.AI_MATCH_ENABLED === "true") {
 				try {
-					let sa;
-					try {
-						sa = JSON.parse(env.GCP_SERVICE_ACCOUNT);
-					} catch {
-						throw new Error("GCP_SERVICE_ACCOUNT: invalid JSON");
+					let callAi = null;
+					if (env.GCP_SERVICE_ACCOUNT) {
+						let sa;
+						try {
+							sa = JSON.parse(env.GCP_SERVICE_ACCOUNT);
+						} catch {
+							throw new Error("GCP_SERVICE_ACCOUNT: invalid JSON");
+						}
+						callAi = makeVertexCaller({
+							serviceAccount: sa,
+							location: env.GCP_LOCATION || "global",
+							model: MATCH_AI_MODEL,
+						});
+					} else if (env.GEMINI_API_KEY) {
+						callAi = (prompt) =>
+							callGeminiText({
+								apiKey: env.GEMINI_API_KEY,
+								model: MATCH_AI_MODEL,
+								prompt,
+							});
 					}
-					const callAi = makeVertexCaller({
-						serviceAccount: sa,
-						location: env.GCP_LOCATION || "global",
-						model: MATCH_AI_MODEL,
-					});
-					const ai = await maybeGenerateMatchAi(env.DB, now, {
-						callAi,
-						model: MATCH_AI_MODEL,
-					});
-					if (ai.lineup || ai.ht || ai.ft) {
-						console.log(
-							`watch-cron: ai lineup=${ai.lineup} ht=${ai.ht} ft=${ai.ft}`,
-						);
+					if (callAi) {
+						const ai = await maybeGenerateMatchAi(env.DB, now, {
+							callAi,
+							model: MATCH_AI_MODEL,
+						});
+						if (ai.lineup || ai.ht || ai.ft) {
+							console.log(
+								`watch-cron: ai lineup=${ai.lineup} ht=${ai.ht} ft=${ai.ft}`,
+							);
+						}
 					}
 				} catch (e) {
 					console.error("watch-cron: ai gen error", e?.message);
