@@ -26,35 +26,118 @@ const ROOT = path.resolve(__dirname, "..");
 // ── 純粋照合ロジック（エクスポート / ユニットテスト対象）───────────
 
 /**
+ * 照合用正規化: normalize に加えてハイフンを空白に畳む。
+ * @param {string} s
+ * @returns {string}
+ */
+function nm(s) {
+  return normalize(s)
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * nm(name) の末尾トークン（末尾の '.' を除去後）を姓として返す。
+ * @param {string} name
+ * @returns {string}
+ */
+function surname(name) {
+  const tokens = nm(name).split(" ");
+  return tokens[tokens.length - 1].replace(/\.$/, "");
+}
+
+/**
+ * nm(name) の先頭から連続するイニシャルトークン（ドットと空白で分割後、長さ1のもの）を返す。
+ * "J.L." は "J" と "L" の2つのイニシャルとして扱う。
+ * 例: "J.L. RODRIGUEZ" → ['J','L'], "R. RANGEL" → ['R'], "OCHOA" → []
+ * @param {string} name
+ * @returns {string[]}
+ */
+function initials(name) {
+  // ドットと空白の両方でトークン分割し、空文字を除去する
+  const tokens = nm(name)
+    .split(/[\s.]+/)
+    .filter(Boolean);
+  const result = [];
+  for (const tok of tokens) {
+    if (tok.length === 1) {
+      result.push(tok);
+    } else {
+      break;
+    }
+  }
+  return result;
+}
+
+/**
  * 旧ジャージ名（oldName）を SportMonks スクワッド配列と照合する。
  *
- * - HIGH: normalize(p.name) がトークンとして oldName の normalize 形を含む選手が
- *         ちょうど1名 → { newName: p.name, confidence: "high" }
- * - LOW : 上記が複数名 → 先頭を返しつつ confidence: "low"
- * - null: 1名も合致しない
+ * 照合ティア（先着順）:
+ * 1. EXACT       : nm(sm.name) === nm(oldName) → high（複数なら先頭 high）
+ * 2. FULL-TOKEN  : nm(sm.name) のトークンに nm(oldName) が完全一致する選手が
+ *                  ちょうど1名 → high、複数 → low（先頭）
+ * 3. SURNAME+INITIAL: 姓が一致する候補を絞り、イニシャルで更に絞る
+ *                  → 条件次第で high または low
+ * 4. null        : いずれも不一致
  *
- * @param {string} oldName - 旧名簿上の選手名（例 "MBAPPE", "VINI JR."）
+ * @param {string} oldName - 旧名簿上の選手名（例 "MBAPPE", "R. RANGEL"）
  * @param {Array<{name: string, jersey?: number|null, player_id?: number|null, pos?: number|null}>} smPlayers
  * @returns {{ newName: string, confidence: "high" | "low" } | null}
  */
 export function matchPlayer(oldName, smPlayers) {
-  const o = normalize(oldName); // 例: "MBAPPE", "VINI JR"
+  const o = nm(oldName);
 
-  const matches = smPlayers.filter((p) => {
-    const s = normalize(p.name); // 例: "KYLIAN MBAPPE"
-    // トークンマッチ: s を空白分割したトークン群に o が完全一致するか、
-    // または s === o（単語そのものが一致）
-    if (s === o) return true;
-    const tokens = s.split(" ");
-    return tokens.includes(o);
-  });
-
-  if (matches.length === 0) return null;
-  if (matches.length === 1) {
-    return { newName: matches[0].name, confidence: "high" };
+  // ── Tier 1: EXACT ────────────────────────────────────────────
+  const exactMatches = smPlayers.filter((p) => nm(p.name) === o);
+  if (exactMatches.length >= 1) {
+    return { newName: exactMatches[0].name, confidence: "high" };
   }
-  // 複数マッチ → ambiguous
-  return { newName: matches[0].name, confidence: "low" };
+
+  // ── Tier 2: FULL-TOKEN ────────────────────────────────────────
+  const tokenMatches = smPlayers.filter((p) => {
+    const s = nm(p.name);
+    if (s === o) return true;
+    return s.split(" ").includes(o);
+  });
+  if (tokenMatches.length === 1) {
+    return { newName: tokenMatches[0].name, confidence: "high" };
+  }
+  if (tokenMatches.length > 1) {
+    return { newName: tokenMatches[0].name, confidence: "low" };
+  }
+
+  // ── Tier 3: SURNAME + INITIAL ─────────────────────────────────
+  const oldSurname = surname(oldName);
+  const candidates = smPlayers.filter((p) => surname(p.name) === oldSurname);
+
+  if (candidates.length === 0) return null;
+
+  const oldInitials = initials(oldName);
+
+  if (oldInitials.length >= 1) {
+    const firstInitial = oldInitials[0];
+    const filtered = candidates.filter((p) => {
+      const firstToken = nm(p.name).split(" ")[0].replace(/\.$/, "");
+      return firstToken.startsWith(firstInitial);
+    });
+
+    if (filtered.length === 1) {
+      return { newName: filtered[0].name, confidence: "high" };
+    }
+    if (filtered.length === 0) {
+      // 姓は合ったがイニシャル不一致 → 要確認
+      return { newName: candidates[0].name, confidence: "low" };
+    }
+    // filtered.length > 1
+    return { newName: filtered[0].name, confidence: "low" };
+  }
+
+  // oldName にイニシャルなし
+  if (candidates.length === 1) {
+    return { newName: candidates[0].name, confidence: "high" };
+  }
+  return { newName: candidates[0].name, confidence: "low" };
 }
 
 /**
