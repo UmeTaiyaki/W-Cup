@@ -726,6 +726,30 @@ function SquadSheet({ T, code, onClose }) {
 	);
 }
 
+// ---- チーム詳細シート（チームタブと同じ TeamDetail を埋め込み再利用）----
+// 優勝/準優勝の選択シート・大会結果タブ等から国を選んだときの共通表示。
+function TeamDetailSheet({ T, code, onClose }) {
+	const tm = (window.WC.TEAM || {})[code];
+	const Detail = window.TeamDetail;
+	return (
+		<Sheet
+			open
+			centered
+			onClose={onClose}
+			T={T}
+			title={tm ? `${tm.flag} ${tm.ja}` : "詳細"}
+		>
+			{Detail ? (
+				<Detail T={T} code={code} embedded />
+			) : (
+				<div style={{ padding: 24, textAlign: "center", color: T.faint }}>
+					詳細を表示できません
+				</div>
+			)}
+		</Sheet>
+	);
+}
+
 // ---- チーム選択シート --------------------------------------
 function TeamPicker({
 	open,
@@ -864,30 +888,13 @@ function TeamPicker({
 					</div>
 				)}
 			</div>
-			{detailCode &&
-				(() => {
-					const dt = (window.WC.TEAM || {})[detailCode];
-					const Detail = window.TeamDetail;
-					return (
-						<Sheet
-							open
-							centered
-							onClose={() => setDetailCode(null)}
-							T={T}
-							title={dt ? `${dt.flag} ${dt.ja}` : "詳細"}
-						>
-							{Detail ? (
-								<Detail T={T} code={detailCode} embedded />
-							) : (
-								<div
-									style={{ padding: 24, textAlign: "center", color: T.faint }}
-								>
-									詳細を表示できません
-								</div>
-							)}
-						</Sheet>
-					);
-				})()}
+			{detailCode && (
+				<TeamDetailSheet
+					T={T}
+					code={detailCode}
+					onClose={() => setDetailCode(null)}
+				/>
+			)}
 		</Sheet>
 	);
 }
@@ -1353,6 +1360,7 @@ Object.assign(window, {
 	Card,
 	Sheet,
 	SquadSheet,
+	TeamDetailSheet,
 	TeamPicker,
 	ScorerSelect,
 	ScorerPicker,
