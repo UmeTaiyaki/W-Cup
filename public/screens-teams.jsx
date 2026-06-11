@@ -394,7 +394,8 @@ function TeamFixtureRow({ T, match, code, last }) {
 }
 
 // ---- 詳細画面（ヘッダー＋名簿＋日程）-----------------------
-function TeamDetail({ T, code, onBack }) {
+// embedded: シート内で再利用する際は戻りナビを隠す（優勝/準優勝の選択シート等）
+function TeamDetail({ T, code, onBack, embedded = false }) {
 	const favs = useFavs();
 	const [subtab, setSubtab] = React.useState("analysis"); // analysis | squad | schedule
 	const [aiTick, setAiTick] = React.useState(0);
@@ -429,41 +430,43 @@ function TeamDetail({ T, code, onBack }) {
 
 	return (
 		<div style={{ padding: "4px 2px 24px" }}>
-			{/* 戻る */}
-			<div
-				style={{
-					display: "flex",
-					alignItems: "center",
-					gap: 8,
-					margin: "2px 0 14px",
-				}}
-			>
-				<button
-					onClick={onBack}
-					aria-label="戻る"
+			{/* 戻る（埋め込み時はシート側の閉じるに委ねるため非表示） */}
+			{!embedded && (
+				<div
 					style={{
-						border: "none",
-						background: "rgba(255,255,255,0.06)",
-						borderRadius: 999,
-						width: 30,
-						height: 30,
 						display: "flex",
 						alignItems: "center",
-						justifyContent: "center",
-						cursor: "pointer",
-						color: T.sub,
-						fontSize: 18,
-						lineHeight: 1,
-						boxShadow: `inset 0 0 0 1px ${T.line}`,
-						flexShrink: 0,
+						gap: 8,
+						margin: "2px 0 14px",
 					}}
 				>
-					‹
-				</button>
-				<span style={{ fontSize: 12, color: T.faint, fontWeight: 700 }}>
-					チーム一覧
-				</span>
-			</div>
+					<button
+						onClick={onBack}
+						aria-label="戻る"
+						style={{
+							border: "none",
+							background: "rgba(255,255,255,0.06)",
+							borderRadius: 999,
+							width: 30,
+							height: 30,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							cursor: "pointer",
+							color: T.sub,
+							fontSize: 18,
+							lineHeight: 1,
+							boxShadow: `inset 0 0 0 1px ${T.line}`,
+							flexShrink: 0,
+						}}
+					>
+						‹
+					</button>
+					<span style={{ fontSize: 12, color: T.faint, fontWeight: 700 }}>
+						チーム一覧
+					</span>
+				</div>
+			)}
 
 			{/* ヘッダー（チームカラーをアクセント背景に） */}
 			<div
@@ -782,4 +785,4 @@ function TeamsScreen({ T }) {
 	return <TeamList T={T} onOpen={setSelected} />;
 }
 
-Object.assign(window, { TeamsScreen });
+Object.assign(window, { TeamsScreen, TeamDetail });
