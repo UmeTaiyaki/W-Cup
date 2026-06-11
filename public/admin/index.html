@@ -27,8 +27,11 @@
     import { WILDCARD_SLOTS, PERMITTED, BRACKET_STRUCTURE, resolveThirdAssign, deriveKnockoutFromSets } from '../lib/bracket.js';
     import { thirdAllocation } from '../lib/third-allocation.js';
     import { generateFixtures, computeStandings } from '../lib/standings.js';
+    import { normalize, canonicalKey } from '../lib/scoring.js';
+    import { buildAliasMap, upsertAlias } from '../lib/scorer-alias.js';
     window.WC = window.WC || {};
     Object.assign(window.WC, { WILDCARD_SLOTS, PERMITTED, BRACKET_STRUCTURE, resolveThirdAssign, deriveKnockoutFromSets, thirdAllocation, generateFixtures, computeStandings });
+    Object.assign(window.WC, { normalize, canonicalKey, buildAliasMap, upsertAlias });
   </script>
   <script type="text/babel" src="admin.jsx"></script>
 </body>

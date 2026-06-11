@@ -252,6 +252,13 @@
 			if (Array.isArray(cfg.scorers)) window.WC.SCORERS = cfg.scorers;
 			if (cfg.squads && typeof cfg.squads === "object")
 				window.WC.SQUADS = cfg.squads;
+			// 得点王エイリアス。生配列を保持し、normalize(変種)→canonical の検索マップを構築。
+			if (Array.isArray(cfg.aliases)) {
+				window.WC.ALIASES = cfg.aliases;
+				window.WC.ALIAS_MAP = window.WC.buildAliasMap
+					? window.WC.buildAliasMap(cfg.aliases)
+					: {};
+			}
 			// Turnstile（bot対策）サイトキー。未設定なら null＝フロントは素通り。
 			window.WC.TURNSTILE_SITE_KEY = cfg.turnstileSiteKey || null;
 			return true;
