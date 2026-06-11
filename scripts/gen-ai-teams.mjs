@@ -34,6 +34,7 @@ function parseArgs(argv) {
 		delay: 0, // チーム間の待機ms（レート制限対策）
 		project: null, // vertex: GCP プロジェクトID
 		location: "global", // vertex: ロケーション
+		mustPicks: null, // 注目選手を固定（名簿表記の配列。--only と併用想定）
 	};
 	for (let i = 0; i < argv.length; i++) {
 		const v = argv[i];
@@ -45,6 +46,7 @@ function parseArgs(argv) {
 		else if (v === "--delay") a.delay = Number(argv[++i]) || 0;
 		else if (v === "--project") a.project = argv[++i];
 		else if (v === "--location") a.location = argv[++i];
+		else if (v === "--must-picks") a.mustPicks = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
 	}
 	if (!a.model)
 		a.model =
@@ -265,6 +267,7 @@ async function main() {
 			squad,
 			byCode,
 			liveSummary: live ? liveSummaryFor(live, code, byCode) : null,
+			mustPicks: args.mustPicks,
 		});
 
 		let ok = false;
