@@ -76,6 +76,14 @@ function fmtTeamsDate(d) {
 	return `${m}/${day}(${wd})`;
 }
 
+// ISO日時 → "6月11日"。不正値は空文字。
+function fmtGenerated(iso) {
+	if (!iso) return "";
+	const d = new Date(iso);
+	if (isNaN(d.getTime())) return "";
+	return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+}
+
 // ---- チームアイコンの角丸バッジ ----------------------------
 // 中身は ui.jsx の Flag に委譲。Flag が window.WC.teamLogo(code) を見て
 // SportMonksロゴ(img)優先、無ければ国旗絵文字にフォールバックする。
@@ -388,7 +396,19 @@ function TeamFixtureRow({ T, match, code, last }) {
 // ---- 詳細画面（ヘッダー＋名簿＋日程）-----------------------
 function TeamDetail({ T, code, onBack }) {
 	const favs = useFavs();
-	const [subtab, setSubtab] = React.useState("squad"); // squad | schedule
+	const [subtab, setSubtab] = React.useState("analysis"); // analysis | squad | schedule
+	const [aiTick, setAiTick] = React.useState(0);
+	React.useEffect(() => {
+		if (subtab !== "analysis") return undefined;
+		let alive = true;
+		const f = (window.WC.fetchAiAnalysis || (() => Promise.resolve(false)))();
+		Promise.resolve(f).then(() => {
+			if (alive) setAiTick((n) => n + 1);
+		});
+		return () => {
+			alive = false;
+		};
+	}, [subtab, code]);
 	const tm = (window.WC.TEAM || {})[code];
 	const lib = window.WC.teamsLib || {};
 	if (!tm) return null;
@@ -490,6 +510,7 @@ function TeamDetail({ T, code, onBack }) {
 				value={subtab}
 				onChange={setSubtab}
 				tabs={[
+					{ id: "analysis", label: "紹介" },
 					{ id: "squad", label: "メンバー" },
 					{ id: "schedule", label: "日程" },
 				]}
@@ -589,6 +610,116 @@ function TeamDetail({ T, code, onBack }) {
 					)}
 				</Card>
 			)}
+
+			{/* 分析（AI生成・静的JSON） */}
+			{subtab === "analysis" &&
+				(() => {
+					void aiTick; // fetch完了→setAiTick で再描画させるための依存
+					const aiLib = window.WC.aiLib || {};
+					const doc = window.WC.AI_ANALYSIS;
+					// hasAnalysis で検証通過したチームのみ描画（壊れたJSON混入時も安全）。
+					const ok = aiLib.hasAnalysis ? aiLib.hasAnalysis(doc, code) : false;
+					const ta = ok ? aiLib.getTeamAnalysis(doc, code) : null;
+					if (!ta) {
+						return (
+							<Card T={T} style={{ padding: "8px 14px 12px", marginTop: 10 }}>
+								<div
+									style={{
+										color: T.faint,
+										fontSize: 14,
+										padding: "20px 0",
+										textAlign: "center",
+										fontWeight: 700,
+									}}
+								>
+									分析はまだありません
+								</div>
+							</Card>
+						);
+					}
+					return (
+						<Card T={T} style={{ padding: "12px 14px 14px", marginTop: 10 }}>
+							<div
+								style={{
+									fontSize: 14.5,
+									lineHeight: 1.7,
+									color: T.text,
+									fontWeight: 600,
+									marginBottom: 14,
+								}}
+							>
+								{ta.summary}
+							</div>
+							{ta.sections.map((s) => (
+								<div key={s.id} style={{ marginBottom: 14 }}>
+									<div
+										style={{
+											fontSize: 12.5,
+											fontWeight: 800,
+											color: T.sub,
+											marginBottom: 4,
+										}}
+									>
+										{s.heading}
+									</div>
+									<div
+										style={{
+											fontSize: 14,
+											lineHeight: 1.7,
+											color: T.text,
+											whiteSpace: "pre-wrap",
+										}}
+									>
+										{s.body}
+									</div>
+									{s.id === "players" &&
+										Array.isArray(s.picks) &&
+										s.picks.length > 0 && (
+											<div
+												style={{
+													display: "flex",
+													flexWrap: "wrap",
+													gap: 6,
+													marginTop: 8,
+												}}
+											>
+												{s.picks.map((n) => (
+													<span
+														key={n}
+														style={{
+															fontSize: 12,
+															fontWeight: 800,
+															color: T.sub,
+															padding: "3px 10px",
+															borderRadius: 999,
+															background: "rgba(255,255,255,0.08)",
+															boxShadow: `inset 0 0 0 1px ${T.line}`,
+														}}
+													>
+														{n}
+													</span>
+												))}
+											</div>
+										)}
+								</div>
+							))}
+							<div
+								style={{
+									fontSize: 11,
+									color: T.faint,
+									marginTop: 6,
+									paddingTop: 10,
+									borderTop: `1px solid ${T.line}`,
+								}}
+							>
+								{doc && doc.generatedAt
+									? `${fmtGenerated(doc.generatedAt)}時点・`
+									: ""}
+								AIが生成した内容です。情報が古い場合があります（特に監督名）。
+							</div>
+						</Card>
+					);
+				})()}
 		</div>
 	);
 }

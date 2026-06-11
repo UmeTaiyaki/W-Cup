@@ -314,6 +314,23 @@
 			return false;
 		}
 	};
+	// ---- チームAI分析（静的JSON /data/ai-teams.json）----------------------
+	// 焼き込み済みの分析ドキュメント。未取得は null。失敗時も null
+	// （フロントは「分析はまだありません」を表示）。一度取得したら再取得しない。
+	window.WC.AI_ANALYSIS = null;
+	window.WC.fetchAiAnalysis = async function fetchAiAnalysis() {
+		if (window.WC.AI_ANALYSIS) return true;
+		try {
+			const res = await fetch("/data/ai-teams.json", { cache: "no-store" });
+			if (!res.ok) return false;
+			const doc = await res.json();
+			window.WC.AI_ANALYSIS = doc && typeof doc === "object" ? doc : null;
+			return !!window.WC.AI_ANALYSIS;
+		} catch (e) {
+			window.WC.AI_ANALYSIS = null;
+			return false;
+		}
+	};
 	// app_code → チームロゴURL（/api/live 由来）。無ければ null（呼び出し側で絵文字旗にフォールバック）。
 	window.WC.teamLogo = function teamLogo(code) {
 		if (!code || !window.WC.TEAM_LOGOS) return null;
