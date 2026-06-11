@@ -8,7 +8,10 @@
 //   "0 3 * * *"  日次 → types マスタ更新
 // Secret: SPORTMONKS_TOKEN（wrangler secret put で設定。コード/設定に直書きしない）
 
-import { maybeGenerateMatchAi } from "../../functions/_lib/ai-match.js";
+import {
+	makeVertexCaller,
+	maybeGenerateMatchAi,
+} from "../../functions/_lib/ai-match.js";
 import {
 	selectFixturesForDetailSync,
 	syncFixtureDetail,
@@ -18,6 +21,8 @@ import {
 	syncTypes,
 } from "../../functions/_lib/sm-sync.js";
 import { createSportmonks } from "../../functions/_lib/sportmonks.js";
+
+const MATCH_AI_MODEL = "gemini-2.5-pro";
 
 const FOOTBALL_BASE = "https://api.sportmonks.com/v3/football";
 const CORE_BASE = "https://api.sportmonks.com/v3/core";
@@ -102,11 +107,24 @@ export default {
 			if (tsLive.error)
 				console.error("watch-cron: topscorers err=" + tsLive.error);
 
-			// AI分析: スタメン/HT/FT の検知駆動生成（詳細同期とは別の障害隔離）
-			if (env.AI_MATCH_ENABLED === "true" && env.GEMINI_API_KEY) {
+			// AI分析: スタメン/HT/FT の検知駆動生成（Vertex AI / サービスアカウント認証）。
+			// 詳細同期とは別の障害隔離。GCP_SERVICE_ACCOUNT(secret) と AI_MATCH_ENABLED=true で発火。
+			if (env.AI_MATCH_ENABLED === "true" && env.GCP_SERVICE_ACCOUNT) {
 				try {
+					let sa;
+					try {
+						sa = JSON.parse(env.GCP_SERVICE_ACCOUNT);
+					} catch {
+						throw new Error("GCP_SERVICE_ACCOUNT: invalid JSON");
+					}
+					const callAi = makeVertexCaller({
+						serviceAccount: sa,
+						location: env.GCP_LOCATION || "global",
+						model: MATCH_AI_MODEL,
+					});
 					const ai = await maybeGenerateMatchAi(env.DB, now, {
-						apiKey: env.GEMINI_API_KEY,
+						callAi,
+						model: MATCH_AI_MODEL,
 					});
 					if (ai.lineup || ai.ht || ai.ft) {
 						console.log(
