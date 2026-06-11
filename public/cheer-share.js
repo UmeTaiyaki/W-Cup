@@ -296,11 +296,16 @@
 			if (!blob) return;
 			const file = new File([blob], "cheer.png", { type: "image/png" });
 
+			// アプリURLも一緒に共有（現在のオリジン＝本番なら本番URL）。
+			// 画像添付時は url フィールドが無視される共有先が多いため、本文にも含める。
+			const appUrl = (typeof location !== "undefined" && location.origin) || "";
+			const text = theme.cry + " #WorldCup2026" + (appUrl ? "\n" + appUrl : "");
 			if (navigator.canShare && navigator.canShare({ files: [file] })) {
 				await navigator.share({
 					files: [file],
 					title: theme.cry,
-					text: theme.cry + " #WorldCup2026",
+					text: text,
+					url: appUrl || undefined,
 				});
 				return;
 			}
