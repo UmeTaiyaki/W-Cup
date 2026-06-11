@@ -333,6 +333,39 @@ test("toLineupRows tolerates missing bio (null)", () => {
 	assert.equal(r.club_name, null);
 });
 
+test("toFixtureRow は stage.name を round_name に採用（KO構造は stage 由来）", () => {
+	const row = toFixtureRow({
+		id: 1,
+		participants: [],
+		scores: [],
+		stage: { id: 9, name: "Round of 16" },
+	});
+	assert.equal(row.round_name, "Round of 16");
+});
+
+test("toFixtureRow は stage を round より優先", () => {
+	const row = toFixtureRow({
+		id: 2,
+		participants: [],
+		scores: [],
+		stage: { name: "Final" },
+		round: { name: "3" },
+	});
+	assert.equal(row.round_name, "Final");
+});
+
+test("toFixtureRow は stage が無ければ round.name、どちらも無ければ null", () => {
+	assert.equal(
+		toFixtureRow({ id: 3, participants: [], scores: [], round: { name: "1" } })
+			.round_name,
+		"1",
+	);
+	assert.equal(
+		toFixtureRow({ id: 4, participants: [], scores: [] }).round_name,
+		null,
+	);
+});
+
 test("toEventRows maps player_id and related_player_id", () => {
 	const detail = {
 		id: 1,

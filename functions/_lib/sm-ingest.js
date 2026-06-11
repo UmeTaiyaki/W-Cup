@@ -83,7 +83,8 @@ export function toFixtureRow(detail) {
 		sm_fixture_id: detail?.id ?? null,
 		league_id: detail?.league_id ?? null,
 		season_id: detail?.season_id ?? null,
-		round_name: null, // round_id は別 include(rounds/stages)。P0では未解決→後で埋める
+		// KO構造は stage.name（"Round of 16"等）に入る。round.name は群リーグの節番号 or KO で null。
+		round_name: detail?.stage?.name ?? detail?.round?.name ?? null,
 		starting_at: detail?.starting_at ?? null,
 		starting_at_ts: detail?.starting_at_timestamp ?? null,
 		state_id: detail?.state_id ?? null,

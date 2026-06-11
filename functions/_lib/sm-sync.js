@@ -15,7 +15,7 @@ export const FIXTURE_DETAIL_INCLUDE =
 // livescores の軽量 include（書き込み節約）。periods=経過分表示用。
 export const LIVE_INCLUDE = "scores;participants;events;periods";
 // season スケジュール backfill の include（各 fixture にチームをネスト）
-export const SEASON_FIXTURES_INCLUDE = "fixtures.participants";
+export const SEASON_FIXTURES_INCLUDE = "fixtures.participants;fixtures.stage";
 
 // D1 batch の1回あたり文数。多すぎると上限に当たるため分割実行する。
 const BATCH_CHUNK = 50;
