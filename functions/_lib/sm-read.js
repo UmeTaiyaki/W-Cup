@@ -96,7 +96,16 @@ export async function getFixtureDetail(db, id) {
 	const player_stats = await all(
 		"SELECT * FROM sm_player_stats WHERE sm_fixture_id = ?",
 	);
-	return { fixture, events, stats, lineups, player_stats };
+	const aiRows = await all(
+		"SELECT phase, summary, model, updated_at FROM sm_match_ai WHERE sm_fixture_id = ? AND summary IS NOT NULL ORDER BY updated_at ASC",
+	);
+	const ai = aiRows.map((r) => ({
+		phase: r.phase,
+		summary: r.summary,
+		model: r.model ?? null,
+		generated_at: r.updated_at ?? null,
+	}));
+	return { fixture, events, stats, lineups, player_stats, ai };
 }
 
 // 得点王ランキング。topscorers.team_id を sm_teams.app_code で解決し、
