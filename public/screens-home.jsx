@@ -498,7 +498,7 @@ function CheerBar({ T, match, a, b }) {
 					}}
 					style={cheerBtnStyle(aColor)}
 				>
-					📣 {a.resolved ? a.code : "応援"}
+					{a.resolved ? a.code + "を応援" : "応援"}
 				</button>
 				<button
 					onClick={(e) => {
@@ -507,7 +507,7 @@ function CheerBar({ T, match, a, b }) {
 					}}
 					style={cheerBtnStyle(bColor)}
 				>
-					📣 {b.resolved ? b.code : "応援"}
+					{b.resolved ? b.code + "を応援" : "応援"}
 				</button>
 				<button
 					onClick={(e) => {
@@ -525,7 +525,7 @@ function CheerBar({ T, match, a, b }) {
 						background: "transparent",
 					}}
 				>
-					📤 シェア
+					シェア
 				</button>
 			</div>
 		</div>
@@ -734,6 +734,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 						</div>
 						{side(b)}
 					</div>
+					{!live && <CheerBar T={T} match={cur} a={a} b={b} />}
 					<div
 						style={{
 							marginTop: 14,
@@ -767,7 +768,6 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 							📍 {cur.note}
 						</div>
 					)}
-					{!live && <CheerBar T={T} match={cur} a={a} b={b} />}
 				</Card>
 				{n > 1 && arrow(-1, "‹", idx > 0, "left")}
 				{n > 1 && arrow(1, "›", idx < n - 1, "right")}
