@@ -617,9 +617,9 @@ function TeamDetail({ T, code, onBack }) {
 					void aiTick; // fetch完了→setAiTick で再描画させるための依存
 					const aiLib = window.WC.aiLib || {};
 					const doc = window.WC.AI_ANALYSIS;
-					const ta = aiLib.getTeamAnalysis
-						? aiLib.getTeamAnalysis(doc, code)
-						: null;
+					// hasAnalysis で検証通過したチームのみ描画（壊れたJSON混入時も安全）。
+					const ok = aiLib.hasAnalysis ? aiLib.hasAnalysis(doc, code) : false;
+					const ta = ok ? aiLib.getTeamAnalysis(doc, code) : null;
 					if (!ta) {
 						return (
 							<Card T={T} style={{ padding: "8px 14px 12px", marginTop: 10 }}>
