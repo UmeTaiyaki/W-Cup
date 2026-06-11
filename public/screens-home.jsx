@@ -283,6 +283,276 @@ function fmtHMS(ms) {
 	return `${h}:${pad(m)}:${pad(s)}`;
 }
 
+// 応援ボタンのスタイル（左=チームA/右=チームBの色）。
+// selected=最後に押した側（塗りつぶし強調）、dim=未選択側を控えめに。
+function cheerBtnStyle(color, selected, dim) {
+	return {
+		fontSize: 11,
+		fontWeight: selected ? 800 : 700,
+		padding: "6px 14px",
+		borderRadius: 999,
+		cursor: "pointer",
+		border: `1px solid ${selected ? color : color + "55"}`,
+		color: selected ? "#0e0f12" : color,
+		background: selected ? color : `${color}14`,
+		opacity: dim ? 0.5 : 1,
+		boxShadow: selected ? `0 0 10px ${color}66` : "none",
+		display: "inline-flex",
+		alignItems: "center",
+		gap: 5,
+		transition: "all .15s",
+	};
+}
+function hexA6(hex, al) {
+	const h = hex.replace("#", "");
+	return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${al})`;
+}
+
+// 試合前カードの「ご当地応援バトル」。何回でも応援でき、押すとご当地演出。
+// 左チーム(a)=side"home"、右チーム(b)=side"away" として一貫マッピング。
+function CheerBar({ T, match, a, b }) {
+	const fixtureId = window.WC.fixtureIdForMatch
+		? window.WC.fixtureIdForMatch(match)
+		: null;
+	const overlayRef = React.useRef(null);
+	const [, force] = React.useState(0);
+	const [userSide, setUserSide] = React.useState(null);
+
+	React.useEffect(() => {
+		if (fixtureId == null || !window.WC.cheer) return;
+		window.WC.cheer.fetch([fixtureId]);
+		return window.WC.cheer.subscribe(() => force((x) => x + 1));
+	}, [fixtureId]);
+
+	if (fixtureId == null || !window.WC.cheer) return null;
+
+	const counts = window.WC.cheer.get(fixtureId);
+	const total = Math.max(1, counts.home + counts.away);
+	const homeR = counts.home / total;
+	const aColor = "#ff7a96";
+	const bColor = "#7aa0ff";
+	// 共有する側＝最後に押した側。未選択なら優勢な側を既定にする。
+	const shareSide = userSide || (homeR >= 0.5 ? "home" : "away");
+	const shareTeam = shareSide === "home" ? a : b;
+
+	function celebrate(side) {
+		const team = side === "home" ? a : b;
+		const theme = window.WC.cheerTheme
+			? window.WC.cheerTheme.get(team.code, team)
+			: null;
+		const host = overlayRef.current;
+		if (!host || !theme) return;
+		if (theme.rays) {
+			const r = document.createElement("div");
+			r.style.cssText = `position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% 65%,${hexA6(theme.accent, 0.16)} 0 7deg,transparent 7deg 18deg);`;
+			host.appendChild(r);
+			r.animate([{ opacity: 0 }, { opacity: 0.7 }, { opacity: 0 }], {
+				duration: 650,
+				easing: "ease-out",
+			});
+			setTimeout(() => r.remove(), 650);
+		}
+		const cols = theme.colors || ["#b6ff60"];
+		for (let i = 0; i < 18; i++) {
+			const c = document.createElement("div");
+			c.style.cssText = `position:absolute;top:-10px;left:${Math.random() * 100}%;width:${5 + Math.random() * 4}px;height:${8 + Math.random() * 5}px;background:${cols[i % cols.length]};border-radius:1px;`;
+			host.appendChild(c);
+			c.animate(
+				[
+					{ transform: "translateY(0) rotate(0)", opacity: 1 },
+					{
+						transform: `translateY(280px) rotate(${360 + Math.random() * 360}deg)`,
+						opacity: 0,
+					},
+				],
+				{
+					duration: 900 + Math.random() * 500,
+					easing: "cubic-bezier(.3,.7,.5,1)",
+				},
+			);
+			setTimeout(() => c.remove(), 1500);
+		}
+		const shapes = theme.shapes || ["star"];
+		for (let i = 0; i < 12; i++) {
+			const s = document.createElement("div");
+			s.innerHTML = window.WC.cheerTheme.shapeSVG(
+				shapes[i % shapes.length],
+				cols[i % cols.length],
+				14 + Math.floor(Math.random() * 8),
+			);
+			s.style.cssText = `position:absolute;top:-18px;left:${Math.random() * 100}%;line-height:0;`;
+			host.appendChild(s);
+			s.animate(
+				[
+					{ transform: "translateY(0) rotate(0)", opacity: 1 },
+					{
+						transform: `translateY(280px) rotate(${(Math.random() * 2 - 1) * 360}deg)`,
+						opacity: 0,
+					},
+				],
+				{
+					duration: 1000 + Math.random() * 600,
+					easing: "ease-in",
+				},
+			);
+			setTimeout(() => s.remove(), 1700);
+		}
+		const cry = document.createElement("div");
+		cry.textContent = theme.cry;
+		cry.style.cssText = `position:absolute;left:0;right:0;top:34%;text-align:center;font-weight:900;font-size:24px;color:#fff;text-shadow:0 0 16px ${theme.accent};`;
+		host.appendChild(cry);
+		cry.animate(
+			[
+				{ opacity: 0, transform: "scale(.8)" },
+				{ opacity: 1, transform: "scale(1.12)" },
+				{ opacity: 1, transform: "scale(1)" },
+				{ opacity: 0 },
+			],
+			{ duration: 1000, easing: "ease-out" },
+		);
+		setTimeout(() => cry.remove(), 1000);
+	}
+
+	function onCheer(side) {
+		setUserSide(side);
+		window.WC.cheer.tap(fixtureId, side);
+		celebrate(side);
+	}
+	function onShare() {
+		if (!window.WC.cheerShare) return;
+		window.WC.cheerShare.share({
+			a,
+			b,
+			side: shareSide,
+			counts: window.WC.cheer.get(fixtureId),
+			roundLabel: window.WC.roundLabel ? window.WC.roundLabel(match.round) : "",
+		});
+	}
+
+	return (
+		<div
+			style={{
+				position: "relative",
+				marginTop: 14,
+				paddingTop: 12,
+				borderTop: `1px solid ${T.line}`,
+			}}
+		>
+			<div
+				ref={overlayRef}
+				style={{
+					position: "absolute",
+					left: 0,
+					right: 0,
+					bottom: 0,
+					height: 300,
+					overflow: "hidden",
+					pointerEvents: "none",
+					zIndex: 4,
+				}}
+			/>
+			<div
+				style={{
+					height: 8,
+					borderRadius: 999,
+					background: "#23262d",
+					overflow: "hidden",
+					display: "flex",
+					position: "relative",
+					zIndex: 1,
+				}}
+			>
+				<div
+					style={{
+						width: `${homeR * 100}%`,
+						background: "linear-gradient(90deg,#ff3b6b,#ff7a96)",
+						transition: "width .4s",
+					}}
+				/>
+				<div
+					style={{
+						flex: 1,
+						background: "linear-gradient(90deg,#5b82e6,#a9c4ff)",
+					}}
+				/>
+			</div>
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					fontSize: 11,
+					fontWeight: 700,
+					marginTop: 4,
+					position: "relative",
+					zIndex: 1,
+				}}
+			>
+				<span style={{ color: aColor }}>
+					{a.resolved ? a.code : a.label} {counts.home}
+				</span>
+				<span style={{ color: bColor }}>
+					{counts.away} {b.resolved ? b.code : b.label}
+				</span>
+			</div>
+			<div
+				style={{
+					display: "flex",
+					gap: 8,
+					justifyContent: "center",
+					marginTop: 10,
+					position: "relative",
+					zIndex: 5,
+				}}
+			>
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						onCheer("home");
+					}}
+					style={cheerBtnStyle(
+						aColor,
+						userSide === "home",
+						userSide != null && userSide !== "home",
+					)}
+				>
+					{a.resolved ? a.code + "を応援" : "応援"}
+				</button>
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						onCheer("away");
+					}}
+					style={cheerBtnStyle(
+						bColor,
+						userSide === "away",
+						userSide != null && userSide !== "away",
+					)}
+				>
+					{b.resolved ? b.code + "を応援" : "応援"}
+				</button>
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						onShare();
+					}}
+					style={{
+						fontSize: 11,
+						fontWeight: 700,
+						padding: "6px 14px",
+						borderRadius: 999,
+						cursor: "pointer",
+						border: `1px solid ${T.line}`,
+						color: T.sub,
+						background: "transparent",
+					}}
+				>
+					{shareTeam.resolved ? shareTeam.code + "でシェア" : "シェア"}
+				</button>
+			</div>
+		</div>
+	);
+}
+
 // フォーカス日の試合をスワイプ/矢印/ドットで切替表示
 function MatchCarousel({ T, dateStr, matches, today }) {
 	const [idx, setIdx] = React.useState(0);
@@ -485,6 +755,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 						</div>
 						{side(b)}
 					</div>
+					{!live && <CheerBar T={T} match={cur} a={a} b={b} />}
 					<div
 						style={{
 							marginTop: 14,

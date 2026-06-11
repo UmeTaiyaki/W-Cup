@@ -8,6 +8,8 @@ compatibility_date = "2026-01-01"
 TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
 # 観戦機能のフィーチャーフラグ。true で /api/live が sm_* を配信（OFFなら enabled:false＝既存挙動）。
 WATCH_ENABLED = "true"
+# 試合前ご当地応援バトルのフィーチャーフラグ。true で /api/cheer が稼働（OFFなら enabled:false＝UI非表示）。
+CHEER_ENABLED = "true"
 # 永続データ(user/room/config)の読み取り元バックエンド。KV→D1 無停止移行の切替フラグ。
 #   未設定/"kv" = 二重書き込み・読みは KV（移行 段1）/ "d1" = 二重書き込み・読みは D1（段3）
 #   "d1-only"   = D1 単独・KV 書き込み停止（段4）
