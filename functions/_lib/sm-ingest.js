@@ -83,7 +83,8 @@ export function toFixtureRow(detail) {
 		sm_fixture_id: detail?.id ?? null,
 		league_id: detail?.league_id ?? null,
 		season_id: detail?.season_id ?? null,
-		round_name: null, // round_id は別 include(rounds/stages)。P0では未解決→後で埋める
+		// KO構造は stage.name（"Round of 16"等）に入る。round.name は群リーグの節番号 or KO で null。
+		round_name: detail?.stage?.name ?? detail?.round?.name ?? null,
 		starting_at: detail?.starting_at ?? null,
 		starting_at_ts: detail?.starting_at_timestamp ?? null,
 		state_id: detail?.state_id ?? null,
@@ -199,5 +200,24 @@ export function toTypeRows(types) {
 			type_id: t.id,
 			code: t.code ?? null,
 			name: t.name ?? null,
+		}));
+}
+
+// season topscorers data[] → sm_topscorers 行（純変換）
+// ゴール得点王のみ抽出（GOAL_TYPE_ID）。アシスト/カード種別は除外。
+// app_code は participant→sm_teams の解決を要するため取り込み時は null、配信側 JOIN で埋める。
+export const GOAL_TYPE_ID = 208; // 仮値: 本大会データで実 type_id を検証・修正する
+export function toTopscorerRows(body, seasonId) {
+	const list = Array.isArray(body?.data) ? body.data : [];
+	return list
+		.filter((d) => d?.player_id != null && d?.type_id === GOAL_TYPE_ID)
+		.map((d) => ({
+			season_id: seasonId ?? null,
+			player_id: d.player_id,
+			player_name: d?.player?.name ?? null,
+			team_id: d?.participant_id ?? d?.participant?.id ?? null,
+			app_code: null,
+			goals: typeof d.total === "number" ? d.total : null,
+			position: typeof d.position === "number" ? d.position : null,
 		}));
 }

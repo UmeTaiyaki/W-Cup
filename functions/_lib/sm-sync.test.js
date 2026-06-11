@@ -8,6 +8,7 @@ import {
 	syncFixtureDetail,
 	syncLive,
 	syncSeasonFixtures,
+	syncTopscorers,
 	syncTypes,
 } from "./sm-sync.js";
 
@@ -255,4 +256,41 @@ test("selectFixturesForDetailSync: 非配列は空", () => {
 test("FIXTURE_DETAIL_INCLUDE requests player profile for lineups", () => {
 	assert.ok(FIXTURE_DETAIL_INCLUDE.includes("lineups.player"));
 	assert.ok(FIXTURE_DETAIL_INCLUDE.includes("lineups.player.nationality"));
+});
+
+test("syncTopscorers は topscorers を取得し upsert 件数を返す", async () => {
+	const calls = [];
+	const football = {
+		get: async (path, opts) => {
+			calls.push({ path, opts });
+			return {
+				data: [
+					{
+						position: 1,
+						total: 5,
+						type_id: 208,
+						player_id: 11,
+						participant_id: 99,
+						player: { name: "A" },
+					},
+				],
+			};
+		},
+	};
+	const db = { batch: async () => {}, prepare: () => ({ bind: () => ({}) }) };
+	const r = await syncTopscorers(football, db, 26618, 1700);
+	assert.equal(r.count, 1);
+	assert.match(calls[0].path, /seasons\/26618\/topscorers/);
+});
+
+test("syncTopscorers は fetch 失敗でも例外を投げず error を返す", async () => {
+	const football = {
+		get: async () => {
+			throw new Error("boom");
+		},
+	};
+	const db = { batch: async () => {}, prepare: () => ({ bind: () => ({}) }) };
+	const r = await syncTopscorers(football, db, 26618, 1700);
+	assert.equal(r.count, 0);
+	assert.equal(r.error, "boom");
 });

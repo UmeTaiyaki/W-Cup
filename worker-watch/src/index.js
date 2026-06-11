@@ -13,6 +13,7 @@ import {
 	syncFixtureDetail,
 	syncLive,
 	syncSeasonFixtures,
+	syncTopscorers,
 	syncTypes,
 } from "../../functions/_lib/sm-sync.js";
 import { createSportmonks } from "../../functions/_lib/sportmonks.js";
@@ -50,6 +51,10 @@ export default {
 			const s = await syncSeasonFixtures(football, env.DB, SEASON_2026, now);
 			console.log(
 				`watch-cron daily: types=${n} season=${s.count}${s.error ? " err=" + s.error : ""}`,
+			);
+			const ts = await syncTopscorers(football, env.DB, SEASON_2026, now);
+			console.log(
+				`watch-cron daily: topscorers=${ts.count}${ts.error ? " err=" + ts.error : ""}`,
 			);
 		} else {
 			const r = await syncLive(football, env.DB, now);
@@ -91,6 +96,10 @@ export default {
 			} catch (e) {
 				console.error("watch-cron: detail sync error", e?.message);
 			}
+
+			const tsLive = await syncTopscorers(football, env.DB, SEASON_2026, now);
+			if (tsLive.error)
+				console.error("watch-cron: topscorers err=" + tsLive.error);
 		}
 	},
 
@@ -122,6 +131,10 @@ export default {
 			}
 			if (action === "live") {
 				const r = await syncLive(football, env.DB, now);
+				return Response.json({ ok: true, ...r });
+			}
+			if (action === "topscorers") {
+				const r = await syncTopscorers(football, env.DB, SEASON_2026, now);
 				return Response.json({ ok: true, ...r });
 			}
 			if (action === "season") {

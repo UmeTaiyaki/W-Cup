@@ -399,8 +399,8 @@ function TeamDetail({ T, code, onBack, embedded = false }) {
 	const favs = useFavs();
 	const [subtab, setSubtab] = React.useState("analysis"); // analysis | squad | schedule
 	const [aiTick, setAiTick] = React.useState(0);
+	// AI分析(紹介本文＋監督名)を取得。紹介/メンバー両タブで使うため詳細表示時に毎回ロード。
 	React.useEffect(() => {
-		if (subtab !== "analysis") return undefined;
 		let alive = true;
 		const f = (window.WC.fetchAiAnalysis || (() => Promise.resolve(false)))();
 		Promise.resolve(f).then(() => {
@@ -409,7 +409,7 @@ function TeamDetail({ T, code, onBack, embedded = false }) {
 		return () => {
 			alive = false;
 		};
-	}, [subtab, code]);
+	}, [code]);
 	const tm = (window.WC.TEAM || {})[code];
 	const lib = window.WC.teamsLib || {};
 	if (!tm) return null;
@@ -522,6 +522,40 @@ function TeamDetail({ T, code, onBack, embedded = false }) {
 			{/* 名簿 */}
 			{subtab === "squad" && (
 				<Card T={T} style={{ padding: "8px 14px 12px", marginTop: 10 }}>
+					{(() => {
+						const ta =
+							window.WC.aiLib && window.WC.aiLib.getTeamAnalysis
+								? window.WC.aiLib.getTeamAnalysis(window.WC.AI_ANALYSIS, code)
+								: null;
+						const manager = ta && ta.manager;
+						return manager ? (
+							<div
+								style={{
+									display: "flex",
+									alignItems: "baseline",
+									gap: 10,
+									padding: "4px 2px 12px",
+									marginBottom: 4,
+									borderBottom: `1px solid ${T.line}`,
+								}}
+							>
+								<span
+									style={{
+										fontSize: 11,
+										fontWeight: 800,
+										letterSpacing: 1,
+										color: T.faint,
+										minWidth: 40,
+									}}
+								>
+									監督
+								</span>
+								<span style={{ fontSize: 15, fontWeight: 800, color: T.text }}>
+									{manager}
+								</span>
+							</div>
+						) : null;
+					})()}
 					{squad.length === 0 ? (
 						<div
 							style={{
