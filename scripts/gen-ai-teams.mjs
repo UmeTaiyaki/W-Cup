@@ -1,9 +1,13 @@
 // W杯2026 チームAI分析の生成スクリプト（完全静的・焼き込み）。
 //
 // 使い方:
-//   CF_ACCOUNT_ID=xxx CF_AI_TOKEN=yyy \
-//     node scripts/gen-ai-teams.mjs --base https://wcup2026-yosou.pages.dev [--only JPN,BRA] [--with-live] [--model @cf/meta/llama-3.3-70b-instruct]
+//   [Workers AI] CF_ACCOUNT_ID=xxx CF_AI_TOKEN=yyy \
+//     node scripts/gen-ai-teams.mjs --base <url> [--only JPN,BRA] [--with-live] [--model <slug>]
+//   [Gemini]     GEMINI_API_KEY=zzz \
+//     node scripts/gen-ai-teams.mjs --provider gemini --base <url> [--only ...] [--delay 1000]
 //
+// --provider workers(既定) | gemini。gemini は Google検索グラウンディング有効＋
+//   既定モデル gemini-2.5-pro。--delay はチーム間待機ms（無料枠レート制限対策）。
 // 入力: <base>/api/config（teams/squads/groups/schedule）。--with-live 時は <base>/api/live。
 // 出力: public/data/ai-teams.json（既存があれば成功チームのみ部分マージ）。
 // 注意: ネットワーク／課金が発生する。サンドボックス外で実行すること。
@@ -13,17 +17,41 @@ import { buildTeamPrompt } from "./lib/ai-team-prompt.mjs";
 import { validateTeam, unknownPicks } from "../public/lib/ai-analysis.js";
 
 const OUT = new URL("../public/data/ai-teams.json", import.meta.url);
-const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const DEFAULT_WORKERS_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-pro";
+const DEFAULT_VERTEX_MODEL = "gemini-2.5-pro";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function parseArgs(argv) {
-	const a = { base: "http://127.0.0.1:8788", only: null, withLive: false, model: DEFAULT_MODEL };
+	const a = {
+		base: "http://127.0.0.1:8788",
+		only: null,
+		withLive: false,
+		provider: "workers", // workers | gemini | vertex
+		model: null,
+		delay: 0, // チーム間の待機ms（レート制限対策）
+		project: null, // vertex: GCP プロジェクトID
+		location: "global", // vertex: ロケーション
+	};
 	for (let i = 0; i < argv.length; i++) {
 		const v = argv[i];
 		if (v === "--base") a.base = argv[++i];
 		else if (v === "--only") a.only = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
 		else if (v === "--with-live") a.withLive = true;
+		else if (v === "--provider") a.provider = argv[++i];
 		else if (v === "--model") a.model = argv[++i];
+		else if (v === "--delay") a.delay = Number(argv[++i]) || 0;
+		else if (v === "--project") a.project = argv[++i];
+		else if (v === "--location") a.location = argv[++i];
 	}
+	if (!a.model)
+		a.model =
+			a.provider === "vertex"
+				? DEFAULT_VERTEX_MODEL
+				: a.provider === "gemini"
+					? DEFAULT_GEMINI_MODEL
+					: DEFAULT_WORKERS_MODEL;
 	return a;
 }
 
@@ -75,14 +103,68 @@ async function callWorkersAI({ accountId, token, model, prompt }) {
 	return out; // object（構造化出力）or string
 }
 
+// Gemini API 呼び出し（Google検索グラウンディング有効）。応答テキスト（文字列）を返す。
+// グラウンディング使用時は JSON モード(responseSchema)を併用できないため、
+// 本文から parseModelJson で JSON を抽出する。
+async function callGemini({ apiKey, model, prompt }) {
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+		body: JSON.stringify({
+			contents: [{ role: "user", parts: [{ text: prompt }] }],
+			tools: [{ google_search: {} }],
+			generationConfig: { temperature: 0.7 },
+		}),
+	});
+	if (!res.ok) throw new Error(`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+	return extractGeminiText(await res.json(), "Gemini");
+}
+
+// Vertex AI（GCP）呼び出し。OAuthアクセストークン＋プロジェクトIDで認証。
+// Gemini Developer API と同じ GenerateContent スキーマ。Google検索グラウンディング有効。
+async function callVertex({ token, project, location, model, prompt }) {
+	const url = `https://aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+		body: JSON.stringify({
+			contents: [{ role: "user", parts: [{ text: prompt }] }],
+			tools: [{ googleSearch: {} }],
+			generationConfig: { temperature: 0.7 },
+		}),
+	});
+	if (!res.ok) throw new Error(`Vertex HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+	return extractGeminiText(await res.json(), "Vertex");
+}
+
+// Gemini/Vertex の generateContent 応答から本文テキストを取り出す。
+function extractGeminiText(json, label) {
+	const cand = json && json.candidates && json.candidates[0];
+	const parts = cand && cand.content && cand.content.parts;
+	const text = Array.isArray(parts) ? parts.map((p) => p.text || "").join("") : "";
+	if (!text.trim()) {
+		const fr = cand && cand.finishReason;
+		throw new Error(`${label}: 応答が空${fr ? `（finishReason=${fr}）` : ""}`);
+	}
+	return text;
+}
+
 // モデル出力から JSON オブジェクトを抽出してパース。
+// コードフェンス除去 → 最初の{〜最後の} を切り出し、失敗時は末尾カンマ等を軽修復して再試行。
 function parseModelJson(text) {
 	let s = String(text).trim();
 	s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
 	const start = s.indexOf("{");
 	const end = s.lastIndexOf("}");
 	if (start === -1 || end === -1) throw new Error("出力にJSONオブジェクトが無い");
-	return JSON.parse(s.slice(start, end + 1));
+	const body = s.slice(start, end + 1);
+	try {
+		return JSON.parse(body);
+	} catch {
+		// LLM 由来の軽微な崩れ（配列/オブジェクト末尾の余分なカンマ）を修復して再試行。
+		return JSON.parse(body.replace(/,(\s*[}\]])/g, "$1"));
+	}
 }
 
 // schedule から teamCode の試合を date 昇順で抽出。
@@ -120,12 +202,32 @@ async function loadExisting() {
 
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
-	const accountId = process.env.CF_ACCOUNT_ID;
-	const token = process.env.CF_AI_TOKEN;
-	if (!accountId || !token) {
-		console.error("CF_ACCOUNT_ID と CF_AI_TOKEN を環境変数に設定してください。");
-		process.exit(1);
+	const provider = args.provider;
+	let accountId, token, geminiKey, vertexToken, vertexProject;
+	if (provider === "gemini") {
+		geminiKey = process.env.GEMINI_API_KEY;
+		if (!geminiKey) {
+			console.error("GEMINI_API_KEY を環境変数に設定してください。");
+			process.exit(1);
+		}
+	} else if (provider === "vertex") {
+		// トークンは GCP_TOKEN_FILE(パス) 優先、無ければ GCP_ACCESS_TOKEN。
+		const tf = process.env.GCP_TOKEN_FILE;
+		vertexToken = tf ? (await readFile(tf, "utf8")).trim() : process.env.GCP_ACCESS_TOKEN;
+		vertexProject = args.project || process.env.GCP_PROJECT;
+		if (!vertexToken || !vertexProject) {
+			console.error("Vertex: GCP_TOKEN_FILE(または GCP_ACCESS_TOKEN) と --project(または GCP_PROJECT) が必要です。");
+			process.exit(1);
+		}
+	} else {
+		accountId = process.env.CF_ACCOUNT_ID;
+		token = process.env.CF_AI_TOKEN;
+		if (!accountId || !token) {
+			console.error("CF_ACCOUNT_ID と CF_AI_TOKEN を環境変数に設定してください。");
+			process.exit(1);
+		}
 	}
+	console.log(`provider=${provider} model=${args.model}${provider === "vertex" ? ` project=${vertexProject} location=${args.location}` : ""}`);
 
 	console.log(`config 取得: ${args.base}/api/config`);
 	const cfg = await fetchJson(`${args.base}/api/config`, "config");
@@ -165,9 +267,14 @@ async function main() {
 		});
 
 		let ok = false;
-		for (let attempt = 1; attempt <= 2 && !ok; attempt++) {
+		for (let attempt = 1; attempt <= 3 && !ok; attempt++) {
 			try {
-				const raw = await callWorkersAI({ accountId, token, model: args.model, prompt });
+				const raw =
+					provider === "gemini"
+						? await callGemini({ apiKey: geminiKey, model: args.model, prompt })
+						: provider === "vertex"
+							? await callVertex({ token: vertexToken, project: vertexProject, location: args.location, model: args.model, prompt })
+							: await callWorkersAI({ accountId, token, model: args.model, prompt });
 				const parsed = typeof raw === "string" ? parseModelJson(raw) : raw;
 				const errs = validateTeam(parsed);
 				const bad = unknownPicks(parsed, squad);
@@ -178,9 +285,11 @@ async function main() {
 				console.log(`✓ ${code}`);
 			} catch (e) {
 				console.error(`  ${code} 試行${attempt} 失敗: ${e.message}`);
+				if (attempt < 3) await sleep(3000); // 一時的な429/タイムアウトを待つ
 			}
 		}
 		if (!ok) failed.push(code);
+		if (args.delay > 0) await sleep(args.delay); // チーム間ペーシング
 	}
 
 	await mkdir(new URL("../public/data/", import.meta.url), { recursive: true });
