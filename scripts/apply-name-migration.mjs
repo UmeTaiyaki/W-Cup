@@ -38,6 +38,19 @@ function main() {
 		process.exit(1);
 	}
 
+	// 手動オーバーライド（有名FW等の据え置きを補完）を proposed mapping へ上書きマージ。
+	const overridePath = arg("--overrides", "scripts/manual-name-overrides.json");
+	try {
+		const ov = JSON.parse(readFileSync(overridePath, "utf8"));
+		for (const code of Object.keys(ov)) {
+			if (code.startsWith("_")) continue; // _comment 等は無視
+			mapping[code] = { ...(mapping[code] || {}), ...ov[code] };
+		}
+		console.log(`手動オーバーライド適用: ${overridePath}`);
+	} catch (e) {
+		// オーバーライドファイルが無ければ proposed mapping のみで続行
+	}
+
 	const { squads: nextSquads, aliases, report } = migrateSquads(
 		squads,
 		mapping,
