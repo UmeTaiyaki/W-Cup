@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	deriveChampion,
 	deriveGroupMatches,
 	deriveGroupResult,
 	isFinalRound,
@@ -80,4 +81,18 @@ test("deriveGroupResult は未完（FT<6）のグループは空配列", () => {
 	];
 	const gr = deriveGroupResult(partial, { A: ["MEX", "KOR", "RSA", "CZE"] });
 	assert.deepEqual(gr.A, []);
+});
+
+test("deriveChampion は決勝FTから勝者=champion・敗者=runnerUp", () => {
+	const fixtures = [
+		{ status: "FT", round_name: "Final", home: { app_code: "ARG", score: 3 }, away: { app_code: "FRA", score: 1 } },
+	];
+	assert.deepEqual(deriveChampion(fixtures), { champion: "ARG", runnerUp: "FRA" });
+});
+
+test("deriveChampion は決勝が未FTなら null/null", () => {
+	const fixtures = [
+		{ status: "LIVE", round_name: "Final", home: { app_code: "ARG", score: 0 }, away: { app_code: "FRA", score: 0 } },
+	];
+	assert.deepEqual(deriveChampion(fixtures), { champion: null, runnerUp: null });
 });

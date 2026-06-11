@@ -105,3 +105,22 @@ export function deriveGroupResult(fixtures, groups) {
 	}
 	return out;
 }
+
+// 決勝(FT)から優勝・準優勝。未FT/同点(PK決着はスコア同点になりうる)は null。
+// 注: PK決着の勝者判定は今後 result_info 解析で補強（YAGNI: まずスコア差）。
+export function deriveChampion(fixtures) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const fin = list.find(
+		(fx) => isFinalRound(fx?.round_name) && fx?.status === "FT",
+	);
+	if (!fin) return { champion: null, runnerUp: null };
+	const ha = fin?.home?.app_code,
+		aa = fin?.away?.app_code;
+	const hs = fin?.home?.score,
+		as = fin?.away?.score;
+	if (!ha || !aa || !isNum(hs) || !isNum(as) || hs === as)
+		return { champion: null, runnerUp: null };
+	return hs > as
+		? { champion: ha, runnerUp: aa }
+		: { champion: aa, runnerUp: ha };
+}
