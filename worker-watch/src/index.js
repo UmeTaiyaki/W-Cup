@@ -68,7 +68,8 @@ export default {
 				// ±36h 窓で候補 fixture を取得（W杯は重複なし前提で上限は十分）
 				const windowSec = 36 * 60 * 60;
 				const dbRows = await env.DB.prepare(
-					"SELECT sm_fixture_id, state_id FROM sm_fixtures WHERE starting_at_ts BETWEEN ? AND ?",
+					// starting_at_ts は未開始試合の先行取得判定に必須（selectFixturesForDetailSync が参照）
+					"SELECT sm_fixture_id, state_id, starting_at_ts FROM sm_fixtures WHERE starting_at_ts BETWEEN ? AND ?",
 				)
 					.bind(now - windowSec, now + windowSec)
 					.all();
