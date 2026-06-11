@@ -41,7 +41,9 @@ export function deriveGroupMatches(fixtures, groups) {
 			const ga = fx?.home?.score,
 				gb = fx?.away?.score;
 			if (!isNum(ga) || !isNum(gb)) continue;
-			out[g].push({ a, b, ga, gb });
+			// status を保持: 表示側(matchResult)はライブ中を「確定結果」扱いしない。
+			// 順位表(computeStandings)は a/b/ga/gb のみ読むのでライブ込みで動く。
+			out[g].push({ a, b, ga, gb, status: fx?.status ?? null });
 		}
 	}
 	return out;
@@ -128,6 +130,8 @@ export function deriveChampion(fixtures) {
 const KO_ROUNDS = ["r32", "r16", "qf", "sf"];
 
 // 各ノックアウト round に「登場した」app_code 群（到達チーム。採点 knockout 用）。
+// FT非限定なのは「到達」=ラウンドに進出した時点で確定だから（NSでも前ラウンド勝者）。
+// 未確定スロットは app_code が null（48チームのみ seed 済）→ `if (a)` で自然に除外される。
 export function deriveKnockout(fixtures) {
 	const list = Array.isArray(fixtures) ? fixtures : [];
 	const out = { r32: new Set(), r16: new Set(), qf: new Set(), sf: new Set() };

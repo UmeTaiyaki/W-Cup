@@ -53,8 +53,14 @@ test("deriveGroupMatches はグループ内対戦のスコアを {a,b,ga,gb} で
 	];
 	const gm = deriveGroupMatches(fixtures, groups);
 	assert.equal(gm.A.length, 2);
-	assert.deepEqual(gm.A[0], { a: "MEX", b: "KOR", ga: 2, gb: 1 });
-	assert.deepEqual(gm.A[1], { a: "RSA", b: "CZE", ga: 0, gb: 0 });
+	assert.deepEqual(gm.A[0], { a: "MEX", b: "KOR", ga: 2, gb: 1, status: "FT" });
+	assert.deepEqual(gm.A[1], {
+		a: "RSA",
+		b: "CZE",
+		ga: 0,
+		gb: 0,
+		status: "LIVE",
+	});
 });
 
 test("deriveGroupResult は全6試合FTのグループだけ上位3コードを返す", () => {
@@ -175,10 +181,19 @@ test("deriveTopScorer は空なら空文字", () => {
 
 test("deriveResult は各導出を 1 つの result 型に束ねる", () => {
 	const fixtures = [
-		{ status: "FT", round_name: "Final", home: { app_code: "ARG", score: 1 }, away: { app_code: "FRA", score: 0 } },
+		{
+			status: "FT",
+			round_name: "Final",
+			home: { app_code: "ARG", score: 1 },
+			away: { app_code: "FRA", score: 0 },
+		},
 	];
-	const topscorers = [{ player_name: "A", app_code: "ARG", goals: 5, position: 1 }];
-	const r = deriveResult(fixtures, topscorers, { A: ["MEX","KOR","RSA","CZE"] });
+	const topscorers = [
+		{ player_name: "A", app_code: "ARG", goals: 5, position: 1 },
+	];
+	const r = deriveResult(fixtures, topscorers, {
+		A: ["MEX", "KOR", "RSA", "CZE"],
+	});
 	assert.equal(r.champion, "ARG");
 	assert.equal(r.runnerUp, "FRA");
 	assert.equal(r.topScorer, "A (ARG)");

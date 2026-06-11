@@ -332,7 +332,8 @@
 			const mv = out[k];
 			const av = auto[k];
 			if (av && typeof av === "object" && !Array.isArray(av)) {
-				out[k] = _mergePreferManual(mv || {}, av);
+				// mv がプリミティブ（型不一致）のときは {} を土台にして文字列展開を防ぐ。
+				out[k] = _mergePreferManual(mv && typeof mv === "object" ? mv : {}, av);
 			} else if (_isEmptyVal(mv)) {
 				out[k] = av;
 			}
@@ -422,6 +423,9 @@
 		if (Array.isArray(list)) {
 			for (const g of list) {
 				if (!g || g.ga == null || g.gb == null) continue;
+				// 自動導出のライブ中エントリは確定結果にしない（順位表表示用に保持されているだけ）。
+				// 手動入力エントリ(status 無し)は従来どおり確定結果扱い。
+				if (g.status === "LIVE") continue;
 				if (g.a === match.a && g.b === match.b)
 					return { a: g.ga, b: g.gb, status: "FT" };
 				if (g.a === match.b && g.b === match.a)
