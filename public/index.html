@@ -41,6 +41,9 @@
   @keyframes wcSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   @keyframes wcPop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes wcSpin { to { transform: rotate(360deg); } }
+  @keyframes wcGuideRing { 0%,100% { opacity:.5; transform: scale(1); } 50% { opacity:1; transform: scale(1.25); } }
+  @keyframes wcGuideHi { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+  @keyframes wcGuideTap { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
   /* 得点王セレクト：国名(optgroup)を選手名(option)より大きく・目立たせて境目を明確に
      ※デスクトップ/Androidで有効。iOSネイティブピッカーはCSS非対応のためラベル装飾＋インデントで補う */
   .wc-scorer-select optgroup { font-size: 17px; font-weight: 900; color: #B6FF3C; }
@@ -378,6 +381,125 @@
       return { installed, canPrompt, isIOS, promptInstall };
     }
 
+    // PWA「アプリ化」の統一カラー（黄色）。ヘッダーボタン／iOS案内で共有。
+    const WC_YELLOW = '#FFD60A';
+    const WC_YELLOW_INK = '#1A1205';
+
+    // iOS Safari 用「ホーム画面に追加」手順の視覚ガイド（beforeinstallprompt 非対応のため案内のみ）。
+    // 共有ボタン→「ホーム画面に追加」の2ステップをアニメーション付きの図で示す。
+    function IosShareGlyph({ size = 26, color }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3 L12 14.5" />
+          <path d="M8.2 6.6 L12 3 L15.8 6.6" />
+          <path d="M7.5 10.5 L6 10.5 Q4.5 10.5 4.5 12 L4.5 19.5 Q4.5 21 6 21 L18 21 Q19.5 21 19.5 19.5 L19.5 12 Q19.5 10.5 18 10.5 L16.5 10.5" />
+        </svg>
+      );
+    }
+    function IosAddBoxGlyph({ size = 24, color }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+          <path d="M12 8.5 L12 15.5 M8.5 12 L15.5 12" />
+        </svg>
+      );
+    }
+    function StepBadge({ n, T }) {
+      return (
+        <div style={{ width: 22, height: 22, borderRadius: '50%', background: WC_YELLOW, color: WC_YELLOW_INK,
+          fontWeight: 900, fontSize: 13, display: 'grid', placeItems: 'center', flexShrink: 0,
+          fontFamily: 'Archivo, sans-serif' }}>{n}</div>
+      );
+    }
+    function IosInstallGuide({ T, onClose }) {
+      const toolbarIcon = (d) => (
+        <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={T.faint}
+          strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>{d}</svg>
+      );
+      return (
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1300,
+          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 20, animation: 'wcFade .2s both' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: T.bg,
+            borderRadius: 22, padding: '20px 18px', boxShadow: '0 24px 70px rgba(0,0,0,0.55)',
+            animation: 'wcPop .3s cubic-bezier(.22,1,.36,1) both' }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: WC_YELLOW,
+                display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <IosAddBoxGlyph size={22} color={WC_YELLOW_INK} />
+              </div>
+              <div>
+                <div style={{ fontWeight: 900, color: T.text, fontSize: 18 }}>ホーム画面に追加</div>
+                <div style={{ fontWeight: 700, color: T.faint, fontSize: 12 }}>Safari で 2 ステップ</div>
+              </div>
+            </div>
+
+            {/* STEP 1: 共有ボタンをタップ */}
+            <div style={{ marginTop: 14, background: T.card, borderRadius: 16, padding: '12px 14px',
+              boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <StepBadge n={1} T={T} />
+                <span style={{ fontWeight: 800, color: T.text, fontSize: 13.5 }}>
+                  下の<b style={{ color: T.text }}>共有ボタン</b>をタップ</span>
+              </div>
+              {/* Safari 下部ツールバーの模式図。共有アイコンを黄色リングで強調＋タップ表現。 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+                background: T.panel2 || T.bg, borderRadius: 12, padding: '10px 8px',
+                boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+                {toolbarIcon(<path d="M15 5 L8 12 L15 19" />)}
+                {toolbarIcon(<path d="M9 5 L16 12 L9 19" />)}
+                <div style={{ position: 'relative', display: 'grid', placeItems: 'center', width: 40, height: 40 }}>
+                  <div style={{ position: 'absolute', inset: 0, borderRadius: '50%',
+                    boxShadow: `0 0 0 2.5px ${WC_YELLOW}`, animation: 'wcGuideRing 1.5s ease-in-out infinite' }} />
+                  <div style={{ animation: 'wcGuideTap 1.5s ease-in-out infinite' }}>
+                    <IosShareGlyph size={24} color={WC_YELLOW} />
+                  </div>
+                </div>
+                {toolbarIcon(<path d="M5 5 h14 v11 a2 2 0 0 1 -2 2 h-10 a2 2 0 0 1 -2 -2 z M5 9 h14" />)}
+                {toolbarIcon(<g><rect x="5" y="6" width="9" height="12" rx="2" /><rect x="10" y="6" width="9" height="12" rx="2" /></g>)}
+              </div>
+            </div>
+
+            {/* つなぎ矢印 */}
+            <div style={{ display: 'grid', placeItems: 'center', padding: '6px 0' }}>
+              <svg width={22} height={18} viewBox="0 0 24 24" fill="none" stroke={T.faint}
+                strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4 L12 19 M6 13 L12 19 L18 13" />
+              </svg>
+            </div>
+
+            {/* STEP 2: メニューから選ぶ */}
+            <div style={{ background: T.card, borderRadius: 16, padding: '12px 14px',
+              boxShadow: `inset 0 0 0 1px ${T.line}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <StepBadge n={2} T={T} />
+                <span style={{ fontWeight: 800, color: T.text, fontSize: 13.5 }}>
+                  メニューを下にスクロールして選ぶ</span>
+              </div>
+              {/* 共有シートの行を模式化。「ホーム画面に追加」行を黄色で強調。 */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: T.panel2 || T.bg, borderRadius: 12, padding: '12px 14px',
+                boxShadow: `inset 0 0 0 2px ${WC_YELLOW}`, animation: 'wcGuideHi 1.5s ease-in-out infinite' }}>
+                <span style={{ fontWeight: 800, color: T.text, fontSize: 14.5 }}>ホーム画面に追加</span>
+                <IosAddBoxGlyph size={22} color={T.text} />
+              </div>
+            </div>
+
+            <p style={{ color: T.faint, fontSize: 11.5, lineHeight: 1.6, margin: '12px 2px 0', textAlign: 'center' }}>
+              🏆 アイコンが追加され、全画面アプリとして起動できます。</p>
+
+            <button onClick={onClose} style={{
+              width: '100%', marginTop: 14, border: 'none', borderRadius: 13, padding: '13px',
+              fontFamily: 'inherit', fontWeight: 900, fontSize: 14.5, cursor: 'pointer',
+              background: WC_YELLOW, color: WC_YELLOW_INK }}>わかった</button>
+          </div>
+        </div>
+      );
+    }
+
     // アカウント画面（名前変更＋同期コード再表示＋このブラウザのデータ削除）
     function AccountScreen({ T, me, setMe, onSignOut, siteKey, goBack, onCreated }) {
       const pwa = usePwaInstall();
@@ -566,27 +688,7 @@
           </p>
 
           {/* iOS 用「ホーム画面に追加」手順（iOS は beforeinstallprompt 非対応のため案内のみ） */}
-          {showIosGuide && (
-            <div onClick={() => setShowIosGuide(false)} style={{ position: 'fixed', inset: 0, zIndex: 1300,
-              background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: T.bg,
-                borderRadius: 20, padding: '22px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 13, background: `${T.accent}1F`,
-                  display: 'grid', placeItems: 'center', marginBottom: 14 }}>
-                  <Icon name="plus" size={24} color={T.accent} />
-                </div>
-                <div style={{ fontWeight: 800, color: T.text, fontSize: 18 }}>ホーム画面に追加</div>
-                <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.7, margin: '10px 0 0' }}>
-                  Safari 下部の<b style={{ color: T.text }}>共有ボタン（□に↑のマーク）</b>をタップし、
-                  メニューを下にスクロールして<b style={{ color: T.text }}>「ホーム画面に追加」</b>を選んでください。
-                  🏆 アイコンが追加され、全画面アプリとして起動できます。</p>
-                <button onClick={() => setShowIosGuide(false)} style={{
-                  width: '100%', marginTop: 18, border: 'none', borderRadius: 13, padding: '13px',
-                  fontFamily: 'inherit', fontWeight: 800, fontSize: 14.5, cursor: 'pointer',
-                  background: T.accent, color: T.accentInk }}>わかった</button>
-              </div>
-            </div>
-          )}
+          {showIosGuide && <IosInstallGuide T={T} onClose={() => setShowIosGuide(false)} />}
         </div>
       );
     }
@@ -617,6 +719,11 @@
 
       // 設定（旧アカウントタブ）。歯車から開くオーバーレイ画面。
       const [settingsOpen, setSettingsOpen] = useState(false);
+
+      // PWA インストール。未インストール時のみヘッダーに「アプリ化」ボタンを出す。
+      const pwa = usePwaInstall();
+      const [showIosGuide, setShowIosGuide] = useState(false);
+      function startInstall() { if (pwa.canPrompt) pwa.promptInstall(); else setShowIosGuide(true); }
 
       // ヘッダーの更新ボタンで最新データを再取得（プル更新は廃止）。
       const [roomRefreshKey, setRoomRefreshKey] = useState(0);
@@ -745,6 +852,16 @@
                   </div>
                 </div>
               ) : <div />}
+              {/* PWA 化（未インストール時のみ）。Android/PC はネイティブ、iOS は手順案内。 */}
+              {!pwa.installed && (pwa.canPrompt || pwa.isIOS) && (
+                <button onClick={startInstall} title="アプリとして使う" style={{
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '8px 13px', borderRadius: 10,
+                  background: WC_YELLOW, color: WC_YELLOW_INK, fontWeight: 900, fontSize: 13, lineHeight: 1,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}>
+                  <Icon name="plus" size={15} color={WC_YELLOW_INK} sw={2.8} />
+                  アプリ化</button>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button onClick={doRefresh} disabled={refreshing} title="更新" style={{
                   border: 'none', background: T.card, width: 34, height: 34, borderRadius: '50%',
@@ -793,6 +910,8 @@
               })}
             </div>
           </div>
+
+          {showIosGuide && <IosInstallGuide T={T} onClose={() => setShowIosGuide(false)} />}
         </div>
       );
 
