@@ -6,6 +6,7 @@ import {
 	deriveGroupMatches,
 	deriveGroupResult,
 	deriveKnockout,
+	deriveResult,
 	deriveTopScorer,
 	isFinalRound,
 	roundKey,
@@ -160,9 +161,26 @@ test("deriveTopScorer は position 最小（goals 最大）を '名前 (CODE)' �
 });
 
 test("deriveTopScorer は app_code 欠落なら名前のみ", () => {
-	assert.equal(deriveTopScorer([{ player_name: "X", app_code: null, goals: 3, position: 1 }]), "X");
+	assert.equal(
+		deriveTopScorer([
+			{ player_name: "X", app_code: null, goals: 3, position: 1 },
+		]),
+		"X",
+	);
 });
 
 test("deriveTopScorer は空なら空文字", () => {
 	assert.equal(deriveTopScorer([]), "");
+});
+
+test("deriveResult は各導出を 1 つの result 型に束ねる", () => {
+	const fixtures = [
+		{ status: "FT", round_name: "Final", home: { app_code: "ARG", score: 1 }, away: { app_code: "FRA", score: 0 } },
+	];
+	const topscorers = [{ player_name: "A", app_code: "ARG", goals: 5, position: 1 }];
+	const r = deriveResult(fixtures, topscorers, { A: ["MEX","KOR","RSA","CZE"] });
+	assert.equal(r.champion, "ARG");
+	assert.equal(r.runnerUp, "FRA");
+	assert.equal(r.topScorer, "A (ARG)");
+	assert.ok(r.groupResult && r.knockout && r.bracket);
 });

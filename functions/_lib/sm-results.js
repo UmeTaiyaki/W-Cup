@@ -178,3 +178,16 @@ export function deriveTopScorer(rows) {
 	if (!name) return "";
 	return top?.app_code ? `${name} (${top.app_code})` : name;
 }
+
+// 全導出を採点が読む result 型に束ねる。groupMatches は順位表表示用に別関数で返す。
+export function deriveResult(fixtures, topscorers, groups) {
+	const { champion, runnerUp } = deriveChampion(fixtures);
+	return {
+		champion,
+		runnerUp,
+		topScorer: deriveTopScorer(topscorers),
+		groupResult: deriveGroupResult(fixtures, groups),
+		knockout: deriveKnockout(fixtures),
+		bracket: deriveBracket(fixtures),
+	};
+}
