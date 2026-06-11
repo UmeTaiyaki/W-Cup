@@ -316,6 +316,53 @@
 			return false;
 		}
 	};
+	// ---- 大会結果の自動反映（/api/results）----------------------
+	// 手動(config.result)が非空なら手動優先。空フィールドだけ自動導出で埋める。
+	function _isEmptyVal(v) {
+		if (v == null || v === "") return true;
+		if (Array.isArray(v)) return v.length === 0;
+		return false;
+	}
+	// フィールド単位の「手動 ?? 自動」。object 値（groupResult/knockout/bracket）は
+	// キー単位で再帰的に空判定して埋める。
+	function _mergePreferManual(manual, auto) {
+		if (!auto || typeof auto !== "object") return manual;
+		const out = Array.isArray(manual) ? manual.slice() : { ...(manual || {}) };
+		for (const k of Object.keys(auto)) {
+			const mv = out[k];
+			const av = auto[k];
+			if (av && typeof av === "object" && !Array.isArray(av)) {
+				out[k] = _mergePreferManual(mv || {}, av);
+			} else if (_isEmptyVal(mv)) {
+				out[k] = av;
+			}
+		}
+		return out;
+	}
+	window.WC.fetchResults = async function fetchResults() {
+		try {
+			const res = await fetch("/api/results", { cache: "no-store" });
+			if (!res.ok) return false;
+			const data = await res.json();
+			if (!data || data.enabled === false || !data.result) return false;
+			window.WC.RESULT = _mergePreferManual(
+				window.WC.RESULT || {},
+				data.result,
+			);
+			if (data.result.groupResult) {
+				window.WC.GROUP_RESULT = window.WC.RESULT.groupResult;
+			}
+			if (data.groupMatches) {
+				window.WC.GROUP_MATCHES = _mergePreferManual(
+					window.WC.GROUP_MATCHES || {},
+					data.groupMatches,
+				);
+			}
+			return true;
+		} catch (e) {
+			return false;
+		}
+	};
 	// ---- チームAI分析（静的JSON /data/ai-teams.json）----------------------
 	// 焼き込み済みの分析ドキュメント。未取得は null。失敗時も null
 	// （フロントは「分析はまだありません」を表示）。一度取得したら再取得しない。
