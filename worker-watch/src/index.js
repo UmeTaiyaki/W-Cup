@@ -72,7 +72,10 @@ export default {
 				)
 					.bind(now - windowSec, now + windowSec)
 					.all();
-				const candidates = selectFixturesForDetailSync(dbRows?.results ?? []);
+				const candidates = selectFixturesForDetailSync(
+					dbRows?.results ?? [],
+					now,
+				);
 				const DETAIL_CAP = 12;
 				if (candidates.length > DETAIL_CAP) {
 					console.log(

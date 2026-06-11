@@ -34,10 +34,29 @@ const FINISHED_STATES = new Set([5, 7, 8]);
 export const isInPlay = (stateId) => INPLAY_STATES.has(stateId);
 export const isFinished = (stateId) => FINISHED_STATES.has(stateId);
 
-// ライブ中＋直近終了の fixture を詳細同期対象に選ぶ（純粋）
-export function selectFixturesForDetailSync(rows) {
+// 未開始でもキックオフ直前の試合はスタメン先行取得の対象にする窓（秒）
+export const PREMATCH_LINEUP_WINDOW_SEC = 90 * 60;
+
+// 詳細同期の優先度（小さいほど優先）: インプレー → もうすぐ開始 → 終了
+function detailSyncPriority(r, now) {
+	if (isInPlay(r?.state_id)) return 0;
+	const ts = r?.starting_at_ts;
+	if (r?.state_id === 1 && ts != null && ts > now) return 1;
+	return 2; // 終了
+}
+
+// ライブ中＋直近終了＋キックオフ90分以内の未開始 を詳細同期対象に選ぶ（純粋）
+// DETAIL_CAP で切られても開幕直前が落ちないよう優先度順に並べて返す。
+export function selectFixturesForDetailSync(rows, now) {
 	const list = Array.isArray(rows) ? rows : [];
-	return list.filter((r) => isInPlay(r?.state_id) || isFinished(r?.state_id));
+	return list
+		.filter((r) => {
+			if (isInPlay(r?.state_id) || isFinished(r?.state_id)) return true;
+			// 未開始(state_id=1)だがキックオフまで PREMATCH_LINEUP_WINDOW_SEC 以内
+			const ts = r?.starting_at_ts;
+			return ts != null && ts > now && ts - now <= PREMATCH_LINEUP_WINDOW_SEC;
+		})
+		.sort((a, b) => detailSyncPriority(a, now) - detailSyncPriority(b, now));
 }
 
 // core/types を全ページ辿って sm_types へ。戻り値は upsert 件数。
