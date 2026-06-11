@@ -50,6 +50,35 @@ function statLines(detail) {
 		.join("\n");
 }
 
+// state_id → フェーズ（該当しなければ null）。HT は 3、FT は 5/7/8、lineup は NS(1)。
+function phaseForState(stateId, startXiCount) {
+	if (stateId === 1) return startXiCount >= 22 ? "lineup" : null;
+	if (stateId === 3) return "ht";
+	if (stateId === 5 || stateId === 7 || stateId === 8) return "ft";
+	return null;
+}
+
+// 生成可能か（行が無い、または summary未充填かつ attempts<3）
+// summary は null/undefined/空文字を等しく未完了とみなす（将来の空応答保存に備えた防御）。
+function isGeneratable(existing, fixtureId, phase) {
+	const cur = existing.get(`${fixtureId}:${phase}`);
+	if (!cur) return true;
+	return !cur.summary && (cur.attempts || 0) < 3;
+}
+
+// 生成すべき {fixtureId, phase} を返す。cap で 1tick あたりの件数を制限。
+export function selectFixturesForAi(fixtureRows, existing, cap) {
+	const out = [];
+	for (const r of fixtureRows || []) {
+		const phase = phaseForState(r.state_id, r.start_xi_count || 0);
+		if (!phase) continue;
+		if (!isGeneratable(existing, r.sm_fixture_id, phase)) continue;
+		out.push({ fixtureId: r.sm_fixture_id, phase });
+		if (out.length >= cap) break;
+	}
+	return out;
+}
+
 export function buildMatchPrompt(phase, detail) {
 	const safe = detail || {};
 	if (!PHASE_GOAL[phase]) {

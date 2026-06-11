@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildMatchPrompt } from "./ai-match.js";
+import { buildMatchPrompt, selectFixturesForAi } from "./ai-match.js";
 
 const baseDetail = {
 	fixture: {
@@ -78,4 +78,65 @@ test("buildMatchPrompt: lineup フェーズはスコアを含まない", () => {
 
 test("buildMatchPrompt: unknown phase で throw する", () => {
 	assert.throws(() => buildMatchPrompt("FT", baseDetail), /unknown phase/);
+});
+
+// fixtureRows: { sm_fixture_id, state_id, start_xi_count }
+// existing:    Map<"fixtureId:phase", { summary, attempts }>
+test("selectFixturesForAi: 先発22名でlineupを発火", () => {
+	const rows = [{ sm_fixture_id: 1, state_id: 1, start_xi_count: 22 }];
+	const out = selectFixturesForAi(rows, new Map(), 10);
+	assert.deepEqual(out, [{ fixtureId: 1, phase: "lineup" }]);
+});
+
+test("selectFixturesForAi: 先発が揃わない間は発火しない", () => {
+	const rows = [{ sm_fixture_id: 1, state_id: 1, start_xi_count: 11 }];
+	assert.deepEqual(selectFixturesForAi(rows, new Map(), 10), []);
+});
+
+test("selectFixturesForAi: HT(3)とFT(5/7/8)を発火", () => {
+	const rows = [
+		{ sm_fixture_id: 1, state_id: 3, start_xi_count: 22 },
+		{ sm_fixture_id: 2, state_id: 7, start_xi_count: 22 },
+		{ sm_fixture_id: 3, state_id: 8, start_xi_count: 22 },
+	];
+	const out = selectFixturesForAi(rows, new Map(), 10);
+	assert.deepEqual(out, [
+		{ fixtureId: 1, phase: "ht" },
+		{ fixtureId: 2, phase: "ft" },
+		{ fixtureId: 3, phase: "ft" },
+	]);
+});
+
+test("selectFixturesForAi: 生成済み(summary有)はスキップ、attempts>=3もスキップ", () => {
+	const rows = [
+		{ sm_fixture_id: 1, state_id: 3, start_xi_count: 22 },
+		{ sm_fixture_id: 2, state_id: 3, start_xi_count: 22 },
+	];
+	const existing = new Map([
+		["1:ht", { summary: "済み", attempts: 1 }],
+		["2:ht", { summary: null, attempts: 3 }],
+	]);
+	assert.deepEqual(selectFixturesForAi(rows, existing, 10), []);
+});
+
+test("selectFixturesForAi: 1tick上限でキャップ", () => {
+	const rows = [1, 2, 3, 4].map((id) => ({
+		sm_fixture_id: id,
+		state_id: 5,
+		start_xi_count: 22,
+	}));
+	const out = selectFixturesForAi(rows, new Map(), 2);
+	assert.equal(out.length, 2);
+});
+
+test("selectFixturesForAi: 空文字列summaryは未完了扱いで再生成対象", () => {
+	const rows = [{ sm_fixture_id: 1, state_id: 3, start_xi_count: 22 }];
+	const existing = new Map([["1:ht", { summary: "", attempts: 1 }]]);
+	assert.deepEqual(selectFixturesForAi(rows, existing, 10), [
+		{ fixtureId: 1, phase: "ht" },
+	]);
+});
+
+test("selectFixturesForAi: null入力でも空配列を返す", () => {
+	assert.deepEqual(selectFixturesForAi(null, new Map(), 10), []);
 });
