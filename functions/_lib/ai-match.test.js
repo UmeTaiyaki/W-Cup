@@ -219,3 +219,142 @@ test("callGeminiText: candidates空配列で例外", async () => {
 		/応答が空/,
 	);
 });
+
+// ── generateMatchAi ─────────────────────────────────────────────────────────
+
+import { generateMatchAi } from "./ai-match.js";
+
+function makeWriteDb() {
+	const runs = [];
+	const db = {
+		prepare: (sql) => ({
+			bind: (...args) => ({
+				run: async () => {
+					runs.push({ sql, args });
+					return { success: true };
+				},
+				all: async () => ({ results: [] }),
+			}),
+		}),
+		_runs: runs,
+	};
+	return db;
+}
+
+test("generateMatchAi: 成功時に summary を upsert", async () => {
+	const db = makeWriteDb();
+	await generateMatchAi({
+		db,
+		fixtureId: 1,
+		phase: "ft",
+		apiKey: "k",
+		model: "gemini-2.5-pro",
+		now: 1000,
+		getDetail: async () => ({
+			fixture: { home_name: "A", away_name: "B", home_score: 1, away_score: 0 },
+			events: [],
+			stats: [],
+			lineups: [],
+		}),
+		callAi: async () => "総括テキスト",
+	});
+	const w = db._runs.find((r) => r.sql.includes("INSERT INTO sm_match_ai"));
+	assert.ok(w, "upsert が実行される");
+	assert.ok(w.args.includes("総括テキスト"));
+});
+
+test("generateMatchAi: AI失敗時は summary を書かず attempts を加算", async () => {
+	const db = makeWriteDb();
+	await generateMatchAi({
+		db,
+		fixtureId: 1,
+		phase: "ft",
+		apiKey: "k",
+		model: "m",
+		now: 1000,
+		getDetail: async () => ({
+			fixture: {},
+			events: [],
+			stats: [],
+			lineups: [],
+		}),
+		callAi: async () => {
+			throw new Error("AI down");
+		},
+	});
+	const w = db._runs.find((r) => r.sql.includes("INSERT INTO sm_match_ai"));
+	assert.ok(w, "失敗でも attempts upsert は実行される");
+	assert.ok(!w.args.includes("総括テキスト"));
+});
+
+// ── maybeGenerateMatchAi ────────────────────────────────────────────────────
+
+import { maybeGenerateMatchAi } from "./ai-match.js";
+
+test("maybeGenerateMatchAi: 窓内のFT試合を検知して生成集計を返す", async () => {
+	const runs = [];
+	const db = {
+		prepare: (sql) => ({
+			bind: (...args) => ({
+				run: async () => {
+					runs.push({ sql, args });
+					return { success: true };
+				},
+				all: async () => {
+					if (sql.includes("FROM sm_fixtures")) {
+						return {
+							results: [{ sm_fixture_id: 7, state_id: 5, start_xi_count: 22 }],
+						};
+					}
+					if (sql.includes("FROM sm_match_ai")) return { results: [] };
+					return { results: [] };
+				},
+			}),
+		}),
+	};
+	const agg = await maybeGenerateMatchAi(db, 1000, {
+		apiKey: "k",
+		// generateMatchAi 内の getFixtureDetail を避けるため、detail/ai を注入できない点に注意。
+	});
+	// NOTE: 実際の生成は getFixtureDetail(本物) を呼ぶため、fake-db の all() が
+	// fixture を返さない→detail=null→FAIL_SQL 経路になる。agg は {lineup:0,ht:0,ft:0}。
+	assert.deepEqual(agg, { lineup: 0, ht: 0, ft: 0 });
+	// 検知が走り FAIL_SQL の upsert が試行されたことを確認
+	assert.ok(runs.some((r) => r.sql.includes("INSERT INTO sm_match_ai")));
+});
+
+test("maybeGenerateMatchAi: success経路 — 注入したdetail/AIでFTを生成", async () => {
+	const runs = [];
+	const db = {
+		prepare: (sql) => ({
+			bind: (...args) => ({
+				run: async () => {
+					runs.push({ sql, args });
+					return { success: true };
+				},
+				all: async () => {
+					if (sql.includes("FROM sm_fixtures"))
+						return {
+							results: [{ sm_fixture_id: 7, state_id: 5, start_xi_count: 22 }],
+						};
+					return { results: [] }; // sm_match_ai
+				},
+			}),
+		}),
+	};
+	const agg = await maybeGenerateMatchAi(db, 1000, {
+		apiKey: "k",
+		getDetail: async () => ({
+			fixture: { home_name: "A", away_name: "B", home_score: 1, away_score: 0 },
+			events: [],
+			stats: [],
+			lineups: [],
+		}),
+		callAi: async () => "総括",
+	});
+	assert.deepEqual(agg, { lineup: 0, ht: 0, ft: 1 });
+	const w = runs.find(
+		(r) => r.sql.includes("INSERT INTO sm_match_ai") && r.args.includes("総括"),
+	);
+	assert.ok(w, "SUCCESS_SQL upsert に総括が含まれる");
+});
