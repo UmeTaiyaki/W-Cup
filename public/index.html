@@ -57,6 +57,9 @@
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <script src="data.js?v=16"></script>
   <script src="identity.js?v=8"></script>
+  <script src="cheer-theme.js?v=1"></script>
+  <script src="cheer-core.js?v=1"></script>
+  <script src="cheer-share.js?v=1"></script>
   <script>
     // この HTML が読み込まれた時点のビルド識別子。デプロイ時に Actions が git SHA へ置換する
     // （未置換のローカル開発時はそのまま＝更新チェックは無効）。version.json と照合して更新検知する。
@@ -112,7 +115,7 @@
   <script type="text/babel" src="screens-optview.jsx?v=12"></script>
   <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=11"></script>
-  <script type="text/babel" src="screens-home.jsx?v=10"></script>
+  <script type="text/babel" src="screens-home.jsx?v=11"></script>
   <script type="text/babel" src="screens-detail.jsx?v=14"></script>
   <script type="text/babel" src="screens-teams.jsx?v=5"></script>
 
@@ -618,6 +621,11 @@
       // 設定（旧アカウントタブ）。歯車から開くオーバーレイ画面。
       const [settingsOpen, setSettingsOpen] = useState(false);
 
+      // PWA インストール。未インストール時のみヘッダーに「アプリ化」ボタンを出す。
+      const pwa = usePwaInstall();
+      const [showIosGuide, setShowIosGuide] = useState(false);
+      function startInstall() { if (pwa.canPrompt) pwa.promptInstall(); else setShowIosGuide(true); }
+
       // ヘッダーの更新ボタンで最新データを再取得（プル更新は廃止）。
       const [roomRefreshKey, setRoomRefreshKey] = useState(0);
       const [refreshing, setRefreshing] = useState(false);
@@ -745,6 +753,16 @@
                   </div>
                 </div>
               ) : <div />}
+              {/* PWA 化（未インストール時のみ）。Android/PC はネイティブ、iOS は手順案内。 */}
+              {!pwa.installed && (pwa.canPrompt || pwa.isIOS) && (
+                <button onClick={startInstall} title="アプリとして使う" style={{
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 999,
+                  background: `${T.accent}1A`, color: T.accent, fontWeight: 800, fontSize: 12.5, lineHeight: 1,
+                  boxShadow: `inset 0 0 0 1px ${T.accent}3D` }}>
+                  <Icon name="plus" size={14} color={T.accent} sw={2.6} />
+                  アプリ化</button>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button onClick={doRefresh} disabled={refreshing} title="更新" style={{
                   border: 'none', background: T.card, width: 34, height: 34, borderRadius: '50%',
@@ -793,6 +811,29 @@
               })}
             </div>
           </div>
+
+          {/* iOS 用「ホーム画面に追加」手順（iOS は beforeinstallprompt 非対応のため案内のみ） */}
+          {showIosGuide && (
+            <div onClick={() => setShowIosGuide(false)} style={{ position: 'fixed', inset: 0, zIndex: 1300,
+              background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: T.bg,
+                borderRadius: 20, padding: '22px 20px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 13, background: `${T.accent}1F`,
+                  display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+                  <Icon name="plus" size={24} color={T.accent} />
+                </div>
+                <div style={{ fontWeight: 800, color: T.text, fontSize: 18 }}>ホーム画面に追加</div>
+                <p style={{ color: T.sub, fontSize: 13.5, lineHeight: 1.7, margin: '10px 0 0' }}>
+                  Safari 下部の<b style={{ color: T.text }}>共有ボタン（□に↑のマーク）</b>をタップし、
+                  メニューを下にスクロールして<b style={{ color: T.text }}>「ホーム画面に追加」</b>を選んでください。
+                  🏆 アイコンが追加され、全画面アプリとして起動できます。</p>
+                <button onClick={() => setShowIosGuide(false)} style={{
+                  width: '100%', marginTop: 18, border: 'none', borderRadius: 13, padding: '13px',
+                  fontFamily: 'inherit', fontWeight: 800, fontSize: 14.5, cursor: 'pointer',
+                  background: T.accent, color: T.accentInk }}>わかった</button>
+              </div>
+            </div>
+          )}
         </div>
       );
 
