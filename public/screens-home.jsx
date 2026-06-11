@@ -94,6 +94,9 @@ function MatchRow({ T, match, last }) {
 	const b = window.WC.formatMatchTeam(match.b, teamMap, match.round);
 	const label = window.WC.roundLabel(match.round);
 	const live = window.WC.liveForMatch ? window.WC.liveForMatch(match) : null;
+	// スコア表示の元: ライブ優先、無ければ確定結果（GROUP_MATCHES 由来の終了試合）。
+	const result =
+		live || (window.WC.matchResult ? window.WC.matchResult(match) : null);
 	const sideStyle = {
 		fontWeight: 800,
 		fontSize: 13,
@@ -125,10 +128,10 @@ function MatchRow({ T, match, last }) {
 			>
 				<div
 					style={{
-						fontSize: live ? 13 : 12,
+						fontSize: result ? 13 : 12,
 						fontWeight: 800,
-						color: live
-							? live.status === "LIVE"
+						color: result
+							? result.status === "LIVE"
 								? "#ff5a5a"
 								: T.text
 							: T.accent,
@@ -136,7 +139,7 @@ function MatchRow({ T, match, last }) {
 						flexShrink: 0,
 					}}
 				>
-					{live ? `${live.a ?? 0}-${live.b ?? 0}` : match.time || "--:--"}
+					{result ? `${result.a ?? 0}-${result.b ?? 0}` : match.time || "--:--"}
 				</div>
 				<div
 					style={{
@@ -580,4 +583,4 @@ function HomeScreen({ T }) {
 	);
 }
 
-Object.assign(window, { HomeScreen, MatchRow });
+Object.assign(window, { HomeScreen, MatchRow, DayTimeline });
