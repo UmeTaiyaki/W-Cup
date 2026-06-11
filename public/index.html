@@ -58,7 +58,7 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="data.js?v=16"></script>
+  <script src="data.js?v=17"></script>
   <script src="identity.js?v=8"></script>
   <script src="cheer-theme.js?v=4"></script>
   <script src="cheer-core.js?v=1"></script>
@@ -118,7 +118,7 @@
   <script type="text/babel" src="screens-optview.jsx?v=12"></script>
   <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=11"></script>
-  <script type="text/babel" src="screens-home.jsx?v=13"></script>
+  <script type="text/babel" src="screens-home.jsx?v=14"></script>
   <script type="text/babel" src="screens-detail.jsx?v=16"></script>
   <script type="text/babel" src="screens-teams.jsx?v=5"></script>
 
@@ -1029,11 +1029,11 @@
             setRoute('home');
           });
         }
-        // ライブ中のみ 45 秒間隔で results＋live を再取得（非ライブ時は何もしない）。
+        // 45 秒間隔で results＋live を再取得。
+        // LIVE 中に加え「キックオフ間近〜開始後の NS 試合」がある間もポーリングする
+        // （NS→LIVE 遷移を拾えず開始前の画面が固まるのを防ぐ）。それ以外は何もしない。
         const pollId = setInterval(() => {
-          const hasLive = window.WC.LIVE && Object.values(window.WC.LIVE)
-            .some((x) => x && x.status === "LIVE");
-          if (!hasLive) return; // 非ライブ時はポーリングしない
+          if (!window.WC.shouldPollLive || !window.WC.shouldPollLive()) return;
           window.WC.fetchResults().then(() => setConfigLoaded((v) => !v));
           window.WC.fetchLive().then(() => setConfigLoaded((v) => !v));
         }, 45000);

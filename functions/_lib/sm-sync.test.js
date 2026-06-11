@@ -240,17 +240,47 @@ test("syncFixtureDetail: include に lineups と xGFixture が含まれる", asy
 });
 
 test("selectFixturesForDetailSync: ライブと直近終了を選ぶ", () => {
+	const now = 1000;
 	const rows = [
 		{ sm_fixture_id: 1, state_id: 3 },
 		{ sm_fixture_id: 2, state_id: 1 },
 		{ sm_fixture_id: 3, state_id: 5 },
 	];
-	const ids = selectFixturesForDetailSync(rows).map((r) => r.sm_fixture_id);
+	const ids = selectFixturesForDetailSync(rows, now).map(
+		(r) => r.sm_fixture_id,
+	);
 	assert.deepEqual(ids.sort(), [1, 3]);
 });
 
 test("selectFixturesForDetailSync: 非配列は空", () => {
-	assert.deepEqual(selectFixturesForDetailSync(null), []);
+	assert.deepEqual(selectFixturesForDetailSync(null, 1000), []);
+});
+
+test("selectFixturesForDetailSync: 未開始でもキックオフ90分以内は拾う", () => {
+	const now = 1000;
+	const rows = [
+		{ sm_fixture_id: 1, state_id: 1, starting_at_ts: now + 89 * 60 },
+		{ sm_fixture_id: 2, state_id: 1, starting_at_ts: now + 91 * 60 },
+		{ sm_fixture_id: 3, state_id: 1, starting_at_ts: now - 60 }, // キックオフ済み
+		{ sm_fixture_id: 4, state_id: 1, starting_at_ts: null },
+	];
+	const ids = selectFixturesForDetailSync(rows, now).map(
+		(r) => r.sm_fixture_id,
+	);
+	assert.deepEqual(ids, [1]);
+});
+
+test("selectFixturesForDetailSync: 優先度順(インプレー→もうすぐ開始→終了)", () => {
+	const now = 1000;
+	const rows = [
+		{ sm_fixture_id: 10, state_id: 5 }, // 終了
+		{ sm_fixture_id: 11, state_id: 1, starting_at_ts: now + 30 * 60 }, // もうすぐ開始
+		{ sm_fixture_id: 12, state_id: 3 }, // インプレー
+	];
+	const ids = selectFixturesForDetailSync(rows, now).map(
+		(r) => r.sm_fixture_id,
+	);
+	assert.deepEqual(ids, [12, 11, 10]);
 });
 
 test("FIXTURE_DETAIL_INCLUDE requests player profile for lineups", () => {
