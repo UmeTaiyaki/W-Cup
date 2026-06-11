@@ -73,10 +73,10 @@ function fmtMatchDate(fx) {
 	}
 }
 
-// 試合経過の表記。minute有→"67分" / アディショナル有→"45+2分"。無→null。
+// 試合経過の表記。minute有→"67分" / アディショナル有→"46 (+4)"。無→null。
 function fmtMatchClock(minute, added) {
 	if (minute == null) return null;
-	return added != null && added > 0 ? `${minute}+${added}分` : `${minute}分`;
+	return added != null && added > 0 ? `${minute} (+${added})` : `${minute}分`;
 }
 
 // ── TeamCrest（チームロゴ。実画像優先・読込失敗や未設定時は絵文字旗にフォールバック）──
@@ -159,7 +159,9 @@ function DetailHeader({ T, fx, goBack }) {
 						animation: "wcLivePulse 1.5s ease-in-out infinite",
 					}}
 				/>
-				{fmtMatchClock(fx.minute, fx.added_time) || "LIVE"}
+				{fx.state_id === 3
+					? "HT"
+					: fmtMatchClock(fx.minute, fx.added_time) || "LIVE"}
 			</div>
 		);
 	} else if (fx.status === "FT") {
