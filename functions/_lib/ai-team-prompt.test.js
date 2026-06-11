@@ -32,6 +32,12 @@ test("buildTeamPrompt: 名簿外選手禁止の指示を含む", () => {
 	assert.ok(p.includes("名簿外") || p.includes("この中からのみ"));
 });
 
+test("buildTeamPrompt: 注目選手は今シーズンの活躍重視の指示を含む", () => {
+	const p = buildTeamPrompt(input());
+	assert.ok(p.includes("今シーズンの活躍"));
+	assert.ok(p.includes("クラブの格") || p.includes("クラブのレベル"));
+});
+
 test("buildTeamPrompt: liveSummary 無しは journey 指示を含まない", () => {
 	const p = buildTeamPrompt(input({ liveSummary: null }));
 	assert.ok(!p.includes("journey"));
