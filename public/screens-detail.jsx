@@ -851,6 +851,103 @@ function StatsTab({ T, detail }) {
 	);
 }
 
+// ③ シュートの質: xG per shot（= xG / シュート数）。shots か xG が欠ければ非表示。
+function XgShotQuality({
+	T,
+	homeName,
+	awayName,
+	homeXg,
+	awayXg,
+	homeShots,
+	awayShots,
+}) {
+	const perShot = (xg, shots) =>
+		xg != null && shots != null && shots > 0 ? xg / shots : null;
+	const h = perShot(homeXg, homeShots);
+	const a = perShot(awayXg, awayShots);
+	if (h == null && a == null) return null;
+	const cell = (label, v, sub) => (
+		<div style={{ flex: 1, textAlign: "center" }}>
+			<div style={{ fontSize: 9.5, color: T.sub }}>{label}</div>
+			<div style={{ fontSize: 16, fontWeight: 800, color: T.text }}>
+				{v != null ? v.toFixed(2) : "–"}
+			</div>
+			<div style={{ fontSize: 9, color: T.faint }}>{sub}</div>
+		</div>
+	);
+	return (
+		<div
+			style={{
+				display: "flex",
+				gap: 8,
+				padding: "11px 12px",
+				background: T.card,
+				borderRadius: 12,
+				border: `1px solid ${T.line}`,
+				marginBottom: 14,
+			}}
+		>
+			{cell(homeName, h, `${homeShots != null ? homeShots : "–"}本`)}
+			<div style={{ alignSelf: "center", fontSize: 9.5, color: T.sub }}>
+				xG / シュート
+			</div>
+			{cell(awayName, a, `${awayShots != null ? awayShots : "–"}本`)}
+		</div>
+	);
+}
+
+// ④ GK評価: 防いだ失点 ≒ 相手xGoT − 失点。xGoT が無ければ null（節ごと非表示）。
+function XgGkValue({
+	T,
+	homeName,
+	awayName,
+	homeXgot,
+	awayXgot,
+	homeScore,
+	awayScore,
+}) {
+	// home GK は away の攻撃(awayXgot)に対峙し、失点は awayScore
+	const homeSaved =
+		awayXgot != null && awayScore != null ? awayXgot - awayScore : null;
+	const awaySaved =
+		homeXgot != null && homeScore != null ? homeXgot - homeScore : null;
+	if (homeSaved == null && awaySaved == null) return null;
+	const cell = (teamName, saved) => (
+		<div style={{ flex: 1, textAlign: "center" }}>
+			<div style={{ fontSize: 9.5, color: T.sub }}>{teamName} GK</div>
+			<div
+				style={{
+					fontSize: 16,
+					fontWeight: 800,
+					color: saved != null && saved > 0 ? T.accent : T.text,
+				}}
+			>
+				{saved != null ? (saved > 0 ? "+" : "") + saved.toFixed(2) : "–"}
+			</div>
+			<div style={{ fontSize: 9, color: T.faint }}>防いだ失点</div>
+		</div>
+	);
+	return (
+		<div
+			style={{
+				display: "flex",
+				gap: 8,
+				padding: "11px 12px",
+				background: T.card,
+				borderRadius: 12,
+				border: `1px solid ${T.line}`,
+				marginBottom: 14,
+			}}
+		>
+			{cell(homeName, homeSaved)}
+			<div style={{ alignSelf: "center", fontSize: 9.5, color: T.sub }}>
+				GK評価
+			</div>
+			{cell(awayName, awaySaved)}
+		</div>
+	);
+}
+
 // ── XgTab ─────────────────────────────────────────────────────────────────
 // セクション1: チーム合計バンド(accent枠) — 未終了(非FT)or 両xGともnull時は早期return
 // セクション2: 効率判定: score>xg+0.3→効率良く / score<xg-0.5→決定機活かせず / else→ほぼ期待通り
@@ -881,6 +978,9 @@ function XgTab({ T, detail }) {
 	// xGoT: 5305（無ければ null）
 	const homeXgot = pick(5305, "home");
 	const awayXgot = pick(5305, "away");
+	// シュート数: type_id 42
+	const homeShots = pick(42, "home");
+	const awayShots = pick(42, "away");
 	// 被xG(xGA): 9687 を優先、無ければ相手の base xG で導出
 	const homeXga = pick(9687, "home") != null ? pick(9687, "home") : awayXg;
 	const awayXga = pick(9687, "away") != null ? pick(9687, "away") : homeXg;
@@ -1143,6 +1243,24 @@ function XgTab({ T, detail }) {
 				</div>
 			</div>
 
+			<XgShotQuality
+				T={T}
+				homeName={homeName}
+				awayName={awayName}
+				homeXg={homeXg}
+				awayXg={awayXg}
+				homeShots={homeShots}
+				awayShots={awayShots}
+			/>
+			<XgGkValue
+				T={T}
+				homeName={homeName}
+				awayName={awayName}
+				homeXgot={homeXgot}
+				awayXgot={awayXgot}
+				homeScore={homeScore}
+				awayScore={awayScore}
+			/>
 			{/* セクション3: 選手別xG */}
 			{hasPlayerXg && (
 				<div>
