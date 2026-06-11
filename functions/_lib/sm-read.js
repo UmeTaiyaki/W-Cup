@@ -2,11 +2,16 @@
 // /api/live が sm_fixtures を sm_teams と JOIN して日程＋ライブスコアを返す。
 // 障害隔離: クエリ失敗や results 欠落でも例外を投げず空配列を返す。
 
-// state_id → 表示ステータス。2/3/6/9=LIVE, 5/7/8=FT, それ以外(1含む)=NS
+// state_id → 表示ステータス（SportMonks確定値）。
+//   LIVE = 在プレー(2前半/6延長/9PK/22後半) ＋ 試合中の中断(3HT/4延長待ち/21延長中断/25PK前)
+//   FT   = 5/7/8（FT/AET/PK後）
+//   NS   = それ以外(1含む)
+// ※ 22(後半)が抜けていると後半開始でライブ表示が消える。
+const LIVE_STATES = new Set([2, 3, 4, 6, 9, 21, 22, 25]);
+const FT_STATES = new Set([5, 7, 8]);
 export function statusFromState(stateId) {
-	if (stateId === 2 || stateId === 3 || stateId === 6 || stateId === 9)
-		return "LIVE";
-	if (stateId === 5 || stateId === 7 || stateId === 8) return "FT";
+	if (LIVE_STATES.has(stateId)) return "LIVE";
+	if (FT_STATES.has(stateId)) return "FT";
 	return "NS";
 }
 

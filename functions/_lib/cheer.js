@@ -4,7 +4,9 @@
 export const MAX_DELTA = 20;
 
 // sm-read.js の statusFromState と同じ状態分類。開始済み = LIVE か FT。
-const LIVE_STATES = new Set([2, 3, 6, 9]);
+// 在プレー(2前半/6延長/9PK/22後半)＋試合中の中断(3HT/4延長待ち/21延長中断/25PK前)。
+// ※ 22(後半)が抜けると後半中に「試合前扱い」となり応援が誤って許可される。
+const LIVE_STATES = new Set([2, 3, 4, 6, 9, 21, 22, 25]);
 const FT_STATES = new Set([5, 7, 8]);
 
 // 1リクエストで加算できる delta を 1..MAX_DELTA に丸める。

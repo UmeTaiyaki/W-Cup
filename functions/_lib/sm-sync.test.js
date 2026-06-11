@@ -29,7 +29,8 @@ function fakeDb() {
 }
 
 test("isInPlay / isFinished: state_id 判定", () => {
-	for (const s of [2, 3, 6, 9]) assert.equal(isInPlay(s), true);
+	// 在プレー+試合中の中断（22=後半を含む）
+	for (const s of [2, 3, 4, 6, 9, 21, 22, 25]) assert.equal(isInPlay(s), true);
 	for (const s of [1, 5, 7, 8]) assert.equal(isInPlay(s), false);
 	for (const s of [5, 7, 8]) assert.equal(isFinished(s), true);
 	assert.equal(isFinished(2), false);
