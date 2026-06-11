@@ -316,6 +316,54 @@
 			return false;
 		}
 	};
+	// ---- 大会結果の自動反映（/api/results）----------------------
+	// 手動(config.result)が非空なら手動優先。空フィールドだけ自動導出で埋める。
+	function _isEmptyVal(v) {
+		if (v == null || v === "") return true;
+		if (Array.isArray(v)) return v.length === 0;
+		return false;
+	}
+	// フィールド単位の「手動 ?? 自動」。object 値（groupResult/knockout/bracket）は
+	// キー単位で再帰的に空判定して埋める。
+	function _mergePreferManual(manual, auto) {
+		if (!auto || typeof auto !== "object") return manual;
+		const out = Array.isArray(manual) ? manual.slice() : { ...(manual || {}) };
+		for (const k of Object.keys(auto)) {
+			const mv = out[k];
+			const av = auto[k];
+			if (av && typeof av === "object" && !Array.isArray(av)) {
+				// mv がプリミティブ（型不一致）のときは {} を土台にして文字列展開を防ぐ。
+				out[k] = _mergePreferManual(mv && typeof mv === "object" ? mv : {}, av);
+			} else if (_isEmptyVal(mv)) {
+				out[k] = av;
+			}
+		}
+		return out;
+	}
+	window.WC.fetchResults = async function fetchResults() {
+		try {
+			const res = await fetch("/api/results", { cache: "no-store" });
+			if (!res.ok) return false;
+			const data = await res.json();
+			if (!data || data.enabled === false || !data.result) return false;
+			window.WC.RESULT = _mergePreferManual(
+				window.WC.RESULT || {},
+				data.result,
+			);
+			if (data.result.groupResult) {
+				window.WC.GROUP_RESULT = window.WC.RESULT.groupResult;
+			}
+			if (data.groupMatches) {
+				window.WC.GROUP_MATCHES = _mergePreferManual(
+					window.WC.GROUP_MATCHES || {},
+					data.groupMatches,
+				);
+			}
+			return true;
+		} catch (e) {
+			return false;
+		}
+	};
 	// ---- チームAI分析（静的JSON /data/ai-teams.json）----------------------
 	// 焼き込み済みの分析ドキュメント。未取得は null。失敗時も null
 	// （フロントは「分析はまだありません」を表示）。一度取得したら再取得しない。
@@ -375,6 +423,9 @@
 		if (Array.isArray(list)) {
 			for (const g of list) {
 				if (!g || g.ga == null || g.gb == null) continue;
+				// 自動導出のライブ中エントリは確定結果にしない（順位表表示用に保持されているだけ）。
+				// 手動入力エントリ(status 無し)は従来どおり確定結果扱い。
+				if (g.status === "LIVE") continue;
 				if (g.a === match.a && g.b === match.b)
 					return { a: g.ga, b: g.gb, status: "FT" };
 				if (g.a === match.b && g.b === match.a)

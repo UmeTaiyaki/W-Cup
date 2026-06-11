@@ -56,6 +56,19 @@ test("buildTeamPrompt: team が不正なら throw する", () => {
 	assert.throws(() => buildTeamPrompt(null));
 });
 
+test("buildTeamPrompt: mustPicks 指定で注目選手を固定する", () => {
+	const p = buildTeamPrompt(input({ mustPicks: ["S. GIMENEZ", "G. OCHOA"] }));
+	assert.ok(p.includes("固定指定"));
+	assert.ok(p.includes("「S. GIMENEZ」"));
+	assert.ok(p.includes('["S. GIMENEZ","G. OCHOA"]')); // picks例が固定3名
+});
+
+test("buildTeamPrompt: mustPicks 無しは従来の選定指示", () => {
+	const p = buildTeamPrompt(input());
+	assert.ok(p.includes("注目選手の選び方"));
+	assert.ok(!p.includes("固定指定"));
+});
+
 test("buildTeamPrompt: 自チームを含まない fixture は対戦相手に現れない", () => {
 	const p = buildTeamPrompt(
 		input({

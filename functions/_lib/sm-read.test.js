@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
 	getFixtureDetail,
 	listFixtures,
+	listTopscorers,
 	mapFixtureRow,
 	statusFromState,
 } from "./sm-read.js";
@@ -209,4 +210,27 @@ test("getFixtureDetail: ai が無ければ空配列", async () => {
 	const db = makeFakeDb({ fixture: [{ sm_fixture_id: 1 }] });
 	const d = await getFixtureDetail(db, 1);
 	assert.deepEqual(d.ai, []);
+});
+
+test("listTopscorers は sm_topscorers を順位順で返す", async () => {
+	const db = {
+		prepare: () => ({
+			bind: () => ({
+				all: async () => ({
+					results: [
+						{ player_name: "A", app_code: "ARG", goals: 6, position: 1 },
+					],
+				}),
+			}),
+		}),
+	};
+	const rows = await listTopscorers(db, 26618);
+	assert.equal(rows.length, 1);
+	assert.equal(rows[0].app_code, "ARG");
+});
+
+test("listTopscorers: results 欠落でも空配列（例外なし）", async () => {
+	const db = { prepare: () => ({ bind: () => ({ all: async () => ({}) }) }) };
+	const rows = await listTopscorers(db, 26618);
+	assert.deepEqual(rows, []);
 });

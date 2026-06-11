@@ -7,9 +7,9 @@
 const DETAIL_TABS = [
 	{ id: "timeline", label: "タイムライン" },
 	{ id: "ai", label: "AI" },
+	{ id: "lineup", label: "スタメン" },
 	{ id: "stats", label: "スタッツ" },
 	{ id: "xg", label: "xG" },
-	{ id: "lineup", label: "布陣" },
 	{ id: "h2h", label: "H2H" },
 ];
 
@@ -2018,7 +2018,7 @@ function FormationPitch({ T, starters, onTapPlayer, events }) {
 					fontWeight: 700,
 				}}
 			>
-				布陣データがありません
+				スタメンデータがありません
 			</div>
 		);
 	}

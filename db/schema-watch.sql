@@ -116,7 +116,22 @@ CREATE TABLE IF NOT EXISTS sm_player_stats (
 );
 CREATE INDEX IF NOT EXISTS idx_sm_player_stats_fixture ON sm_player_stats (sm_fixture_id);
 
--- 8) 試合ライフサイクル連動 AI分析（lineup/ht/ft をフェーズごと1行・冪等保存）
+-- 8) 得点王（season topscorers。fixtures からは導出不可のため専用取得）
+--    player_id を PK に upsert。app_code は participant→sm_teams 解決後に埋まる(未解決はNULL)。
+CREATE TABLE IF NOT EXISTS sm_topscorers (
+  season_id   INTEGER NOT NULL,
+  player_id   INTEGER NOT NULL,
+  player_name TEXT,
+  team_id     INTEGER,
+  app_code    TEXT,
+  goals       INTEGER,
+  position    INTEGER,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (season_id, player_id)
+);
+CREATE INDEX IF NOT EXISTS idx_sm_topscorers_pos ON sm_topscorers (season_id, position);
+
+-- 9) 試合ライフサイクル連動 AI分析（lineup/ht/ft をフェーズごと1行・冪等保存）
 CREATE TABLE IF NOT EXISTS sm_match_ai (
   sm_fixture_id INTEGER NOT NULL,
   phase         TEXT    NOT NULL,        -- 'lineup' | 'ht' | 'ft'
