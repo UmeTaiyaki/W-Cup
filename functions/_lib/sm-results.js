@@ -46,3 +46,62 @@ export function deriveGroupMatches(fixtures, groups) {
 	}
 	return out;
 }
+
+// 勝点→得失点差→総得点→登録順。FT試合のみ集計（採点用）。
+function standingsFT(members, fixtures) {
+	const order = (members || []).filter(Boolean);
+	const row = {};
+	order.forEach((c, i) => {
+		row[c] = { c, pts: 0, gf: 0, ga: 0, _i: i };
+	});
+	for (const fx of fixtures || []) {
+		if (fx?.status !== "FT") continue;
+		const a = fx?.home?.app_code,
+			b = fx?.away?.app_code;
+		const ga = fx?.home?.score,
+			gb = fx?.away?.score;
+		if (!row[a] || !row[b] || !isNum(ga) || !isNum(gb)) continue;
+		row[a].gf += ga;
+		row[a].ga += gb;
+		row[b].gf += gb;
+		row[b].ga += ga;
+		if (ga > gb) row[a].pts += 3;
+		else if (ga < gb) row[b].pts += 3;
+		else {
+			row[a].pts += 1;
+			row[b].pts += 1;
+		}
+	}
+	return order
+		.map((c) => row[c])
+		.sort(
+			(x, y) =>
+				y.pts - x.pts ||
+				y.gf - y.ga - (x.gf - x.ga) ||
+				y.gf - x.gf ||
+				x._i - y._i,
+		);
+}
+
+// 全試合（4チーム総当たり=6試合）がFTのグループのみ、上位3コードを返す。未完は空配列。
+export function deriveGroupResult(fixtures, groups) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const out = {};
+	for (const g of Object.keys(groups || {})) {
+		const members = (groups[g] || []).filter(Boolean);
+		const ftCount = list.filter((fx) => {
+			if (fx?.status !== "FT") return false;
+			const a = fx?.home?.app_code,
+				b = fx?.away?.app_code;
+			return members.includes(a) && members.includes(b);
+		}).length;
+		const expected = (members.length * (members.length - 1)) / 2;
+		out[g] =
+			ftCount >= expected && expected > 0
+				? standingsFT(members, list)
+						.slice(0, 3)
+						.map((r) => r.c)
+				: [];
+	}
+	return out;
+}
