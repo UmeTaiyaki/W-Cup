@@ -41,6 +41,18 @@ test("validateDoc: teams 非オブジェクトは ok:false", () => {
 	assert.ok(r.errors.some((m) => m.includes("teams")));
 });
 
+test("validateDoc: teams が配列は ok:false", () => {
+	const r = validateDoc({ generatedAt: "x", model: "m", teams: [] });
+	assert.equal(r.ok, false);
+	assert.ok(r.errors.some((m) => m.includes("teams")));
+});
+
+test("validateTeam: id 未定義の section を invalid id として検出", () => {
+	const t = sampleTeam();
+	t.sections[0] = { heading: "h", body: "b" };
+	assert.ok(validateTeam(t).some((m) => m.includes("invalid id")));
+});
+
 test("validateTeam: summary 空 / section body 空 を検出", () => {
 	const t = sampleTeam();
 	t.summary = "  ";

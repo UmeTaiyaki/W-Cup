@@ -43,7 +43,7 @@ export function validateDoc(doc) {
 	if (typeof doc.generatedAt !== "string" || !doc.generatedAt)
 		errors.push("generatedAt missing");
 	if (typeof doc.model !== "string" || !doc.model) errors.push("model missing");
-	if (!doc.teams || typeof doc.teams !== "object") {
+	if (!doc.teams || typeof doc.teams !== "object" || Array.isArray(doc.teams)) {
 		errors.push("teams missing or not an object");
 		return { ok: false, errors };
 	}
