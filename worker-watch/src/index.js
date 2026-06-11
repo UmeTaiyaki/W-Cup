@@ -8,6 +8,7 @@
 //   "0 3 * * *"  日次 → types マスタ更新
 // Secret: SPORTMONKS_TOKEN（wrangler secret put で設定。コード/設定に直書きしない）
 
+import { maybeGenerateMatchAi } from "../../functions/_lib/ai-match.js";
 import {
 	selectFixturesForDetailSync,
 	syncFixtureDetail,
@@ -90,6 +91,22 @@ export default {
 				console.log(`watch-cron: detail synced=${toSync.length}`);
 			} catch (e) {
 				console.error("watch-cron: detail sync error", e?.message);
+			}
+
+			// AI分析: スタメン/HT/FT の検知駆動生成（詳細同期とは別の障害隔離）
+			if (env.AI_MATCH_ENABLED === "true" && env.GEMINI_API_KEY) {
+				try {
+					const ai = await maybeGenerateMatchAi(env.DB, now, {
+						apiKey: env.GEMINI_API_KEY,
+					});
+					if (ai.lineup || ai.ht || ai.ft) {
+						console.log(
+							`watch-cron: ai lineup=${ai.lineup} ht=${ai.ht} ft=${ai.ft}`,
+						);
+					}
+				} catch (e) {
+					console.error("watch-cron: ai gen error", e?.message);
+				}
 			}
 		}
 	},
