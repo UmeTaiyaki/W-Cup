@@ -284,7 +284,9 @@ async function main() {
 				const bad = unknownPicks(parsed, squad);
 				if (errs.length) throw new Error(`検証NG: ${errs.join("; ")}`);
 				if (bad.length) throw new Error(`名簿外選手: ${bad.join(", ")}`);
-				out.teams[code] = parsed;
+				// プロフィール再生成で監督名(別途 gen-managers.mjs で付与)を失わないよう保持。
+				const prevManager = out.teams[code] && out.teams[code].manager;
+				out.teams[code] = prevManager ? { ...parsed, manager: prevManager } : parsed;
 				ok = true;
 				console.log(`✓ ${code}`);
 			} catch (e) {
