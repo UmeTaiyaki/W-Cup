@@ -3,6 +3,8 @@ import { test } from "node:test";
 import {
 	buildMatchPrompt,
 	callGeminiText,
+	callVertexText,
+	makeVertexCaller,
 	selectFixturesForAi,
 } from "./ai-match.js";
 
@@ -357,4 +359,177 @@ test("maybeGenerateMatchAi: success経路 — 注入したdetail/AIでFTを生�
 		(r) => r.sql.includes("INSERT INTO sm_match_ai") && r.args.includes("総括"),
 	);
 	assert.ok(w, "SUCCESS_SQL upsert に総括が含まれる");
+});
+
+test("callVertexText: global は aiplatform.googleapis.com を叩き本文を返す", async () => {
+	let capturedUrl, capturedAuth;
+	const f = async (url, opts) => {
+		capturedUrl = url;
+		capturedAuth = opts.headers.Authorization;
+		return {
+			ok: true,
+			json: async () => ({
+				candidates: [{ content: { parts: [{ text: "分析" }] } }],
+			}),
+		};
+	};
+	const out = await callVertexText({
+		project: "p",
+		location: "global",
+		model: "gemini-2.5-pro",
+		accessToken: "tok",
+		prompt: "x",
+		fetchImpl: f,
+	});
+	assert.equal(out, "分析");
+	assert.match(
+		capturedUrl,
+		/^https:\/\/aiplatform\.googleapis\.com\/v1\/projects\/p\/locations\/global\/publishers\/google\/models\/gemini-2\.5-pro:generateContent$/,
+	);
+	assert.equal(capturedAuth, "Bearer tok");
+});
+
+test("callVertexText: 地域指定は <loc>-aiplatform.googleapis.com", async () => {
+	let capturedUrl;
+	const f = async (url) => {
+		capturedUrl = url;
+		return {
+			ok: true,
+			json: async () => ({
+				candidates: [{ content: { parts: [{ text: "y" }] } }],
+			}),
+		};
+	};
+	await callVertexText({
+		project: "p",
+		location: "us-central1",
+		model: "m",
+		accessToken: "t",
+		prompt: "x",
+		fetchImpl: f,
+	});
+	assert.match(
+		capturedUrl,
+		/^https:\/\/us-central1-aiplatform\.googleapis\.com\/v1\/projects\/p\/locations\/us-central1\//,
+	);
+});
+
+test("callVertexText: HTTPエラーで例外", async () => {
+	const f = async () => ({ ok: false, status: 403, text: async () => "no" });
+	await assert.rejects(
+		() =>
+			callVertexText({
+				project: "p",
+				model: "m",
+				accessToken: "t",
+				prompt: "x",
+				fetchImpl: f,
+			}),
+		/Vertex HTTP 403/,
+	);
+});
+
+test("makeVertexCaller: トークンを1回だけ発行してキャッシュ流用", async () => {
+	let tokenMints = 0,
+		vertexCalls = 0;
+	const f = async (url, opts) => {
+		if (url.includes("oauth2.googleapis.com/token")) {
+			tokenMints++;
+			return {
+				ok: true,
+				json: async () => ({ access_token: "ya29.x", expires_in: 3600 }),
+			};
+		}
+		vertexCalls++;
+		return {
+			ok: true,
+			json: async () => ({
+				candidates: [{ content: { parts: [{ text: "ok" + vertexCalls }] } }],
+			}),
+		};
+	};
+	const kp = await crypto.subtle.generateKey(
+		{
+			name: "RSASSA-PKCS1-v1_5",
+			modulusLength: 2048,
+			publicExponent: new Uint8Array([1, 0, 1]),
+			hash: "SHA-256",
+		},
+		true,
+		["sign", "verify"],
+	);
+	const pkcs8 = new Uint8Array(
+		await crypto.subtle.exportKey("pkcs8", kp.privateKey),
+	);
+	const pem = `-----BEGIN PRIVATE KEY-----\n${Buffer.from(pkcs8)
+		.toString("base64")
+		.match(/.{1,64}/g)
+		.join("\n")}\n-----END PRIVATE KEY-----\n`;
+	const sa = {
+		client_email: "sa@p.iam.gserviceaccount.com",
+		private_key: pem,
+		project_id: "proj-123",
+	};
+	let t = 1000;
+	const caller = makeVertexCaller({
+		serviceAccount: sa,
+		location: "global",
+		model: "gemini-2.5-pro",
+		fetchImpl: f,
+		nowSec: () => t,
+	});
+	const a = await caller("prompt1");
+	t += 5; // 5s later, same tick
+	const b = await caller("prompt2");
+	assert.equal(a, "ok1");
+	assert.equal(b, "ok2");
+	assert.equal(tokenMints, 1, "token minted once (cached)");
+	assert.equal(vertexCalls, 2, "two vertex calls");
+});
+
+test("makeVertexCaller: project未指定なら service account の project_id を使う", async () => {
+	let capturedUrl;
+	const f = async (url) => {
+		if (url.includes("oauth2.googleapis.com/token"))
+			return {
+				ok: true,
+				json: async () => ({ access_token: "t", expires_in: 3600 }),
+			};
+		capturedUrl = url;
+		return {
+			ok: true,
+			json: async () => ({
+				candidates: [{ content: { parts: [{ text: "z" }] } }],
+			}),
+		};
+	};
+	const kp = await crypto.subtle.generateKey(
+		{
+			name: "RSASSA-PKCS1-v1_5",
+			modulusLength: 2048,
+			publicExponent: new Uint8Array([1, 0, 1]),
+			hash: "SHA-256",
+		},
+		true,
+		["sign", "verify"],
+	);
+	const pkcs8 = new Uint8Array(
+		await crypto.subtle.exportKey("pkcs8", kp.privateKey),
+	);
+	const pem = `-----BEGIN PRIVATE KEY-----\n${Buffer.from(pkcs8)
+		.toString("base64")
+		.match(/.{1,64}/g)
+		.join("\n")}\n-----END PRIVATE KEY-----\n`;
+	const caller = makeVertexCaller({
+		serviceAccount: {
+			client_email: "x",
+			private_key: pem,
+			project_id: "proj-from-sa",
+		},
+		model: "m",
+		fetchImpl: f,
+		nowSec: () => 1,
+	});
+	await caller("p");
+	assert.match(capturedUrl, /\/projects\/proj-from-sa\/locations\/global\//);
 });

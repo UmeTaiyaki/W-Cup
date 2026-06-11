@@ -1,6 +1,7 @@
 // 試合ライフサイクル連動 AI分析: プロンプト組立(純関数)・AI呼び出し・保存。
 // 数値は sm_* 確定値を正とし、Google検索グラウンディングは文脈の肉付けのみ。
 
+import { mintGcpAccessToken } from "./gcp-auth.js";
 import { getFixtureDetail } from "./sm-read.js";
 
 // 既知の team stat type_id → 日本語ラベル（欠損・未知は畳む）
@@ -120,6 +121,88 @@ export async function callGeminiText({ apiKey, model, prompt, fetchImpl }) {
 		throw new Error("Gemini: 応答のJSONパースに失敗");
 	}
 	return extractGeminiText(json, "Gemini");
+}
+
+// Vertex AI (generateContent) 呼び出し（Google検索グラウンディング有効）。応答テキストを返す。
+// NOTE: Vertex は googleSearch（camelCase）。Gemini Developer API の google_search とは異なる。
+export async function callVertexText({
+	project,
+	location = "global",
+	model,
+	accessToken,
+	prompt,
+	fetchImpl,
+}) {
+	const doFetch = fetchImpl || fetch;
+	const host =
+		location === "global"
+			? "aiplatform.googleapis.com"
+			: `${location}-aiplatform.googleapis.com`;
+	const url = `https://${host}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
+	const res = await doFetch(url, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			contents: [{ role: "user", parts: [{ text: prompt }] }],
+			tools: [{ googleSearch: {} }],
+			generationConfig: { temperature: 0.7 },
+		}),
+	});
+	if (!res.ok) {
+		throw new Error(
+			`Vertex HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`,
+		);
+	}
+	let json;
+	try {
+		json = await res.json();
+	} catch {
+		throw new Error("Vertex: 応答のJSONパースに失敗");
+	}
+	return extractGeminiText(json, "Vertex");
+}
+
+// Vertex caller を生成。返り値は (prompt) => text の async 関数で、OAuthトークンを
+// クロージャにキャッシュして同一cronティック内（最大3件）で1回だけ発行する。
+// 利用方法: cronティックごとに本ファクトリで新しい caller を作る。発行は初回呼び出し時の
+// 遅延発行なので、対象0件の空ティックではトークンを一切発行しない。
+export function makeVertexCaller({
+	serviceAccount,
+	project,
+	location = "global",
+	model,
+	scope = "https://www.googleapis.com/auth/cloud-platform",
+	fetchImpl,
+	nowSec,
+	refreshSkewSec = 60,
+}) {
+	const proj = project || serviceAccount.project_id;
+	let cached = null; // { token, expiresAt }
+	return async (prompt) => {
+		const now = nowSec ? nowSec() : Math.floor(Date.now() / 1000);
+		// 注意: このcallerは1tick内で逐次(await)呼び出しされる前提（maybeGenerateMatchAiのループ）。
+		// 並行(Promise.all)で呼ぶとトークンを二重発行しうるため、その場合はpending promiseのキャッシュ化が必要。
+		if (!cached || now >= cached.expiresAt - refreshSkewSec) {
+			cached = await mintGcpAccessToken({
+				clientEmail: serviceAccount.client_email,
+				privateKey: serviceAccount.private_key,
+				scope,
+				nowSec: now,
+				fetchImpl,
+			});
+		}
+		return callVertexText({
+			project: proj,
+			location,
+			model,
+			accessToken: cached.token,
+			prompt,
+			fetchImpl,
+		});
+	};
 }
 
 const SUCCESS_SQL = `INSERT INTO sm_match_ai (sm_fixture_id, phase, summary, model, attempts, updated_at)
