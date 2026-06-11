@@ -23,11 +23,13 @@ export function sanitizeText(input) {
 // チーム1件分（summary + 各 section.body）をサニタイズした新オブジェクトを返す（非破壊）。
 export function sanitizeTeam(team) {
 	if (!team || typeof team !== "object") return team;
-	return {
+	const out = {
 		...team,
 		summary: sanitizeText(team.summary),
 		sections: Array.isArray(team.sections)
 			? team.sections.map((s) => ({ ...s, body: sanitizeText(s.body) }))
 			: team.sections,
 	};
+	if (typeof team.manager === "string") out.manager = sanitizeText(team.manager);
+	return out;
 }

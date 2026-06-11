@@ -59,3 +59,14 @@ test("sanitizeTeam: summary と各 body をサニタイズ（非破壊）", () =
 	assert.deepEqual(out.sections[0].picks, ["A"]); // picks は不変
 	assert.equal(team.summary, "強豪。 [1]"); // 元オブジェクトは不変
 });
+
+test("sanitizeTeam: manager もサニタイズ・無ければキーを足さない", () => {
+	const withMgr = sanitizeTeam({
+		summary: "x",
+		sections: [],
+		manager: "森保一 [1]",
+	});
+	assert.equal(withMgr.manager, "森保一");
+	const noMgr = sanitizeTeam({ summary: "x", sections: [] });
+	assert.ok(!("manager" in noMgr));
+});
