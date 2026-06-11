@@ -49,7 +49,7 @@
 	// cry: 国文字。rays: 旗背後の放射光を出すか。
 	const THEME = {
 		JPN: {
-			cry: "GO JAPAN!",
+			cry: "がんばれニッポン！",
 			accent: "#ff3b6b",
 			colors: ["#bc002d", "#ffffff", "#ff7a96"],
 			shapes: ["spark", "disc"],
@@ -173,8 +173,71 @@
 		};
 	};
 
+	// 各国語の応援文言（THEMEに無い国も含め広くカバー）。未収録は "GO <CODE>!"。
+	const CRY = {
+		JPN: "がんばれニッポン！",
+		KOR: "대한민국!",
+		AUS: "AUSSIE AUSSIE AUSSIE!",
+		IRN: "GO TEAM MELLI!",
+		KSA: "يا أخضر!",
+		QAT: "يلا قطر!",
+		BRA: "VAI BRASIL!",
+		ARG: "¡VAMOS ARGENTINA!",
+		URU: "¡ARRIBA URUGUAY!",
+		COL: "¡VAMOS COLOMBIA!",
+		ECU: "¡VAMOS ECUADOR!",
+		PAR: "¡VAMOS PARAGUAY!",
+		PER: "¡ARRIBA PERÚ!",
+		CHI: "¡VAMOS CHILE!",
+		BOL: "¡VAMOS BOLIVIA!",
+		VEN: "¡VAMOS VINOTINTO!",
+		MEX: "¡VAMOS MÉXICO!",
+		USA: "GO USA!",
+		CAN: "GO CANADA GO!",
+		CRC: "¡VAMOS TICOS!",
+		PAN: "¡VAMOS PANAMÁ!",
+		HON: "¡VAMOS HONDURAS!",
+		JAM: "GO REGGAE BOYZ!",
+		FRA: "ALLEZ LES BLEUS!",
+		ESP: "¡VAMOS ESPAÑA!",
+		GER: "AUF GEHT'S DEUTSCHLAND!",
+		ENG: "COME ON ENGLAND!",
+		POR: "FORÇA PORTUGAL!",
+		NED: "HUP HOLLAND HUP!",
+		ITA: "FORZA AZZURRI!",
+		BEL: "ALLEZ LES DIABLES!",
+		CRO: "IDEMO HRVATSKA!",
+		SUI: "HOPP SCHWIIZ!",
+		AUT: "AUF GEHT'S ÖSTERREICH!",
+		POL: "POLSKA, BIAŁO-CZERWONI!",
+		DEN: "KOM SÅ DANMARK!",
+		SWE: "HEJA SVERIGE!",
+		NOR: "HEIA NORGE!",
+		SRB: "IDEMO SRBIJO!",
+		SCO: "COME ON SCOTLAND!",
+		WAL: "C'MON CYMRU!",
+		TUR: "HAYDİ TÜRKİYE!",
+		GRE: "PÁME ELLÁDA!",
+		UKR: "VPERED UKRAÏNO!",
+		SEN: "ALLEZ LES LIONS!",
+		MAR: "DIMA MAGHRIB!",
+		EGY: "يلا مصر!",
+		TUN: "ALLEZ TUNISIE!",
+		ALG: "VIVA L'ALGÉRIE!",
+		NGA: "UP NAIJA!",
+		GHA: "GO BLACK STARS!",
+		CMR: "ALLEZ LES LIONS!",
+		CIV: "ALLEZ LES ÉLÉPHANTS!",
+		RSA: "GO BAFANA BAFANA!",
+		NZL: "GO ALL WHITES!",
+	};
+
+	// code（と表示用 team）から必ず有効なテーマを返す。
+	// 視覚は THEME（無ければデフォルト）、文言は CRY 優先（無ければ "GO <CODE>!"）。
 	function get(code, team) {
-		return THEME[code] || DEFAULT_THEME(team || { code: code });
+		const base = THEME[code] || DEFAULT_THEME(team || { code: code });
+		const cry = CRY[code] || base.cry;
+		return Object.assign({}, base, { cry: cry });
 	}
 
 	window.WC.cheerTheme = {

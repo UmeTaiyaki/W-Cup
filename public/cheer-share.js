@@ -1,5 +1,5 @@
 /* 試合前 ご当地応援バトルのシェア画像生成（絵文字不使用）。
-   国旗は実画像(teamLogo)。CORS等で書き出せない場合はコード入りチップへフォールバック。
+   国旗は flagcdn の長方形実画像(絵文字フラグ→ISO2変換)。読み込み/書き出し失敗時はコード入りチップへフォールバック。
    モチーフはSVG(Path2D)で描画。navigator.share 対応時は共有、非対応はPNGダウンロード。
    Babel前の普通の<script>で読み込み、window.WC.cheerShare に集約。 */
 (() => {
@@ -50,32 +50,62 @@
 		});
 	}
 
-	function drawFlag(ctx, img, cx, cy, size, code, theme) {
-		const x = cx - size / 2,
-			y = cy - size / 2,
-			r = size * 0.18;
+	// 絵文字フラグ(地域指標2文字)→ISO3166-1 alpha-2。England等のタグ絵文字はnull。
+	function isoFromEmojiFlag(em) {
+		if (!em) return null;
+		const cps = Array.from(em).map((c) => c.codePointAt(0));
+		if (cps.length < 2) return null;
+		const A = 0x1f1e6;
+		const c1 = cps[0] - A,
+			c2 = cps[1] - A;
+		if (c1 < 0 || c1 > 25 || c2 < 0 || c2 > 25) return null;
+		return (
+			String.fromCharCode(65 + c1) + String.fromCharCode(65 + c2)
+		).toLowerCase();
+	}
+	// 地域指標で表せない構成国は flagcdn のサブディビジョンコードへ。
+	const SPECIAL_ISO = {
+		ENG: "gb-eng",
+		SCO: "gb-sct",
+		WAL: "gb-wls",
+		NIR: "gb-nir",
+	};
+	// 全48カ国で「枠にハマった」長方形国旗を得る。flagcdn(3:2・CORS可)を使用。
+	function flagImageUrl(code) {
+		if (SPECIAL_ISO[code])
+			return "https://flagcdn.com/w320/" + SPECIAL_ISO[code] + ".png";
+		const tm = (window.WC.TEAM || {})[code] || {};
+		const iso = isoFromEmojiFlag(tm.flag);
+		return iso ? "https://flagcdn.com/w320/" + iso + ".png" : null;
+	}
+
+	// 国旗を長方形(3:2)の角丸フレームに収める。画像が無ければコード入りチップ。
+	function drawFlag(ctx, img, cx, cy, fw, fh, code, theme) {
+		const x = cx - fw / 2,
+			y = cy - fh / 2,
+			r = 16;
 		ctx.save();
-		roundRect(ctx, x, y, size, size, r);
+		roundRect(ctx, x, y, fw, fh, r);
 		ctx.clip();
 		if (img) {
 			ctx.fillStyle = "#14161b";
-			ctx.fillRect(x, y, size, size);
-			const scale = Math.max(size / img.width, size / img.height);
+			ctx.fillRect(x, y, fw, fh);
+			const scale = Math.max(fw / img.width, fh / img.height);
 			const w = img.width * scale,
 				h = img.height * scale;
 			ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
 		} else {
 			ctx.fillStyle = theme.accent;
-			ctx.fillRect(x, y, size, size);
+			ctx.fillRect(x, y, fw, fh);
 			ctx.fillStyle = "#0e1116";
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
-			ctx.font = "900 " + size * 0.3 + "px system-ui, sans-serif";
+			ctx.font = "900 " + fh * 0.4 + "px system-ui, sans-serif";
 			ctx.fillText(code || "", cx, cy);
 		}
 		ctx.restore();
 		ctx.save();
-		roundRect(ctx, x, y, size, size, r);
+		roundRect(ctx, x, y, fw, fh, r);
 		ctx.lineWidth = 3;
 		ctx.strokeStyle = "rgba(255,255,255,0.28)";
 		ctx.stroke();
@@ -141,17 +171,17 @@
 			ctx.fillText(opts.roundLabel, W / 2, 150);
 		}
 
-		// 国旗
-		drawFlag(ctx, images.a, W * 0.28, 320, 180, a.code, theme);
-		drawFlag(ctx, images.b, W * 0.72, 320, 180, b.code, theme);
+		// 国旗（3:2の長方形フレームにスポッと収める）
+		drawFlag(ctx, images.a, W * 0.28, 320, 210, 140, a.code, theme);
+		drawFlag(ctx, images.b, W * 0.72, 320, 210, 140, b.code, theme);
 		ctx.fillStyle = "rgba(255,255,255,0.5)";
 		ctx.font = "800 46px system-ui, sans-serif";
 		ctx.fillText("VS", W / 2, 335);
 		// コード
 		ctx.fillStyle = "#fff";
 		ctx.font = "900 40px system-ui, sans-serif";
-		ctx.fillText(a.code || a.label || "", W * 0.28, 460);
-		ctx.fillText(b.code || b.label || "", W * 0.72, 460);
+		ctx.fillText(a.code || a.label || "", W * 0.28, 450);
+		ctx.fillText(b.code || b.label || "", W * 0.72, 450);
 
 		// 国文字（cry）
 		ctx.save();
@@ -256,10 +286,10 @@
 			const my = opts.side === "home" ? opts.a : opts.b;
 			const theme = window.WC.cheerTheme.get(my.code, my);
 			const o = Object.assign({ theme: theme }, opts);
-			const logo = window.WC.teamLogo || (() => null);
+			// 全48カ国で長方形国旗が「枠にハマる」よう flagcdn を使用。失敗時はチップ。
 			const [ia, ib] = await Promise.all([
-				loadImg(logo(opts.a.code)),
-				loadImg(logo(opts.b.code)),
+				loadImg(flagImageUrl(opts.a.code)),
+				loadImg(flagImageUrl(opts.b.code)),
 			]);
 			let blob = await render(o, { a: ia, b: ib });
 			if (!blob) blob = await render(o, { a: null, b: null }); // 書き出し失敗→チップ描画で再試行
