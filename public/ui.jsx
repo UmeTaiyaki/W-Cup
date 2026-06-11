@@ -899,20 +899,21 @@ function scorerOptionGroups(teams, groups, squads) {
 const scorerValue = (name, code) => `${name} (${code})`;
 // 選択肢の表示テキスト: 選手名のみ（ポジション・クラブは出さない）
 const scorerText = (p) => p.name;
-// 国横断の得点王候補（よく挙がる注目選手。背番号名で名簿と一致）
+// 国横断の得点王候補（よく挙がる注目選手。SportMonks API表記名で名簿と一致）。
+// 名簿(squads)を改名したら、ここも同じ表記に合わせる必要がある（名前一致で引くため）。
 const SCORER_FAVORITES = [
-	["FRA", "MBAPPE"],
-	["NOR", "BRAUT HAALAND"],
-	["ENG", "KANE"],
-	["BRA", "VINI JR."],
-	["ESP", "LAMINE YAMAL"],
-	["ARG", "MESSI"],
-	["ARG", "J. ALVAREZ"],
-	["ARG", "L. MARTINEZ"],
-	["BRA", "RAPHINHA"],
-	["ENG", "BELLINGHAM"],
-	["FRA", "DEMBELE"],
-	["POR", "RONALDO"],
+	["FRA", "Kylian Mbappé"],
+	["NOR", "Erling Haaland"],
+	["ENG", "Harry Kane"],
+	["BRA", "Vinicius Junior"],
+	["ESP", "Lamine Yamal"],
+	["ARG", "Lionel Messi"],
+	["ARG", "Julián Álvarez"],
+	["ARG", "Lautaro Martínez"],
+	["BRA", "Raphinha"],
+	["ENG", "Jude Bellingham"],
+	["FRA", "Ousmane Dembélé"],
+	["POR", "Cristiano Ronaldo"],
 ];
 function scorerFavorites(teams, squads) {
 	const TEAM = {};

@@ -1,0 +1,11 @@
+{
+  "_comment": "自動照合で据え置き(未マッチ/低信頼)になった有名FWの手動マッピング。SM表記はsm-squads.jsonで実値確認済み。applyがproposed mappingへ上書きマージする。",
+  "BRA": { "VINI JR.": "Vinicius Junior", "NEYMAR JR": "Neymar" },
+  "ARG": { "L. MARTINEZ": "Lautaro Martínez" },
+  "KOR": { "HEUNGMIN": "Heung-min Son", "GUESUNG": "Gue-sung Cho", "HYEONGYU": "Hyeon-gyu Oh" },
+  "MEX": { "RAÚL": "Raúl Jiménez" },
+  "SWE": { "ISAK": "Alexander Isak" },
+  "ESP": { "WILLIAMS JR": "Nico Williams" },
+  "CRO": { "M. PAŠALIĆ": "Mario Pašalić" },
+  "SEN": { "NDIAYE": "Iliman Ndiaye", "SARR": "Ismaïla Sarr" }
+}
