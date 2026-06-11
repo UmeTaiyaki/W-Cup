@@ -15,13 +15,16 @@ function makeFakeDb({
 	stats = [],
 	lineups = [],
 	playerStats = [],
+	matchAi = [],
 } = {}) {
 	return {
 		prepare: (sql) => ({
 			bind: (_id) => ({
 				all: async () => {
 					let results;
-					if (sql.includes("sm_player_stats")) {
+					if (sql.includes("sm_match_ai")) {
+						results = matchAi;
+					} else if (sql.includes("sm_player_stats")) {
 						results = playerStats;
 					} else if (sql.includes("sm_events")) {
 						results = events;
@@ -172,4 +175,38 @@ test("getFixtureDetail: fixture/events/stats/lineups を束ねて返す", async 
 test("getFixtureDetail: 不在 id は null（障害隔離）", async () => {
 	const db = makeFakeDb({ fixture: [] });
 	assert.equal(await getFixtureDetail(db, 999), null);
+});
+
+test("getFixtureDetail: ai は summary のある行のみ同梱", async () => {
+	const db = makeFakeDb({
+		fixture: [{ sm_fixture_id: 1, state_id: 5 }],
+		matchAi: [
+			{
+				phase: "lineup",
+				summary: "布陣分析",
+				model: "gemini-2.5-pro",
+				updated_at: 100,
+			},
+			{
+				phase: "ft",
+				summary: "総括",
+				model: "gemini-2.5-pro",
+				updated_at: 200,
+			},
+		],
+	});
+	const d = await getFixtureDetail(db, 1);
+	assert.equal(d.ai.length, 2);
+	assert.deepEqual(
+		d.ai.map((a) => a.phase),
+		["lineup", "ft"],
+	);
+	assert.equal(d.ai[0].summary, "布陣分析");
+	assert.equal(d.ai[0].generated_at, 100);
+});
+
+test("getFixtureDetail: ai が無ければ空配列", async () => {
+	const db = makeFakeDb({ fixture: [{ sm_fixture_id: 1 }] });
+	const d = await getFixtureDetail(db, 1);
+	assert.deepEqual(d.ai, []);
 });
