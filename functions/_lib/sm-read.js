@@ -14,6 +14,7 @@ export function statusFromState(stateId) {
 const FIXTURES_SQL = `
   SELECT
     f.sm_fixture_id, f.starting_at, f.starting_at_ts, f.state_id, f.round_name, f.result_info,
+    f.minute, f.added_time,
     f.home_team_id, f.home_score, f.home_xg,
     f.away_team_id, f.away_score, f.away_xg,
     h.name AS home_name, h.short_code AS home_short, h.image_url AS home_img, h.app_code AS home_app,
@@ -34,6 +35,8 @@ export function mapFixtureRow(row) {
 		status: statusFromState(row.state_id),
 		round_name: row.round_name ?? null,
 		result_info: row.result_info ?? null,
+		minute: row.minute ?? null, // 進行中ピリオドの経過分（無→null）
+		added_time: row.added_time ?? null, // アディショナル分（無→null）
 		home: {
 			team_id: row.home_team_id ?? null,
 			app_code: row.home_app ?? null, // アプリのFIFAコード(schedule突合キー)
@@ -66,6 +69,7 @@ export async function listFixtures(db, { limit = 120 } = {}) {
 const FIXTURE_ONE_SQL = `
   SELECT
     f.sm_fixture_id, f.starting_at, f.starting_at_ts, f.state_id, f.round_name, f.result_info,
+    f.minute, f.added_time,
     f.home_team_id, f.home_score, f.home_xg,
     f.away_team_id, f.away_score, f.away_xg,
     h.name AS home_name, h.short_code AS home_short, h.image_url AS home_img, h.app_code AS home_app,

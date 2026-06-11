@@ -299,6 +299,8 @@
 					status: fx.status, // NS / LIVE / FT
 					state_id: fx.state_id,
 					result_info: fx.result_info || null,
+					minute: fx.minute ?? null, // 進行中ピリオドの経過分（無→null）
+					added_time: fx.added_time ?? null, // アディショナル分（無→null）
 					scores: { [ha]: fx.home.score, [aa]: fx.away.score },
 				};
 				// ロゴ URL 索引（app_code → image_url）
@@ -348,6 +350,8 @@
 			a: live.scores[match.a],
 			b: live.scores[match.b],
 			result_info: live.result_info,
+			minute: live.minute ?? null, // 経過分（LIVE中・進行ピリオドのみ）
+			added_time: live.added_time ?? null, // アディショナル分
 		};
 	};
 	// schedule の1試合(app_codeペア)→ sm_fixture_id（未マッチ/未確定は null）

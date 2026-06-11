@@ -6,9 +6,17 @@ function MiniFlag({ team, size = 20 }) {
 	return <Flag code={team.code} size={size} style={{ flexShrink: 0 }} />;
 }
 
-// ライブ状態の小バッジ（LIVE=赤・終了=控えめ）
-function LiveBadge({ T, status }) {
+// 試合経過の表記。minute有→"67分" / アディショナル有→"45+2分"。無→null。
+function fmtMatchClock(minute, added) {
+	if (minute == null) return null;
+	return added != null && added > 0 ? `${minute}+${added}分` : `${minute}分`;
+}
+
+// ライブ状態の小バッジ（LIVE=赤・終了=控えめ）。
+// LIVE中で経過分があれば "67分" を、無ければ "LIVE" を表示する。
+function LiveBadge({ T, status, minute, added }) {
 	const isLive = status === "LIVE";
+	const clock = isLive ? fmtMatchClock(minute, added) : null;
 	return (
 		<span
 			style={{
@@ -34,7 +42,7 @@ function LiveBadge({ T, status }) {
 					}}
 				/>
 			)}
-			{isLive ? "LIVE" : "終了"}
+			{isLive ? clock || "LIVE" : "終了"}
 		</span>
 	);
 }
@@ -251,6 +259,27 @@ function daysUntil(today, focus) {
 	return Math.round((b - a) / 86400000);
 }
 
+// JST のキックオフ時刻(UNIX ms)。dateStr 'YYYY-MM-DD' + timeStr 'HH:MM'(JST=UTC+9)。
+// 値が揃わない/不正なら null。
+function kickoffMs(dateStr, timeStr) {
+	if (!dateStr || !timeStr) return null;
+	const d = dateStr.split("-").map(Number);
+	const t = timeStr.split(":").map(Number);
+	if (d.length < 3 || t.length < 2 || d.concat(t).some((n) => isNaN(n)))
+		return null;
+	return Date.UTC(d[0], d[1] - 1, d[2], t[0], t[1]) - 9 * 3600 * 1000;
+}
+
+// 残り時間(ms) → "H:MM:SS"（時は0埋めなし、分秒は2桁）。
+function fmtHMS(ms) {
+	const total = Math.max(0, Math.floor(ms / 1000));
+	const h = Math.floor(total / 3600);
+	const m = Math.floor((total % 3600) / 60);
+	const s = total % 60;
+	const pad = (n) => String(n).padStart(2, "0");
+	return `${h}:${pad(m)}:${pad(s)}`;
+}
+
 // フォーカス日の試合をスワイプ/矢印/ドットで切替表示
 function MatchCarousel({ T, dateStr, matches, today }) {
 	const [idx, setIdx] = React.useState(0);
@@ -260,9 +289,25 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 	const teamMap = window.WC.TEAM || {};
 	const a = window.WC.formatMatchTeam(cur.a, teamMap, cur.round);
 	const b = window.WC.formatMatchTeam(cur.b, teamMap, cur.round);
-	const diff = daysUntil(today, dateStr);
-	const countdown = diff <= 0 ? "本日" : `あと${diff}日`;
 	const live = window.WC.liveForMatch ? window.WC.liveForMatch(cur) : null;
+
+	// 1秒ごと再描画（24時間以内のカウントダウンを秒まで更新するため）。
+	const [nowMs, setNowMs] = React.useState(() => Date.now());
+	React.useEffect(() => {
+		const id = setInterval(() => setNowMs(Date.now()), 1000);
+		return () => clearInterval(id);
+	}, []);
+
+	// 右上表記: 残り24h未満→"H:MM:SS"、それ以外→"あとN日"/"本日"。
+	const koMs = kickoffMs(dateStr, cur.time);
+	const msLeft = koMs != null ? koMs - nowMs : null;
+	let countdown;
+	if (msLeft != null && msLeft > 0 && msLeft < 86400000) {
+		countdown = fmtHMS(msLeft);
+	} else {
+		const diff = daysUntil(today, dateStr);
+		countdown = diff <= 0 ? "本日" : `あと${diff}日`;
+	}
 
 	const go = (delta) => setIdx((p) => Math.max(0, Math.min(n - 1, p + delta)));
 	const onTouchStart = (e) => {
@@ -382,7 +427,12 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 							{window.WC.roundLabel(cur.round)}
 						</span>
 						{live ? (
-							<LiveBadge T={T} status={live.status} />
+							<LiveBadge
+								T={T}
+								status={live.status}
+								minute={live.minute}
+								added={live.added_time}
+							/>
 						) : (
 							<span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>
 								{countdown}
