@@ -14,6 +14,8 @@ database_id = "a149694b-686c-45a4-9130-01969cccd82a"
 crons = ["* * * * *", "0 3 * * *"]
 
 [vars]
-AI_MATCH_ENABLED = "false"
+AI_MATCH_ENABLED = "true"
+GCP_LOCATION = "global"
 # SPORTMONKS_TOKEN は Secret（wrangler secret put SPORTMONKS_TOKEN）で設定する。
 # WATCH_CRON_KEY も手動トリガ保護用に Secret 推奨。ここには置かない。
+# GCP_SERVICE_ACCOUNT は Secret（サービスアカウント JSON。wrangler secret put GCP_SERVICE_ACCOUNT）で out-of-band 設定する。

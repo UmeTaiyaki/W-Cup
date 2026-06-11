@@ -8,7 +8,10 @@
 //   "0 3 * * *"  日次 → types マスタ更新
 // Secret: SPORTMONKS_TOKEN（wrangler secret put で設定。コード/設定に直書きしない）
 
-import { maybeGenerateMatchAi } from "../../functions/_lib/ai-match.js";
+import {
+	makeVertexCaller,
+	maybeGenerateMatchAi,
+} from "../../functions/_lib/ai-match.js";
 import {
 	selectFixturesForDetailSync,
 	syncFixtureDetail,
@@ -18,6 +21,8 @@ import {
 	syncTypes,
 } from "../../functions/_lib/sm-sync.js";
 import { createSportmonks } from "../../functions/_lib/sportmonks.js";
+
+const MATCH_AI_MODEL = "gemini-2.5-pro";
 
 const FOOTBALL_BASE = "https://api.sportmonks.com/v3/football";
 const CORE_BASE = "https://api.sportmonks.com/v3/core";
@@ -106,11 +111,24 @@ export default {
 			if (tsLive.error)
 				console.error("watch-cron: topscorers err=" + tsLive.error);
 
-			// AI分析: スタメン/HT/FT の検知駆動生成（詳細同期とは別の障害隔離）
-			if (env.AI_MATCH_ENABLED === "true" && env.GEMINI_API_KEY) {
+			// AI分析: スタメン/HT/FT の検知駆動生成（Vertex AI / サービスアカウント認証）。
+			// 詳細同期とは別の障害隔離。GCP_SERVICE_ACCOUNT(secret) と AI_MATCH_ENABLED=true で発火。
+			if (env.AI_MATCH_ENABLED === "true" && env.GCP_SERVICE_ACCOUNT) {
 				try {
+					let sa;
+					try {
+						sa = JSON.parse(env.GCP_SERVICE_ACCOUNT);
+					} catch {
+						throw new Error("GCP_SERVICE_ACCOUNT: invalid JSON");
+					}
+					const callAi = makeVertexCaller({
+						serviceAccount: sa,
+						location: env.GCP_LOCATION || "global",
+						model: MATCH_AI_MODEL,
+					});
 					const ai = await maybeGenerateMatchAi(env.DB, now, {
-						apiKey: env.GEMINI_API_KEY,
+						callAi,
+						model: MATCH_AI_MODEL,
 					});
 					if (ai.lineup || ai.ht || ai.ft) {
 						console.log(
@@ -129,6 +147,7 @@ export default {
 	//   /?action=season[&id=N] season 日程/ブラケット backfill（既定=2026）
 	//   /?action=fixture&id=N  fixture 1件の詳細取り込み
 	//   /?action=live          ライブ同期を即時実行
+	//   /?action=ai-probe      Vertex AI 疎通診断（SA鍵→OAuth→generateContent を1回）
 	// 簡易ガード: ?key= が env.WATCH_CRON_KEY と一致する場合のみ実行。
 	async fetch(request, env) {
 		const url = new URL(request.url);
@@ -168,6 +187,57 @@ export default {
 				if (!id) return new Response("missing id", { status: 400 });
 				const r = await syncFixtureDetail(football, env.DB, id, now);
 				return Response.json(r);
+			}
+			// AI疎通診断: 秘密JSON→SA署名→OAuth発行→Vertex応答 の全経路を1回叩く。
+			// AI_MATCH_ENABLED や試合データに依存しない手動チェック（返すエラーに秘密は含まない）。
+			if (action === "ai-probe") {
+				if (!env.GCP_SERVICE_ACCOUNT) {
+					return Response.json(
+						{ ok: false, error: "GCP_SERVICE_ACCOUNT not set" },
+						{ status: 503 },
+					);
+				}
+				const location = env.GCP_LOCATION || "global";
+				let clientEmail = null;
+				let project = null;
+				try {
+					let sa;
+					try {
+						sa = JSON.parse(env.GCP_SERVICE_ACCOUNT);
+					} catch {
+						throw new Error("GCP_SERVICE_ACCOUNT: invalid JSON");
+					}
+					clientEmail = sa.client_email || null;
+					project = sa.project_id || null;
+					const callAi = makeVertexCaller({
+						serviceAccount: sa,
+						location,
+						model: MATCH_AI_MODEL,
+					});
+					const text = await callAi(
+						"接続テストです。「OK」とだけ日本語で短く返答してください。",
+					);
+					return Response.json({
+						ok: true,
+						model: MATCH_AI_MODEL,
+						location,
+						project,
+						client_email: clientEmail,
+						text,
+					});
+				} catch (e) {
+					return Response.json(
+						{
+							ok: false,
+							model: MATCH_AI_MODEL,
+							location,
+							project,
+							client_email: clientEmail,
+							error: e?.message || String(e),
+						},
+						{ status: 500 },
+					);
+				}
 			}
 			return new Response("unknown action", { status: 400 });
 		} catch (e) {
