@@ -44,3 +44,29 @@ test("buildTeamPrompt: liveSummary ありは journey 指示と実績を含む", 
 	assert.ok(p.includes("journey"));
 	assert.ok(p.includes("vs 南アフリカ 2-1"));
 });
+
+test("buildTeamPrompt: team が不正なら throw する", () => {
+	assert.throws(() => buildTeamPrompt({}));
+	assert.throws(() => buildTeamPrompt(null));
+});
+
+test("buildTeamPrompt: 自チームを含まない fixture は対戦相手に現れない", () => {
+	const p = buildTeamPrompt(
+		input({
+			fixtures: [
+				{ date: "2026-06-11", a: "MEX", b: "RSA" },
+				{ date: "2026-06-12", a: "BRA", b: "ARG" },
+				{ date: "2026-06-18", a: "KOR", b: "MEX" },
+			],
+			byCode: {
+				MEX: "メキシコ",
+				RSA: "南アフリカ",
+				KOR: "韓国",
+				BRA: "ブラジル",
+				ARG: "アルゼンチン",
+			},
+		}),
+	);
+	assert.ok(!p.includes("ブラジル"));
+	assert.ok(!p.includes("アルゼンチン"));
+});

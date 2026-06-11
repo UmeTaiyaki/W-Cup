@@ -16,10 +16,12 @@ function rosterLines(squad) {
 function opponentLines(fixtures, teamCode, byCode) {
 	return (Array.isArray(fixtures) ? fixtures : [])
 		.map((f) => {
+			if (f.a !== teamCode && f.b !== teamCode) return null;
 			const oppCode = f.a === teamCode ? f.b : f.a;
 			const oppName = (byCode && byCode[oppCode]) || oppCode || "未定";
 			return `- ${f.date || "日付未定"} vs ${oppName}`;
 		})
+		.filter(Boolean)
 		.join("\n");
 }
 
@@ -27,6 +29,7 @@ function opponentLines(fixtures, teamCode, byCode) {
 // → モデルに渡すプロンプト文字列。1チーム分のJSONを返すよう指示する。
 export function buildTeamPrompt(input) {
 	const { team, group, fixtures, squad, byCode, liveSummary } = input || {};
+	if (!team || !team.code) throw new Error("buildTeamPrompt: team.code が必要です");
 	const roster = rosterLines(squad);
 	const opps = opponentLines(fixtures, team.code, byCode);
 	const liveBlock = liveSummary
