@@ -14,6 +14,7 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { buildTeamPrompt } from "./lib/ai-team-prompt.mjs";
+import { sanitizeTeam } from "./lib/sanitize-text.mjs";
 import { validateTeam, unknownPicks } from "../public/lib/ai-analysis.js";
 
 const OUT = new URL("../public/data/ai-teams.json", import.meta.url);
@@ -275,7 +276,7 @@ async function main() {
 						: provider === "vertex"
 							? await callVertex({ token: vertexToken, project: vertexProject, location: args.location, model: args.model, prompt })
 							: await callWorkersAI({ accountId, token, model: args.model, prompt });
-				const parsed = typeof raw === "string" ? parseModelJson(raw) : raw;
+				const parsed = sanitizeTeam(typeof raw === "string" ? parseModelJson(raw) : raw);
 				const errs = validateTeam(parsed);
 				const bad = unknownPicks(parsed, squad);
 				if (errs.length) throw new Error(`検証NG: ${errs.join("; ")}`);
