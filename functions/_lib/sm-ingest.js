@@ -202,3 +202,22 @@ export function toTypeRows(types) {
 			name: t.name ?? null,
 		}));
 }
+
+// season topscorers data[] → sm_topscorers 行（純変換）
+// ゴール得点王のみ抽出（GOAL_TYPE_ID）。アシスト/カード種別は除外。
+// app_code は participant→sm_teams の解決を要するため取り込み時は null、配信側 JOIN で埋める。
+export const GOAL_TYPE_ID = 208; // 仮値: 本大会データで実 type_id を検証・修正する
+export function toTopscorerRows(body, seasonId) {
+	const list = Array.isArray(body?.data) ? body.data : [];
+	return list
+		.filter((d) => d?.player_id != null && d?.type_id === GOAL_TYPE_ID)
+		.map((d) => ({
+			season_id: seasonId ?? null,
+			player_id: d.player_id,
+			player_name: d?.player?.name ?? null,
+			team_id: d?.participant_id ?? d?.participant?.id ?? null,
+			app_code: null,
+			goals: typeof d.total === "number" ? d.total : null,
+			position: typeof d.position === "number" ? d.position : null,
+		}));
+}
