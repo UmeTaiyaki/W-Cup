@@ -79,7 +79,7 @@ function LeagueTables({ T }) {
 	const gr = window.WC.GROUP_RESULT || {};
 	const TEAM = window.WC.TEAM || {};
 	const compute = window.WC.computeStandings;
-	const [squadCode, setSquadCode] = React.useState(null);
+	const [detailCode, setDetailCode] = React.useState(null);
 
 	const Card = ({ k }) => {
 		const members = (groups[k] || []).filter(Boolean);
@@ -178,7 +178,7 @@ function LeagueTables({ T }) {
 										</span>
 										<Flag code={r.code} size={18} />
 										<span
-											onClick={() => setSquadCode(r.code)}
+											onClick={() => setDetailCode(r.code)}
 											style={{
 												fontWeight: 700,
 												color: T.text,
@@ -266,7 +266,7 @@ function LeagueTables({ T }) {
 									</span>
 									<Flag code={code} size={20} />
 									<span
-										onClick={() => setSquadCode(code)}
+										onClick={() => setDetailCode(code)}
 										style={{
 											fontWeight: 700,
 											color: T.text,
@@ -307,8 +307,12 @@ function LeagueTables({ T }) {
 					<Card key={k} k={k} />
 				))}
 			</div>
-			{squadCode && (
-				<SquadSheet T={T} code={squadCode} onClose={() => setSquadCode(null)} />
+			{detailCode && (
+				<TeamDetailSheet
+					T={T}
+					code={detailCode}
+					onClose={() => setDetailCode(null)}
+				/>
 			)}
 		</>
 	);
