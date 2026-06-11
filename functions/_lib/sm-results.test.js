@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	deriveBracket,
 	deriveChampion,
 	deriveGroupMatches,
 	deriveGroupResult,
+	deriveKnockout,
 	isFinalRound,
 	roundKey,
 } from "./sm-results.js";
@@ -85,14 +87,50 @@ test("deriveGroupResult は未完（FT<6）のグループは空配列", () => {
 
 test("deriveChampion は決勝FTから勝者=champion・敗者=runnerUp", () => {
 	const fixtures = [
-		{ status: "FT", round_name: "Final", home: { app_code: "ARG", score: 3 }, away: { app_code: "FRA", score: 1 } },
+		{
+			status: "FT",
+			round_name: "Final",
+			home: { app_code: "ARG", score: 3 },
+			away: { app_code: "FRA", score: 1 },
+		},
 	];
-	assert.deepEqual(deriveChampion(fixtures), { champion: "ARG", runnerUp: "FRA" });
+	assert.deepEqual(deriveChampion(fixtures), {
+		champion: "ARG",
+		runnerUp: "FRA",
+	});
 });
 
 test("deriveChampion は決勝が未FTなら null/null", () => {
 	const fixtures = [
-		{ status: "LIVE", round_name: "Final", home: { app_code: "ARG", score: 0 }, away: { app_code: "FRA", score: 0 } },
+		{
+			status: "LIVE",
+			round_name: "Final",
+			home: { app_code: "ARG", score: 0 },
+			away: { app_code: "FRA", score: 0 },
+		},
 	];
-	assert.deepEqual(deriveChampion(fixtures), { champion: null, runnerUp: null });
+	assert.deepEqual(deriveChampion(fixtures), {
+		champion: null,
+		runnerUp: null,
+	});
+});
+
+const koFixtures = [
+	{ status: "FT", round_name: "Round of 16", home: { app_code: "ARG", score: 2 }, away: { app_code: "MEX", score: 0 } },
+	{ status: "FT", round_name: "Round of 16", home: { app_code: "FRA", score: 1 }, away: { app_code: "ESP", score: 0 } },
+	{ status: "FT", round_name: "Quarter-finals", home: { app_code: "ARG", score: 1 }, away: { app_code: "FRA", score: 0 } },
+];
+
+test("deriveKnockout は各ラウンドに到達した app_code 群（重複なし）", () => {
+	const ko = deriveKnockout(koFixtures);
+	assert.deepEqual(ko.r16.sort(), ["ARG","ESP","FRA","MEX"].sort());
+	assert.deepEqual(ko.qf.sort(), ["ARG","FRA"].sort());
+	assert.deepEqual(ko.r32, []);
+	assert.deepEqual(ko.sf, []);
+});
+
+test("deriveBracket はラウンドFT勝者コードを返す", () => {
+	const b = deriveBracket(koFixtures);
+	assert.deepEqual(b.r16.sort(), ["ARG","FRA"].sort());
+	assert.deepEqual(b.qf, ["ARG"]);
 });

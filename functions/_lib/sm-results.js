@@ -124,3 +124,41 @@ export function deriveChampion(fixtures) {
 		? { champion: ha, runnerUp: aa }
 		: { champion: aa, runnerUp: ha };
 }
+
+const KO_ROUNDS = ["r32", "r16", "qf", "sf"];
+
+// 各ノックアウト round に「登場した」app_code 群（到達チーム。採点 knockout 用）。
+export function deriveKnockout(fixtures) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const out = { r32: new Set(), r16: new Set(), qf: new Set(), sf: new Set() };
+	for (const fx of list) {
+		const k = roundKey(fx?.round_name);
+		if (!k || !out[k]) continue;
+		const a = fx?.home?.app_code,
+			b = fx?.away?.app_code;
+		if (a) out[k].add(a);
+		if (b) out[k].add(b);
+	}
+	return Object.fromEntries(KO_ROUNDS.map((k) => [k, [...out[k]]]));
+}
+
+// 各ラウンドのFT勝者コード（ブラケット表示用）。final は決勝勝者。
+export function deriveBracket(fixtures) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const winner = (fx) => {
+		const hs = fx?.home?.score,
+			as = fx?.away?.score;
+		if (fx?.status !== "FT" || !isNum(hs) || !isNum(as) || hs === as)
+			return null;
+		return hs > as ? fx.home.app_code : fx.away.app_code;
+	};
+	const out = { r16: [], qf: [], sf: [], final: [] };
+	for (const fx of list) {
+		const w = winner(fx);
+		if (!w) continue;
+		const k = roundKey(fx?.round_name);
+		if (k === "r16" || k === "qf" || k === "sf") out[k].push(w);
+		else if (isFinalRound(fx?.round_name)) out.final.push(w);
+	}
+	return out;
+}
