@@ -13,7 +13,7 @@ import { buildTeamPrompt } from "./lib/ai-team-prompt.mjs";
 import { validateTeam, unknownPicks } from "../public/lib/ai-analysis.js";
 
 const OUT = new URL("../public/data/ai-teams.json", import.meta.url);
-const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct";
+const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 function parseArgs(argv) {
 	const a = { base: "http://127.0.0.1:8788", only: null, withLive: false, model: DEFAULT_MODEL };
@@ -33,19 +33,46 @@ async function fetchJson(url, label) {
 	return res.json();
 }
 
-// Workers AI REST 呼び出し。応答テキストを返す。
+// 出力JSONスキーマ（response_format で構造化出力を強制し、壊れたJSONを防ぐ）。
+const RESPONSE_SCHEMA = {
+	type: "object",
+	properties: {
+		summary: { type: "string" },
+		sections: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					id: { type: "string" },
+					heading: { type: "string" },
+					body: { type: "string" },
+					picks: { type: "array", items: { type: "string" } },
+				},
+				required: ["id", "heading", "body"],
+			},
+		},
+	},
+	required: ["summary", "sections"],
+};
+
+// Workers AI REST 呼び出し。json_schema 指定時は構造化出力（オブジェクト）を、
+// それ以外は応答テキスト（文字列）を返す。呼び出し側で型を見て扱う。
 async function callWorkersAI({ accountId, token, model, prompt }) {
 	const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
 	const res = await fetch(url, {
 		method: "POST",
 		headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-		body: JSON.stringify({ messages: [{ role: "user", content: prompt }] }),
+		body: JSON.stringify({
+			messages: [{ role: "user", content: prompt }],
+			response_format: { type: "json_schema", json_schema: RESPONSE_SCHEMA },
+		}),
 	});
 	if (!res.ok) throw new Error(`Workers AI HTTP ${res.status}: ${await res.text()}`);
 	const json = await res.json();
-	const text = json && json.result && json.result.response;
-	if (typeof text !== "string" || !text.trim()) throw new Error("Workers AI: 応答テキスト無し");
-	return text;
+	const out = json && json.result && json.result.response;
+	if (out == null || (typeof out === "string" && !out.trim()))
+		throw new Error("Workers AI: 応答が空");
+	return out; // object（構造化出力）or string
 }
 
 // モデル出力から JSON オブジェクトを抽出してパース。
@@ -140,8 +167,8 @@ async function main() {
 		let ok = false;
 		for (let attempt = 1; attempt <= 2 && !ok; attempt++) {
 			try {
-				const text = await callWorkersAI({ accountId, token, model: args.model, prompt });
-				const parsed = parseModelJson(text);
+				const raw = await callWorkersAI({ accountId, token, model: args.model, prompt });
+				const parsed = typeof raw === "string" ? parseModelJson(raw) : raw;
 				const errs = validateTeam(parsed);
 				const bad = unknownPicks(parsed, squad);
 				if (errs.length) throw new Error(`検証NG: ${errs.join("; ")}`);
