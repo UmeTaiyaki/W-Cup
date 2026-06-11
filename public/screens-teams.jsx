@@ -396,7 +396,7 @@ function TeamFixtureRow({ T, match, code, last }) {
 // ---- 詳細画面（ヘッダー＋名簿＋日程）-----------------------
 function TeamDetail({ T, code, onBack }) {
 	const favs = useFavs();
-	const [subtab, setSubtab] = React.useState("squad"); // squad | schedule
+	const [subtab, setSubtab] = React.useState("analysis"); // analysis | squad | schedule
 	const [aiTick, setAiTick] = React.useState(0);
 	React.useEffect(() => {
 		if (subtab !== "analysis") return undefined;
@@ -510,9 +510,9 @@ function TeamDetail({ T, code, onBack }) {
 				value={subtab}
 				onChange={setSubtab}
 				tabs={[
+					{ id: "analysis", label: "紹介" },
 					{ id: "squad", label: "メンバー" },
 					{ id: "schedule", label: "日程" },
-					{ id: "analysis", label: "分析" },
 				]}
 			/>
 
