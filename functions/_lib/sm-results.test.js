@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isFinalRound, roundKey } from "./sm-results.js";
+import { deriveGroupMatches, isFinalRound, roundKey } from "./sm-results.js";
 
 test("roundKey は SportMonks round 名をアプリの r32/r16/qf/sf へ写像", () => {
 	assert.equal(roundKey("Round of 32"), "r32");
@@ -14,4 +14,19 @@ test("isFinalRound は決勝のみ true（3位決定戦は除外）", () => {
 	assert.equal(isFinalRound("Final"), true);
 	assert.equal(isFinalRound("3rd Place Final"), false);
 	assert.equal(isFinalRound("Semi-finals"), false);
+});
+
+const groups = { A: ["MEX", "KOR", "RSA", "CZE"] };
+
+test("deriveGroupMatches はグループ内対戦のスコアを {a,b,ga,gb} で返す（ライブ込み）", () => {
+	const fixtures = [
+		{ status: "FT", home: { app_code: "MEX", score: 2 }, away: { app_code: "KOR", score: 1 } },
+		{ status: "LIVE", home: { app_code: "RSA", score: 0 }, away: { app_code: "CZE", score: 0 } },
+		{ status: "NS", home: { app_code: "MEX", score: null }, away: { app_code: "RSA", score: null } },
+		{ status: "FT", home: { app_code: "BRA", score: 1 }, away: { app_code: "MAR", score: 0 } },
+	];
+	const gm = deriveGroupMatches(fixtures, groups);
+	assert.equal(gm.A.length, 2);
+	assert.deepEqual(gm.A[0], { a: "MEX", b: "KOR", ga: 2, gb: 1 });
+	assert.deepEqual(gm.A[1], { a: "RSA", b: "CZE", ga: 0, gb: 0 });
 });

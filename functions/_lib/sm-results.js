@@ -23,3 +23,26 @@ export function roundKey(roundName) {
 export function isFinalRound(roundName) {
 	return normRound(roundName) === "final";
 }
+
+const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+
+// 各グループに属する fixtures（両 app_code が同一グループ）のスコアを {a,b,ga,gb} 配列で返す。
+// 順位表「表示」用なのでライブ(LIVE/FT)のスコアを含める。NS/スコア欠落は除外。
+export function deriveGroupMatches(fixtures, groups) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const out = {};
+	for (const g of Object.keys(groups || {})) {
+		const members = new Set((groups[g] || []).filter(Boolean));
+		out[g] = [];
+		for (const fx of list) {
+			const a = fx?.home?.app_code,
+				b = fx?.away?.app_code;
+			if (!a || !b || !members.has(a) || !members.has(b)) continue;
+			const ga = fx?.home?.score,
+				gb = fx?.away?.score;
+			if (!isNum(ga) || !isNum(gb)) continue;
+			out[g].push({ a, b, ga, gb });
+		}
+	}
+	return out;
+}
