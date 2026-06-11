@@ -4,6 +4,7 @@ import {
 	fixtureDetailStatements,
 	runBatch,
 	seasonFixturesStatements,
+	topscorersStatements,
 	typeStatements,
 } from "./sm-store.js";
 
@@ -307,4 +308,25 @@ test("event statement includes player_id columns and args", () => {
 	assert.ok(ev.sql.includes("related_player_id"));
 	assert.ok(ev.args.includes(100));
 	assert.ok(ev.args.includes(200));
+});
+
+test("topscorersStatements は player ごとに upsert 文を生成", () => {
+	const specs = topscorersStatements(
+		[
+			{
+				season_id: 26618,
+				player_id: 11,
+				player_name: "A",
+				team_id: 99,
+				app_code: null,
+				goals: 5,
+				position: 1,
+			},
+		],
+		1700,
+	);
+	assert.equal(specs.length, 1);
+	assert.match(specs[0].sql, /INSERT INTO sm_topscorers/);
+	assert.match(specs[0].sql, /ON CONFLICT\(season_id, player_id\) DO UPDATE/);
+	assert.deepEqual(specs[0].args, [26618, 11, "A", 99, null, 5, 1, 1700]);
 });
