@@ -341,6 +341,47 @@
 		}
 		return out;
 	}
+	// groupMatches 専用マージ: グループ別・試合別に「手動スコア優先・null は自動で補完」。
+	// 手動(config.groupMatches)は a/b ペアのプレースホルダ(ga/gb=null)を6試合分持つため、
+	// _mergePreferManual の「配列まるごと手動優先」だと自動のライブ/FTスコアが永久に反映されず、
+	// 順位表がリアルタイムにならない。試合単位で手動の空スコアだけを自動で埋める。
+	function _mergeGroupMatches(manual, auto) {
+		if (!auto || typeof auto !== "object") return manual || {};
+		const out = {};
+		const keys = new Set([
+			...Object.keys(manual || {}),
+			...Object.keys(auto || {}),
+		]);
+		for (const g of keys) {
+			const mList = Array.isArray(manual && manual[g]) ? manual[g] : [];
+			const aList = Array.isArray(auto && auto[g]) ? auto[g] : [];
+			if (!mList.length) {
+				out[g] = aList; // 手動なし → 自動をそのまま
+				continue;
+			}
+			const findAuto = (a, b) =>
+				aList.find(
+					(x) => (x.a === a && x.b === b) || (x.a === b && x.b === a),
+				) || null;
+			out[g] = mList.map((m) => {
+				// 手動でスコア確定済みの試合は不変（手動優先）。
+				if (typeof m.ga === "number" && typeof m.gb === "number") return m;
+				const au = findAuto(m.a, m.b);
+				if (!au || typeof au.ga !== "number" || typeof au.gb !== "number")
+					return m;
+				// 自動の並びが手動と逆なら、手動の向き(a,b)に合わせてスコアを入替える。
+				const sameOrder = au.a === m.a && au.b === m.b;
+				return {
+					...m,
+					ga: sameOrder ? au.ga : au.gb,
+					gb: sameOrder ? au.gb : au.ga,
+					status:
+						au.status != null ? au.status : m.status != null ? m.status : null,
+				};
+			});
+		}
+		return out;
+	}
 	window.WC.fetchResults = async function fetchResults() {
 		try {
 			const res = await fetch("/api/results", { cache: "no-store" });
@@ -355,7 +396,7 @@
 				window.WC.GROUP_RESULT = window.WC.RESULT.groupResult;
 			}
 			if (data.groupMatches) {
-				window.WC.GROUP_MATCHES = _mergePreferManual(
+				window.WC.GROUP_MATCHES = _mergeGroupMatches(
 					window.WC.GROUP_MATCHES || {},
 					data.groupMatches,
 				);
