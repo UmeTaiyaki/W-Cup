@@ -39,6 +39,8 @@ function LiveBadge({ T, status, minute, added }) {
 						height: 6,
 						borderRadius: 3,
 						background: "#ff5a5a",
+						display: "inline-block",
+						animation: "wc-blink 1s ease-in-out infinite",
 					}}
 				/>
 			)}
