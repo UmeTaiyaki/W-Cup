@@ -396,6 +396,7 @@
 		if (!live || live.status === "NS") return null;
 		return {
 			status: live.status,
+			state_id: live.state_id ?? null, // ハーフタイム(=3)判定用
 			a: live.scores[match.a],
 			b: live.scores[match.b],
 			result_info: live.result_info,

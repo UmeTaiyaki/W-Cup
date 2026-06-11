@@ -6,17 +6,21 @@ function MiniFlag({ team, size = 20 }) {
 	return <Flag code={team.code} size={size} style={{ flexShrink: 0 }} />;
 }
 
-// 試合経過の表記。minute有→"67分" / アディショナル有→"45+2分"。無→null。
+// 試合経過の表記。minute有→"67分" / アディショナル有→"46 (+4)"。無→null。
 function fmtMatchClock(minute, added) {
 	if (minute == null) return null;
-	return added != null && added > 0 ? `${minute}+${added}分` : `${minute}分`;
+	return added != null && added > 0 ? `${minute} (+${added})` : `${minute}分`;
 }
 
 // ライブ状態の小バッジ（LIVE=赤・終了=控えめ）。
-// LIVE中で経過分があれば "67分" を、無ければ "LIVE" を表示する。
-function LiveBadge({ T, status, minute, added }) {
+// LIVE中はHT→"HT" / 経過分→"67分" / 無→"LIVE" を表示する。
+function LiveBadge({ T, status, stateId, minute, added }) {
 	const isLive = status === "LIVE";
-	const clock = isLive ? fmtMatchClock(minute, added) : null;
+	const clock = isLive
+		? stateId === 3
+			? "HT"
+			: fmtMatchClock(minute, added)
+		: null;
 	return (
 		<span
 			style={{
@@ -707,6 +711,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 							<LiveBadge
 								T={T}
 								status={live.status}
+								stateId={live.state_id}
 								minute={live.minute}
 								added={live.added_time}
 							/>
