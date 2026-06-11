@@ -55,7 +55,7 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="data.js?v=15"></script>
+  <script src="data.js?v=16"></script>
   <script src="identity.js?v=8"></script>
   <script>
     // この HTML が読み込まれた時点のビルド識別子。デプロイ時に Actions が git SHA へ置換する
@@ -885,8 +885,12 @@
         window.WC.fetchConfig().then(() => {
           setSiteKey(window.WC.TURNSTILE_SITE_KEY || null);
           setConfigLoaded(true);
-          // 観戦ライブ（状態＋スコア）を取得。完了で再レンダリングして反映。OFF/失敗は既存表示のまま。
-          window.WC.fetchLive().then(() => setConfigLoaded((v) => !v));
+          // 大会結果の自動導出を取得（手動の空フィールドを埋める）。OFF/失敗は手動のまま。
+          window.WC.fetchResults().then(() => {
+            setConfigLoaded((v) => !v);
+            // 観戦ライブ（状態＋スコア）を取得。完了で再レンダリングして反映。OFF/失敗は既存表示のまま。
+            window.WC.fetchLive().then(() => setConfigLoaded((v) => !v));
+          });
         });
         // identity の有無に関わらず home に着地する（匿名閲覧可）。
         // 予想/部屋/アカウントに入った時だけタブ内で IdentityGate を出す。
@@ -903,6 +907,15 @@
             setRoute('home');
           });
         }
+        // ライブ中のみ 45 秒間隔で results＋live を再取得（非ライブ時は何もしない）。
+        const pollId = setInterval(() => {
+          const hasLive = window.WC.LIVE && Object.values(window.WC.LIVE)
+            .some((x) => x && x.status === "LIVE");
+          if (!hasLive) return; // 非ライブ時はポーリングしない
+          window.WC.fetchResults().then(() => setConfigLoaded((v) => !v));
+          window.WC.fetchLive().then(() => setConfigLoaded((v) => !v));
+        }, 45000);
+        return () => clearInterval(pollId);
       }, []);
 
       // レスポンシブ判定（コンテナ幅基準）

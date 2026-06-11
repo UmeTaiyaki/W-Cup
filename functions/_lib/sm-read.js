@@ -98,3 +98,19 @@ export async function getFixtureDetail(db, id) {
 	);
 	return { fixture, events, stats, lineups, player_stats };
 }
+
+// 得点王ランキング。topscorers.team_id を sm_teams.app_code で解決し、
+// 取り込み時 null の app_code を埋める。順位昇順・上限付き。障害隔離で空配列フォールバック。
+const TOPSCORERS_SQL = `
+  SELECT t.player_name, t.goals, t.position,
+         COALESCE(t.app_code, m.app_code) AS app_code
+  FROM sm_topscorers t
+  LEFT JOIN sm_teams m ON m.sm_team_id = t.team_id
+  WHERE t.season_id = ?
+  ORDER BY t.position ASC
+  LIMIT ?`;
+
+export async function listTopscorers(db, seasonId, { limit = 30 } = {}) {
+	const res = await db.prepare(TOPSCORERS_SQL).bind(seasonId, limit).all();
+	return Array.isArray(res?.results) ? res.results : [];
+}

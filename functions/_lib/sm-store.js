@@ -174,6 +174,35 @@ function playerStatStatement(row, updatedAt) {
 	};
 }
 
+function topscorerStatement(row, updatedAt) {
+	return {
+		sql: `INSERT INTO sm_topscorers
+            (season_id, player_id, player_name, team_id, app_code, goals, position, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(season_id, player_id) DO UPDATE SET
+            player_name=excluded.player_name, team_id=excluded.team_id,
+            app_code=COALESCE(excluded.app_code, sm_topscorers.app_code),
+            goals=excluded.goals, position=excluded.position,
+            updated_at=excluded.updated_at`,
+		args: [
+			row.season_id,
+			row.player_id,
+			row.player_name,
+			row.team_id,
+			row.app_code,
+			row.goals,
+			row.position,
+			updatedAt,
+		],
+	};
+}
+
+// sm_topscorers 行配列 → upsert 文配列（純粋）
+export function topscorersStatements(rows, updatedAt) {
+	const list = Array.isArray(rows) ? rows : [];
+	return list.map((r) => topscorerStatement(r, updatedAt));
+}
+
 // fixture 詳細1件 → teams/fixture/events/stats/lineups/player_stats の upsert 文配列（純粋）
 export function fixtureDetailStatements(detail, updatedAt) {
 	return [

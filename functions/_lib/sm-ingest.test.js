@@ -8,6 +8,7 @@ import {
 	toPlayerStatRows,
 	toStatRows,
 	toTeamRows,
+	toTopscorerRows,
 	toTypeRows,
 } from "./sm-ingest.js";
 
@@ -333,6 +334,39 @@ test("toLineupRows tolerates missing bio (null)", () => {
 	assert.equal(r.club_name, null);
 });
 
+test("toFixtureRow は stage.name を round_name に採用（KO構造は stage 由来）", () => {
+	const row = toFixtureRow({
+		id: 1,
+		participants: [],
+		scores: [],
+		stage: { id: 9, name: "Round of 16" },
+	});
+	assert.equal(row.round_name, "Round of 16");
+});
+
+test("toFixtureRow は stage を round より優先", () => {
+	const row = toFixtureRow({
+		id: 2,
+		participants: [],
+		scores: [],
+		stage: { name: "Final" },
+		round: { name: "3" },
+	});
+	assert.equal(row.round_name, "Final");
+});
+
+test("toFixtureRow は stage が無ければ round.name、どちらも無ければ null", () => {
+	assert.equal(
+		toFixtureRow({ id: 3, participants: [], scores: [], round: { name: "1" } })
+			.round_name,
+		"1",
+	);
+	assert.equal(
+		toFixtureRow({ id: 4, participants: [], scores: [] }).round_name,
+		null,
+	);
+});
+
 test("toEventRows maps player_id and related_player_id", () => {
 	const detail = {
 		id: 1,
@@ -362,4 +396,46 @@ test("toEventRows maps player_id and related_player_id", () => {
 	assert.equal(rows[0].related_player_id, null);
 	assert.equal(rows[1].player_id, 100);
 	assert.equal(rows[1].related_player_id, 200);
+});
+
+test("toTopscorerRows は goals 種別のみ抽出し goals/position/player を整形", () => {
+	const rows = toTopscorerRows(
+		{
+			data: [
+				{
+					position: 1,
+					total: 5,
+					type_id: 208,
+					player_id: 11,
+					participant_id: 99,
+					player: { name: "A. Striker" },
+					participant: { id: 99, short_code: "BRA", name: "Brazil" },
+				},
+				{
+					position: 1,
+					total: 4,
+					type_id: 209,
+					player_id: 11,
+					participant_id: 99,
+					player: { name: "A. Striker" },
+				},
+			],
+		},
+		26618,
+	);
+	assert.equal(rows.length, 1);
+	assert.deepEqual(rows[0], {
+		season_id: 26618,
+		player_id: 11,
+		player_name: "A. Striker",
+		team_id: 99,
+		app_code: null,
+		goals: 5,
+		position: 1,
+	});
+});
+
+test("toTopscorerRows は壊れた入力でも例外を投げず空配列", () => {
+	assert.deepEqual(toTopscorerRows(null, 26618), []);
+	assert.deepEqual(toTopscorerRows({ data: "x" }, 26618), []);
 });
