@@ -6,6 +6,7 @@
 // ── 定数 ──────────────────────────────────────────────────────────────────
 const DETAIL_TABS = [
 	{ id: "timeline", label: "タイムライン" },
+	{ id: "ai", label: "AI" },
 	{ id: "stats", label: "スタッツ" },
 	{ id: "xg", label: "xG" },
 	{ id: "lineup", label: "布陣" },
@@ -944,6 +945,87 @@ function XgGkValue({
 				GK評価
 			</div>
 			{cell(awayName, awaySaved)}
+		</div>
+	);
+}
+
+// ── AiTab ─────────────────────────────────────────────────────────────────
+// 試合進行(スタメン/HT/FT)に合わせた Gemini 生成の日本語サマリーを phase 順に表示。
+// detail.ai は { phase, summary, model, generated_at } の配列（未生成時は空 or 無）。
+const AI_PHASE_META = {
+	lineup: { label: "スタメン分析", order: 0 },
+	ht: { label: "ハーフタイム分析", order: 1 },
+	ft: { label: "試合総括", order: 2 },
+};
+
+function AiTab({ T, detail }) {
+	const ai = (detail && detail.ai) || [];
+	if (ai.length === 0) {
+		return (
+			<div
+				style={{
+					padding: "40px 16px",
+					textAlign: "center",
+					color: T.faint,
+					fontSize: 13,
+					fontWeight: 700,
+				}}
+			>
+				AI分析は試合の進行に合わせて表示されます
+			</div>
+		);
+	}
+	const sorted = [...ai].sort(
+		(a, b) =>
+			((AI_PHASE_META[a.phase] && AI_PHASE_META[a.phase].order) != null
+				? AI_PHASE_META[a.phase].order
+				: 9) -
+			((AI_PHASE_META[b.phase] && AI_PHASE_META[b.phase].order) != null
+				? AI_PHASE_META[b.phase].order
+				: 9),
+	);
+	return (
+		<div
+			style={{
+				padding: 12,
+				display: "flex",
+				flexDirection: "column",
+				gap: 12,
+			}}
+		>
+			{sorted.map((a) => (
+				<div
+					key={a.phase}
+					style={{
+						background: T.card,
+						borderRadius: 12,
+						padding: 14,
+						border: `1px solid ${T.line}`,
+					}}
+				>
+					<div
+						style={{
+							fontSize: 13,
+							fontWeight: 800,
+							color: T.text,
+							marginBottom: 6,
+						}}
+					>
+						{(AI_PHASE_META[a.phase] && AI_PHASE_META[a.phase].label) ||
+							a.phase}
+					</div>
+					<div
+						style={{
+							fontSize: 13,
+							lineHeight: 1.7,
+							color: T.text,
+							whiteSpace: "pre-wrap",
+						}}
+					>
+						{a.summary}
+					</div>
+				</div>
+			))}
 		</div>
 	);
 }
@@ -2568,6 +2650,7 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 
 	function renderTabBody() {
 		if (tab === "timeline") return <TimelineTab T={T} detail={detail} />;
+		if (tab === "ai") return <AiTab T={T} detail={detail} />;
 		if (tab === "stats") return <StatsTab T={T} detail={detail} />;
 		if (tab === "xg") return <XgTab T={T} detail={detail} />;
 		if (tab === "lineup") return <LineupTab T={T} detail={detail} />;
@@ -2602,6 +2685,7 @@ Object.assign(window, {
 	DetailHeader,
 	DetailTabBar,
 	TimelineTab,
+	AiTab,
 	StatsTab,
 	XgTab,
 	LineupTab,
