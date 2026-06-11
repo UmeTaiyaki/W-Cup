@@ -28,8 +28,12 @@ async function runChunked(db, specs, chunkSize = BATCH_CHUNK) {
 	}
 }
 
-// state_id: 2/3/6/9=インプレー、5/7/8=終了、1=未開始（メモリの確定値）
-const INPLAY_STATES = new Set([2, 3, 6, 9]);
+// state_id（SportMonks確定値）:
+//   在プレー: 2=前半 / 6=延長 / 9=PK / 22=後半
+//   試合中の中断: 3=HT / 4=延長待ち / 21=延長中断 / 25=PK前
+//   終了: 5=FT / 7=AET / 8=PK後 ／ 未開始: 1=NS
+// ※ 22(後半)が抜けると後半開始でライブ判定が外れる（実害バグ）。
+const INPLAY_STATES = new Set([2, 3, 4, 6, 9, 21, 22, 25]);
 const FINISHED_STATES = new Set([5, 7, 8]);
 export const isInPlay = (stateId) => INPLAY_STATES.has(stateId);
 export const isFinished = (stateId) => FINISHED_STATES.has(stateId);
