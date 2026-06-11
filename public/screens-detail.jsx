@@ -852,7 +852,7 @@ function StatsTab({ T, detail }) {
 }
 
 // ── XgTab ─────────────────────────────────────────────────────────────────
-// セクション1: チーム合計バンド(accent枠) — 両xGともnull時は早期return
+// セクション1: チーム合計バンド(accent枠) — 未終了(非FT)or 両xGともnull時は早期return
 // セクション2: 効率判定: score>xg+0.3→効率良く / score<xg-0.5→決定機活かせず / else→ほぼ期待通り
 // セクション3: 選手別xG horizontal bars — lineups.xg から top5/チーム
 function XgTab({ T, detail }) {
@@ -874,8 +874,10 @@ function XgTab({ T, detail }) {
 	const homeName = homeInfo.ja || (fx && fx.home && fx.home.name) || "ホーム";
 	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
 
-	// 両方 null → データなしノート
-	if (homeXg == null && awayXg == null) {
+	// xG はリアルタイムでは確定しないため、終了(FT)した試合のみ中身を表示する。
+	// 未終了(NS/LIVE)・データ無しは「試合後に表示されます」プレースホルダを出す。
+	const isFinished = fx && fx.status === "FT";
+	if (!isFinished || (homeXg == null && awayXg == null)) {
 		return (
 			<div
 				style={{
