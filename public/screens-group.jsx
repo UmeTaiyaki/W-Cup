@@ -1,7 +1,8 @@
-// 結果スクリーン（読み取り専用）: グループリーグ / ノックアウト / 得点王 の3サブタブ。
+// 結果スクリーン（読み取り専用）: 日程 / グループリーグ / ノックアウト / 得点王 の4サブタブ。
 function GroupScreen({ T, wide = false }) {
-	const [sub, setSub] = React.useState("league"); // 'league' | 'ko' | 'scorer'
+	const [sub, setSub] = React.useState("schedule"); // 'schedule' | 'league' | 'ko' | 'scorer'
 	const SUBS = [
+		{ id: "schedule", label: "日程" },
 		{ id: "league", label: "グループリーグ" },
 		{ id: "ko", label: "ノックアウト" },
 		{ id: "scorer", label: "得点王" },
@@ -64,9 +65,70 @@ function GroupScreen({ T, wide = false }) {
 				</div>
 			</div>
 			<SubTabs />
+			{sub === "schedule" && <ScheduleResults T={T} />}
 			{sub === "league" && <LeagueTables T={T} />}
 			{sub === "ko" && <KnockoutResults T={T} />}
 			{sub === "scorer" && <ScorerRanking T={T} />}
+		</div>
+	);
+}
+
+// ---- ⓪日程（全試合：結果＝終了分は新しい順 / これから＝未終了分は近い順）----
+// 表示は既存ホームの DayTimeline（日付区切り＋MatchRow）を再利用する。
+function ScheduleResults({ T }) {
+	const schedule = window.WC.SCHEDULE || [];
+	if (!schedule.length) {
+		return (
+			<div style={{ padding: "40px 8px", textAlign: "center", color: T.sub }}>
+				日程は準備中です
+			</div>
+		);
+	}
+
+	// 終了判定: matchResult（ライブFT or グループ確定スコア）が取れたら「結果」側へ。
+	const finished = [];
+	const upcoming = [];
+	for (const m of schedule) {
+		if (!m) continue;
+		const done = window.WC.matchResult && window.WC.matchResult(m);
+		(done ? finished : upcoming).push(m);
+	}
+
+	// 結果: 日付・各日内とも新しい順（groupByDate は昇順なので反転。日付未定は除外）。
+	const finishedGroups = window.WC.groupByDate(finished)
+		.filter((g) => g.date !== null)
+		.reverse()
+		.map((g) => ({ date: g.date, matches: g.matches.slice().reverse() }));
+	// これから: 近い順（groupByDate の昇順そのまま。日付未定は末尾に付く）。
+	const upcomingGroups = window.WC.groupByDate(upcoming);
+
+	const SectionHead = ({ children }) => (
+		<div
+			style={{
+				fontWeight: 800,
+				fontSize: 14,
+				color: T.text,
+				margin: "8px 4px 0",
+			}}
+		>
+			{children}
+		</div>
+	);
+
+	return (
+		<div>
+			{finishedGroups.length > 0 && (
+				<div style={{ marginBottom: 8 }}>
+					<SectionHead>結果</SectionHead>
+					<window.DayTimeline T={T} groups={finishedGroups} />
+				</div>
+			)}
+			{upcomingGroups.length > 0 && (
+				<div>
+					<SectionHead>これからの予定</SectionHead>
+					<window.DayTimeline T={T} groups={upcomingGroups} />
+				</div>
+			)}
 		</div>
 	);
 }

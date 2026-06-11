@@ -361,6 +361,28 @@
 		const live = key ? window.WC.LIVE[key] : null;
 		return live && live.id != null ? live.id : null;
 	};
+	// schedule の1試合の「確定結果（終了スコア）」を一元解決する。
+	// 優先順: ライブ FT のスコア → GROUP_MATCHES の確定スコア（グループ戦のみ）。
+	// まだ終わっていなければ null。戻り値の a/b は match.a/match.b 視点のスコア。
+	window.WC.matchResult = function matchResult(match) {
+		if (!match) return null;
+		const live = window.WC.liveForMatch ? window.WC.liveForMatch(match) : null;
+		if (live && live.status === "FT") {
+			return { a: live.a ?? 0, b: live.b ?? 0, status: "FT" };
+		}
+		// グループ戦（round = 'A'〜'L'）は管理者入力スコアを結果として扱う。
+		const list = (window.WC.GROUP_MATCHES || {})[match.round];
+		if (Array.isArray(list)) {
+			for (const g of list) {
+				if (!g || g.ga == null || g.gb == null) continue;
+				if (g.a === match.a && g.b === match.b)
+					return { a: g.ga, b: g.gb, status: "FT" };
+				if (g.a === match.b && g.b === match.a)
+					return { a: g.gb, b: g.ga, status: "FT" };
+			}
+		}
+		return null;
+	};
 
 	// ---- 放送メディア（日本国内・サブスクなび 2026 日程表より）----------------------
 	// 全104試合で DAZN(有料) と BS4K(NHK BS4K・無料/要4K設備) は配信あり＝既定値。
