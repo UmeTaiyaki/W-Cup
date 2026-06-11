@@ -193,6 +193,9 @@ export default {
 						{ status: 503 },
 					);
 				}
+				const location = env.GCP_LOCATION || "global";
+				let clientEmail = null;
+				let project = null;
 				try {
 					let sa;
 					try {
@@ -200,7 +203,8 @@ export default {
 					} catch {
 						throw new Error("GCP_SERVICE_ACCOUNT: invalid JSON");
 					}
-					const location = env.GCP_LOCATION || "global";
+					clientEmail = sa.client_email || null;
+					project = sa.project_id || null;
 					const callAi = makeVertexCaller({
 						serviceAccount: sa,
 						location,
@@ -213,12 +217,20 @@ export default {
 						ok: true,
 						model: MATCH_AI_MODEL,
 						location,
-						project: sa.project_id || null,
+						project,
+						client_email: clientEmail,
 						text,
 					});
 				} catch (e) {
 					return Response.json(
-						{ ok: false, error: e?.message || String(e) },
+						{
+							ok: false,
+							model: MATCH_AI_MODEL,
+							location,
+							project,
+							client_email: clientEmail,
+							error: e?.message || String(e),
+						},
 						{ status: 500 },
 					);
 				}
