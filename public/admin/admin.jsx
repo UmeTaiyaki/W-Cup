@@ -12,19 +12,20 @@ const POS_OPTIONS = ["GK", "DF", "MF", "FW"];
 
 // 得点王セレクト用：国別(optgroup)・全選手。値は `NAME (CODE)`（ui.jsx と同形式）。
 const scorerText = (p) => p.name;
+// SportMonks API表記名で名簿と一致。名簿改名時はここも同表記に合わせる。
 const SCORER_FAVORITES = [
-	["FRA", "MBAPPE"],
-	["NOR", "BRAUT HAALAND"],
-	["ENG", "KANE"],
-	["BRA", "VINI JR."],
-	["ESP", "LAMINE YAMAL"],
-	["ARG", "MESSI"],
-	["ARG", "J. ALVAREZ"],
-	["ARG", "L. MARTINEZ"],
-	["BRA", "RAPHINHA"],
-	["ENG", "BELLINGHAM"],
-	["FRA", "DEMBELE"],
-	["POR", "RONALDO"],
+	["FRA", "Kylian Mbappé"],
+	["NOR", "Erling Haaland"],
+	["ENG", "Harry Kane"],
+	["BRA", "Vinicius Junior"],
+	["ESP", "Lamine Yamal"],
+	["ARG", "Lionel Messi"],
+	["ARG", "Julián Álvarez"],
+	["ARG", "Lautaro Martínez"],
+	["BRA", "Raphinha"],
+	["ENG", "Jude Bellingham"],
+	["FRA", "Ousmane Dembélé"],
+	["POR", "Cristiano Ronaldo"],
 ];
 function scorerFavorites(cfg) {
 	const TEAM = {};
