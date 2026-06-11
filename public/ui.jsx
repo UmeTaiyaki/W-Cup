@@ -737,7 +737,7 @@ function TeamPicker({
 	centered = false,
 }) {
 	const [q, setQ] = React.useState("");
-	const [squadCode, setSquadCode] = React.useState(null);
+	const [detailCode, setDetailCode] = React.useState(null);
 	React.useEffect(() => {
 		if (open) setQ("");
 	}, [open]);
@@ -838,9 +838,9 @@ function TeamPicker({
 						<button
 							onClick={(e) => {
 								e.stopPropagation();
-								setSquadCode(t.code);
+								setDetailCode(t.code);
 							}}
-							title="メンバーを見る"
+							title="チーム詳細を見る"
 							style={{
 								flexShrink: 0,
 								border: `1px solid ${T.line}`,
@@ -854,7 +854,7 @@ function TeamPicker({
 								fontFamily: "inherit",
 							}}
 						>
-							メンバー
+							詳細
 						</button>
 					</div>
 				))}
@@ -864,9 +864,30 @@ function TeamPicker({
 					</div>
 				)}
 			</div>
-			{squadCode && (
-				<SquadSheet T={T} code={squadCode} onClose={() => setSquadCode(null)} />
-			)}
+			{detailCode &&
+				(() => {
+					const dt = (window.WC.TEAM || {})[detailCode];
+					const Detail = window.TeamDetail;
+					return (
+						<Sheet
+							open
+							centered
+							onClose={() => setDetailCode(null)}
+							T={T}
+							title={dt ? `${dt.flag} ${dt.ja}` : "詳細"}
+						>
+							{Detail ? (
+								<Detail T={T} code={detailCode} embedded />
+							) : (
+								<div
+									style={{ padding: 24, textAlign: "center", color: T.faint }}
+								>
+									詳細を表示できません
+								</div>
+							)}
+						</Sheet>
+					);
+				})()}
 		</Sheet>
 	);
 }
