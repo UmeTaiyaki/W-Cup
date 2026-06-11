@@ -79,6 +79,47 @@ export function selectFixturesForAi(fixtureRows, existing, cap) {
 	return out;
 }
 
+// generateContent 応答から本文テキストを取り出す。
+function extractGeminiText(json, label) {
+	const cand = json && json.candidates && json.candidates[0];
+	const parts = cand && cand.content && cand.content.parts;
+	const text = Array.isArray(parts)
+		? parts.map((p) => p.text || "").join("")
+		: "";
+	if (!text.trim()) {
+		const fr = cand && cand.finishReason;
+		throw new Error(`${label}: 応答が空${fr ? `（finishReason=${fr}）` : ""}`);
+	}
+	return text;
+}
+
+// Gemini Developer API 呼び出し（Google検索グラウンディング有効）。応答テキストを返す。
+export async function callGeminiText({ apiKey, model, prompt, fetchImpl }) {
+	const doFetch = fetchImpl || fetch;
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+	const res = await doFetch(url, {
+		method: "POST",
+		headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+		body: JSON.stringify({
+			contents: [{ role: "user", parts: [{ text: prompt }] }],
+			tools: [{ google_search: {} }],
+			generationConfig: { temperature: 0.7 },
+		}),
+	});
+	if (!res.ok) {
+		throw new Error(
+			`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`,
+		);
+	}
+	let json;
+	try {
+		json = await res.json();
+	} catch {
+		throw new Error("Gemini: 応答のJSONパースに失敗");
+	}
+	return extractGeminiText(json, "Gemini");
+}
+
 export function buildMatchPrompt(phase, detail) {
 	const safe = detail || {};
 	if (!PHASE_GOAL[phase]) {
