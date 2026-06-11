@@ -1,16 +1,11 @@
-/* 試合前 ご当地応援バトルのシェア画像生成。
-   ご当地演出（色・モチーフ・放射光）＋国文字＋応援バトル比率を縦型カードに描画し、
-   navigator.share（ファイル対応時）で共有、非対応なら PNG ダウンロードへフォールバック。
+/* 試合前 ご当地応援バトルのシェア画像生成（絵文字不使用）。
+   国旗は実画像(teamLogo)。CORS等で書き出せない場合はコード入りチップへフォールバック。
+   モチーフはSVG(Path2D)で描画。navigator.share 対応時は共有、非対応はPNGダウンロード。
    Babel前の普通の<script>で読み込み、window.WC.cheerShare に集約。 */
 (() => {
 	window.WC = window.WC || {};
 	const W = 1080;
 	const H = 1350;
-
-	function flagEmoji(code) {
-		const tm = (window.WC.TEAM || {})[code] || {};
-		return tm.flag || "🏳️";
-	}
 
 	function roundRect(ctx, x, y, w, h, r) {
 		ctx.beginPath();
@@ -21,189 +16,254 @@
 		ctx.arcTo(x, y, x + w, y, r);
 		ctx.closePath();
 	}
+	function hexA(hex, a) {
+		const h = hex.replace("#", "");
+		return (
+			"rgba(" +
+			parseInt(h.slice(0, 2), 16) +
+			"," +
+			parseInt(h.slice(2, 4), 16) +
+			"," +
+			parseInt(h.slice(4, 6), 16) +
+			"," +
+			a +
+			")"
+		);
+	}
+	function shade(hex, amt) {
+		const h = hex.replace("#", "");
+		const r = parseInt(h.slice(0, 2), 16),
+			g = parseInt(h.slice(2, 4), 16),
+			b = parseInt(h.slice(4, 6), 16);
+		const f = (v) => Math.max(0, Math.min(255, Math.round(v + 255 * amt)));
+		return "rgb(" + f(r) + "," + f(g) + "," + f(b) + ")";
+	}
 
-	// メインの描画。theme は cheerTheme.get の戻り。
-	function draw(ctx, opts) {
+	function loadImg(url) {
+		return new Promise((res) => {
+			if (!url) return res(null);
+			const im = new Image();
+			im.crossOrigin = "anonymous";
+			im.onload = () => res(im);
+			im.onerror = () => res(null);
+			im.src = url;
+		});
+	}
+
+	function drawFlag(ctx, img, cx, cy, size, code, theme) {
+		const x = cx - size / 2,
+			y = cy - size / 2,
+			r = size * 0.18;
+		ctx.save();
+		roundRect(ctx, x, y, size, size, r);
+		ctx.clip();
+		if (img) {
+			ctx.fillStyle = "#14161b";
+			ctx.fillRect(x, y, size, size);
+			const scale = Math.max(size / img.width, size / img.height);
+			const w = img.width * scale,
+				h = img.height * scale;
+			ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+		} else {
+			ctx.fillStyle = theme.accent;
+			ctx.fillRect(x, y, size, size);
+			ctx.fillStyle = "#0e1116";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.font = "900 " + size * 0.3 + "px system-ui, sans-serif";
+			ctx.fillText(code || "", cx, cy);
+		}
+		ctx.restore();
+		ctx.save();
+		roundRect(ctx, x, y, size, size, r);
+		ctx.lineWidth = 3;
+		ctx.strokeStyle = "rgba(255,255,255,0.28)";
+		ctx.stroke();
+		ctx.restore();
+	}
+
+	function draw(ctx, opts, images) {
 		const { theme, a, b, counts, side } = opts;
 		const cols = theme.colors;
+		const drawShape = window.WC.cheerTheme.drawShape;
+		const shapes = theme.shapes || ["star"];
 
-		// 背景グラデ
+		// 背景
 		const bg = ctx.createLinearGradient(0, 0, W, H);
 		bg.addColorStop(0, "#0e1116");
-		bg.addColorStop(0.5, shade(cols[0], -0.55));
+		bg.addColorStop(0.5, shade(cols[0], -0.5));
 		bg.addColorStop(1, "#0e1116");
 		ctx.fillStyle = bg;
 		ctx.fillRect(0, 0, W, H);
 
-		// 放射光（rays）
+		// 放射光
 		if (theme.rays) {
 			ctx.save();
-			ctx.translate(W / 2, H * 0.42);
+			ctx.translate(W / 2, 360);
 			for (let i = 0; i < 36; i++) {
 				ctx.rotate((Math.PI * 2) / 36);
-				ctx.fillStyle = i % 2 === 0 ? hexA(theme.accent, 0.1) : "transparent";
+				ctx.fillStyle = i % 2 === 0 ? hexA(theme.accent, 0.08) : "transparent";
 				ctx.beginPath();
 				ctx.moveTo(0, 0);
-				ctx.lineTo(W, -60);
-				ctx.lineTo(W, 60);
+				ctx.lineTo(W, -55);
+				ctx.lineTo(W, 55);
 				ctx.closePath();
 				ctx.fill();
 			}
 			ctx.restore();
 		}
 
-		// 薄いモチーフ散らし
-		ctx.globalAlpha = 0.12;
-		ctx.font = "70px system-ui, 'Apple Color Emoji', 'Segoe UI Emoji'";
-		const motifs = theme.motifs || ["⚽"];
-		for (let i = 0; i < 14; i++) {
-			const m = motifs[i % motifs.length];
-			ctx.fillText(
-				m,
-				((i * 137) % (W - 80)) + 10,
-				((i * 211) % (H - 120)) + 90,
+		// 薄いモチーフ散らし（SVG形状）
+		ctx.globalAlpha = 0.1;
+		for (let i = 0; i < 16; i++) {
+			const name = shapes[i % shapes.length];
+			const col = cols[i % cols.length];
+			drawShape(
+				ctx,
+				name,
+				((i * 173) % (W - 120)) + 60,
+				((i * 251) % (H - 200)) + 120,
+				46,
+				col,
 			);
 		}
 		ctx.globalAlpha = 1;
 
-		// 上部ラベル
 		ctx.textAlign = "center";
+		ctx.textBaseline = "alphabetic";
+		// ヘッダ
 		ctx.fillStyle = theme.accent;
 		ctx.font = "700 34px system-ui, sans-serif";
-		ctx.fillText("FIFA WORLD CUP 2026", W / 2, 110);
-		ctx.fillStyle = "rgba(255,255,255,0.65)";
-		ctx.font = "700 26px system-ui, sans-serif";
-		ctx.fillText(opts.roundLabel || "", W / 2, 152);
+		ctx.fillText("FIFA WORLD CUP 2026", W / 2, 108);
+		if (opts.roundLabel) {
+			ctx.fillStyle = "rgba(255,255,255,0.6)";
+			ctx.font = "700 26px system-ui, sans-serif";
+			ctx.fillText(opts.roundLabel, W / 2, 150);
+		}
 
-		// 両国旗
-		ctx.font = "150px 'Apple Color Emoji', 'Segoe UI Emoji', system-ui";
-		ctx.fillText(flagEmoji(a.code), W * 0.27, 400);
-		ctx.fillText(flagEmoji(b.code), W * 0.73, 400);
-		ctx.fillStyle = "rgba(255,255,255,0.55)";
-		ctx.font = "800 44px system-ui, sans-serif";
-		ctx.fillText("VS", W / 2, 360);
+		// 国旗
+		drawFlag(ctx, images.a, W * 0.28, 320, 180, a.code, theme);
+		drawFlag(ctx, images.b, W * 0.72, 320, 180, b.code, theme);
+		ctx.fillStyle = "rgba(255,255,255,0.5)";
+		ctx.font = "800 46px system-ui, sans-serif";
+		ctx.fillText("VS", W / 2, 335);
 		// コード
 		ctx.fillStyle = "#fff";
 		ctx.font = "900 40px system-ui, sans-serif";
-		ctx.fillText(a.code || a.label || "", W * 0.27, 470);
-		ctx.fillText(b.code || b.label || "", W * 0.73, 470);
+		ctx.fillText(a.code || a.label || "", W * 0.28, 460);
+		ctx.fillText(b.code || b.label || "", W * 0.72, 460);
 
-		// 国文字（cry）— 応援している側のテーマ色でグロー
+		// 国文字（cry）
 		ctx.save();
 		ctx.shadowColor = theme.accent;
-		ctx.shadowBlur = 30;
+		ctx.shadowBlur = 28;
 		ctx.fillStyle = "#ffffff";
-		ctx.font = "900 92px system-ui, sans-serif";
-		ctx.fillText(theme.cry, W / 2, 640);
+		ctx.font = "900 84px system-ui, sans-serif";
+		ctx.fillText(theme.cry, W / 2, 620);
 		ctx.restore();
 
-		// 応援バトルバー
+		// バー
 		const total = Math.max(1, counts.home + counts.away);
 		const homeR = counts.home / total;
-		const barX = 120,
-			barY = 760,
-			barW = W - 240,
-			barH = 46;
-		roundRect(ctx, barX, barY, barW, barH, barH / 2);
-		ctx.fillStyle = "#1b1e24";
-		ctx.fill();
+		const barX = 130,
+			barY = 720,
+			barW = W - 260,
+			barH = 44;
 		ctx.save();
 		roundRect(ctx, barX, barY, barW, barH, barH / 2);
 		ctx.clip();
+		ctx.fillStyle = "#1b1e24";
+		ctx.fillRect(barX, barY, barW, barH);
 		ctx.fillStyle = "#ff3b6b";
 		ctx.fillRect(barX, barY, barW * homeR, barH);
 		ctx.fillStyle = "#5b82e6";
 		ctx.fillRect(barX + barW * homeR, barY, barW * (1 - homeR), barH);
 		ctx.restore();
-		// パーセント＆数
+		// 数値（コードのみ・絵文字なし）
 		ctx.fillStyle = "#ff7a96";
 		ctx.textAlign = "left";
-		ctx.font = "800 38px system-ui, sans-serif";
+		ctx.font = "800 36px system-ui, sans-serif";
 		ctx.fillText(
-			Math.round(homeR * 100) + "%  " + flagEmoji(a.code) + " " + counts.home,
+			Math.round(homeR * 100) + "%  " + (a.code || "") + " " + counts.home,
 			barX,
-			barY + 100,
+			barY + 92,
 		);
 		ctx.fillStyle = "#a9c4ff";
 		ctx.textAlign = "right";
 		ctx.fillText(
 			counts.away +
 				" " +
-				flagEmoji(b.code) +
+				(b.code || "") +
 				"  " +
 				Math.round((1 - homeR) * 100) +
 				"%",
 			barX + barW,
-			barY + 100,
+			barY + 92,
 		);
 
-		// 推しバッジ
+		// 推しバッジ（星SVG＋テキスト）
 		const my = side === "home" ? a : b;
-		const badge = "★ あなたは " + flagEmoji(my.code) + " を応援";
 		ctx.textAlign = "center";
 		ctx.font = "800 40px system-ui, sans-serif";
-		const bw = ctx.measureText(badge).width + 80;
-		roundRect(ctx, (W - bw) / 2, 960, bw, 84, 42);
+		const label = "あなたは " + (my.code || "") + " を応援";
+		const lw = ctx.measureText(label).width;
+		const bw = lw + 130;
+		const bx = (W - bw) / 2,
+			by = 900;
+		roundRect(ctx, bx, by, bw, 86, 43);
 		ctx.fillStyle = hexA(theme.accent, 0.16);
 		ctx.fill();
-		ctx.strokeStyle = hexA(theme.accent, 0.6);
 		ctx.lineWidth = 2;
+		ctx.strokeStyle = hexA(theme.accent, 0.55);
 		ctx.stroke();
+		drawShape(ctx, "star", bx + 50, by + 43, 38, theme.accent);
 		ctx.fillStyle = theme.accent;
-		ctx.fillText(badge, W / 2, 1015);
+		ctx.textAlign = "left";
+		ctx.fillText(label, bx + 78, by + 56);
 
-		// 下部 ハッシュタグ＋アプリ名
+		// フッタ
+		ctx.textAlign = "center";
 		ctx.fillStyle = theme.accent;
 		ctx.font = "800 34px system-ui, sans-serif";
 		ctx.fillText(
 			"#W杯予想  #" + (my.code || "WorldCup") + "  #WorldCup2026",
 			W / 2,
-			1230,
+			1240,
 		);
 		ctx.fillStyle = "rgba(255,255,255,0.45)";
 		ctx.font = "600 28px system-ui, sans-serif";
-		ctx.fillText("wcup2026 · あなたの応援が世界に届く", W / 2, 1275);
+		ctx.fillText("wcup2026 · あなたの応援が世界に届く", W / 2, 1284);
 	}
 
-	function hexA(hex, a) {
-		const h = hex.replace("#", "");
-		const r = parseInt(h.substring(0, 2), 16),
-			g = parseInt(h.substring(2, 4), 16),
-			b = parseInt(h.substring(4, 6), 16);
-		return "rgba(" + r + "," + g + "," + b + "," + a + ")";
-	}
-	function shade(hex, amt) {
-		const h = hex.replace("#", "");
-		let r = parseInt(h.substring(0, 2), 16),
-			g = parseInt(h.substring(2, 4), 16),
-			b = parseInt(h.substring(4, 6), 16);
-		r = Math.max(0, Math.min(255, Math.round(r + 255 * amt)));
-		g = Math.max(0, Math.min(255, Math.round(g + 255 * amt)));
-		b = Math.max(0, Math.min(255, Math.round(b + 255 * amt)));
-		return "rgb(" + r + "," + g + "," + b + ")";
-	}
-
-	function toBlob(canvas) {
+	function render(opts, images) {
+		const canvas = document.createElement("canvas");
+		canvas.width = W;
+		canvas.height = H;
+		const ctx = canvas.getContext("2d");
+		draw(ctx, opts, images);
 		return new Promise((resolve) => {
-			canvas.toBlob((b) => {
-				resolve(b);
-			}, "image/png");
+			try {
+				canvas.toBlob((b) => resolve(b), "image/png");
+			} catch (e) {
+				resolve(null); // 汚染キャンバス等
+			}
 		});
 	}
 
-	// 共有のエントリ。opts: { a, b, side, counts, roundLabel }
+	// opts: { a, b, side, counts, roundLabel }
 	async function share(opts) {
 		try {
-			const theme = window.WC.cheerTheme.get(
-				(opts.side === "home" ? opts.a : opts.b).code,
-				opts.side === "home" ? opts.a : opts.b,
-			);
-			const canvas = document.createElement("canvas");
-			canvas.width = W;
-			canvas.height = H;
-			const ctx = canvas.getContext("2d");
-			draw(ctx, Object.assign({ theme: theme }, opts));
-			const blob = await toBlob(canvas);
+			const my = opts.side === "home" ? opts.a : opts.b;
+			const theme = window.WC.cheerTheme.get(my.code, my);
+			const o = Object.assign({ theme: theme }, opts);
+			const logo = window.WC.teamLogo || (() => null);
+			const [ia, ib] = await Promise.all([
+				loadImg(logo(opts.a.code)),
+				loadImg(logo(opts.b.code)),
+			]);
+			let blob = await render(o, { a: ia, b: ib });
+			if (!blob) blob = await render(o, { a: null, b: null }); // 書き出し失敗→チップ描画で再試行
+			if (!blob) return;
 			const file = new File([blob], "cheer.png", { type: "image/png" });
 
 			if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -214,7 +274,6 @@
 				});
 				return;
 			}
-			// フォールバック：ダウンロード
 			const url = URL.createObjectURL(blob);
 			const link = document.createElement("a");
 			link.href = url;
@@ -222,11 +281,9 @@
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
-			setTimeout(() => {
-				URL.revokeObjectURL(url);
-			}, 1000);
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
 		} catch (e) {
-			/* 共有失敗は黙ってスキップ（ユーザー操作で再試行可能） */
+			/* 失敗は黙ってスキップ */
 		}
 	}
 

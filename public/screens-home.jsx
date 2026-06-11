@@ -283,20 +283,24 @@ function fmtHMS(ms) {
 	return `${h}:${pad(m)}:${pad(s)}`;
 }
 
-// 応援ボタンのスタイル（左=チームA/右=チームBの色）
-function cheerBtnStyle(color) {
+// 応援ボタンのスタイル（左=チームA/右=チームBの色）。
+// selected=最後に押した側（塗りつぶし強調）、dim=未選択側を控えめに。
+function cheerBtnStyle(color, selected, dim) {
 	return {
 		fontSize: 11,
-		fontWeight: 700,
+		fontWeight: selected ? 800 : 700,
 		padding: "6px 14px",
 		borderRadius: 999,
 		cursor: "pointer",
-		border: `1px solid ${color}55`,
-		color,
-		background: `${color}14`,
+		border: `1px solid ${selected ? color : color + "55"}`,
+		color: selected ? "#0e0f12" : color,
+		background: selected ? color : `${color}14`,
+		opacity: dim ? 0.5 : 1,
+		boxShadow: selected ? `0 0 10px ${color}66` : "none",
 		display: "inline-flex",
 		alignItems: "center",
 		gap: 5,
+		transition: "all .15s",
 	};
 }
 function hexA6(hex, al) {
@@ -327,6 +331,9 @@ function CheerBar({ T, match, a, b }) {
 	const homeR = counts.home / total;
 	const aColor = "#ff7a96";
 	const bColor = "#7aa0ff";
+	// 共有する側＝最後に押した側。未選択なら優勢な側を既定にする。
+	const shareSide = userSide || (homeR >= 0.5 ? "home" : "away");
+	const shareTeam = shareSide === "home" ? a : b;
 
 	function celebrate(side) {
 		const team = side === "home" ? a : b;
@@ -365,23 +372,30 @@ function CheerBar({ T, match, a, b }) {
 			);
 			setTimeout(() => c.remove(), 1500);
 		}
-		const motifs = theme.motifs || ["🎉"];
-		for (let i = 0; i < 8; i++) {
-			const e = document.createElement("div");
-			e.textContent = motifs[i % motifs.length] || "🎉";
-			e.style.cssText = `position:absolute;top:-16px;left:${Math.random() * 100}%;font-size:${16 + Math.random() * 10}px;`;
-			host.appendChild(e);
-			e.animate(
+		const shapes = theme.shapes || ["star"];
+		for (let i = 0; i < 12; i++) {
+			const s = document.createElement("div");
+			s.innerHTML = window.WC.cheerTheme.shapeSVG(
+				shapes[i % shapes.length],
+				cols[i % cols.length],
+				14 + Math.floor(Math.random() * 8),
+			);
+			s.style.cssText = `position:absolute;top:-18px;left:${Math.random() * 100}%;line-height:0;`;
+			host.appendChild(s);
+			s.animate(
 				[
-					{ transform: "translateY(0)", opacity: 1 },
-					{ transform: "translateY(280px)", opacity: 0 },
+					{ transform: "translateY(0) rotate(0)", opacity: 1 },
+					{
+						transform: `translateY(280px) rotate(${(Math.random() * 2 - 1) * 360}deg)`,
+						opacity: 0,
+					},
 				],
 				{
 					duration: 1000 + Math.random() * 600,
 					easing: "ease-in",
 				},
 			);
-			setTimeout(() => e.remove(), 1700);
+			setTimeout(() => s.remove(), 1700);
 		}
 		const cry = document.createElement("div");
 		cry.textContent = theme.cry;
@@ -409,7 +423,7 @@ function CheerBar({ T, match, a, b }) {
 		window.WC.cheerShare.share({
 			a,
 			b,
-			side: userSide || "home",
+			side: shareSide,
 			counts: window.WC.cheer.get(fixtureId),
 			roundLabel: window.WC.roundLabel ? window.WC.roundLabel(match.round) : "",
 		});
@@ -476,7 +490,6 @@ function CheerBar({ T, match, a, b }) {
 				<span style={{ color: aColor }}>
 					{a.resolved ? a.code : a.label} {counts.home}
 				</span>
-				<span style={{ color: T.faint }}>応援バトル</span>
 				<span style={{ color: bColor }}>
 					{counts.away} {b.resolved ? b.code : b.label}
 				</span>
@@ -496,7 +509,11 @@ function CheerBar({ T, match, a, b }) {
 						e.stopPropagation();
 						onCheer("home");
 					}}
-					style={cheerBtnStyle(aColor)}
+					style={cheerBtnStyle(
+						aColor,
+						userSide === "home",
+						userSide != null && userSide !== "home",
+					)}
 				>
 					{a.resolved ? a.code + "を応援" : "応援"}
 				</button>
@@ -505,7 +522,11 @@ function CheerBar({ T, match, a, b }) {
 						e.stopPropagation();
 						onCheer("away");
 					}}
-					style={cheerBtnStyle(bColor)}
+					style={cheerBtnStyle(
+						bColor,
+						userSide === "away",
+						userSide != null && userSide !== "away",
+					)}
 				>
 					{b.resolved ? b.code + "を応援" : "応援"}
 				</button>
@@ -525,7 +546,7 @@ function CheerBar({ T, match, a, b }) {
 						background: "transparent",
 					}}
 				>
-					シェア
+					{shareTeam.resolved ? shareTeam.code + "でシェア" : "シェア"}
 				</button>
 			</div>
 		</div>
