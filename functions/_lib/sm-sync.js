@@ -1,10 +1,12 @@
 // 取り込みオーケストレーション（観戦プラットフォーム P0 ④）
 // client(SportMonks) と db(D1) を注入し、fixture/types/live を sm_* へ同期する。
 // 副作用は runBatch に集約。各関数は障害隔離のため例外を投げず結果オブジェクトを返す。
+import { toTopscorerRows } from "./sm-ingest.js";
 import {
 	fixtureDetailStatements,
 	runBatch,
 	seasonFixturesStatements,
+	topscorersStatements,
 	typeStatements,
 } from "./sm-store.js";
 
@@ -104,6 +106,28 @@ export async function syncFixtureDetail(footballClient, db, fixtureId, now) {
 	} catch (e) {
 		console.error("syncFixtureDetail: upsert failed", fixtureId, e?.message);
 		return { ok: false, error: e?.message };
+	}
+}
+
+// season topscorers を取得し sm_topscorers へ upsert。得点王導出の元データ。
+export async function syncTopscorers(footballClient, db, seasonId, now) {
+	let body;
+	try {
+		body = await footballClient.get(`seasons/${seasonId}/topscorers`, {
+			include: "player;participant",
+		});
+	} catch (e) {
+		console.error("syncTopscorers: fetch failed", seasonId, e?.message);
+		return { count: 0, error: e?.message };
+	}
+	const rows = toTopscorerRows(body, seasonId);
+	if (!rows.length) return { count: 0 };
+	try {
+		await runChunked(db, topscorersStatements(rows, now));
+		return { count: rows.length };
+	} catch (e) {
+		console.error("syncTopscorers: upsert failed", e?.message);
+		return { count: 0, error: e?.message };
 	}
 }
 
