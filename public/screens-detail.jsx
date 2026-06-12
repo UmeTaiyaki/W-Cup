@@ -502,6 +502,23 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
 // ── タイムライン用 SVG アイコン ───────────────────────────────────────────
 // 暗背景(pitch-night)でも視認できる高コントラスト配色。viewBox 24×24・既定16px。
 // ボールの内部パターンは BallPaths を共有し、取消/オウンゴール等で配色だけ差し替える。
+// サッカーボール柄(Telstar): 中央＋外周5枚の黒ペンタゴン＋シーム。
+// パスは規則ペンタゴンから生成した固定値（中央R3.2/外周R2.6・中心半径6.5で実寸でも黒斑が残る）。
+const BALL_PATCHES = [
+	"M12.00 8.80L15.04 11.01L13.88 14.59L10.12 14.59L8.96 11.01Z",
+	"M17.35 4.64L18.29 7.54L15.82 9.34L13.35 7.54L14.29 4.64Z",
+	"M20.65 14.81L18.18 16.61L15.71 14.81L16.65 11.91L19.71 11.91Z",
+	"M12.00 21.10L9.53 19.30L10.47 16.40L13.53 16.40L14.47 19.30Z",
+	"M3.35 14.81L4.29 11.91L7.35 11.91L8.29 14.81L5.82 16.61Z",
+	"M6.65 4.64L9.71 4.64L10.65 7.54L8.18 9.34L5.71 7.54Z",
+];
+const BALL_SEAMS = [
+	"M12.00 8.80 L12.00 2.90",
+	"M15.04 11.01 L20.65 9.19",
+	"M13.88 14.59 L17.35 19.36",
+	"M10.12 14.59 L6.65 19.36",
+	"M8.96 11.01 L3.35 9.19",
+];
 function BallPaths({ white, dark }) {
 	return (
 		<>
@@ -513,17 +530,14 @@ function BallPaths({ white, dark }) {
 				stroke={dark}
 				strokeWidth="1.1"
 			/>
-			<path
-				d="M12 9 L14.85 11.07 L13.76 14.43 L10.24 14.43 L9.15 11.07 Z"
-				fill={dark}
-			/>
-			<g stroke={dark} strokeWidth="1.05" strokeLinecap="round" fill="none">
-				<path d="M12 9 L12 3" />
-				<path d="M14.85 11.07 L20.56 9.22" />
-				<path d="M13.76 14.43 L17.29 19.28" />
-				<path d="M10.24 14.43 L6.71 19.28" />
-				<path d="M9.15 11.07 L3.44 9.22" />
+			<g stroke={dark} strokeWidth="1" fill="none" strokeLinecap="round">
+				{BALL_SEAMS.map((d, i) => (
+					<path key={i} d={d} />
+				))}
 			</g>
+			{BALL_PATCHES.map((d, i) => (
+				<path key={i} d={d} fill={dark} />
+			))}
 		</>
 	);
 }
