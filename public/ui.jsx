@@ -1311,7 +1311,16 @@ function FitText({
 	React.useLayoutEffect(() => {
 		const el = ref.current;
 		if (!el) return;
+		// 直近に採寸した「利用可能幅」。これが変わった時だけ再フィットする。
+		// measure() 内で font-size を変えると要素の高さが変化し、それを観測した
+		// ResizeObserver が measure() を再度呼ぶ——という自己発振ループになり得る
+		// （高DPR/ProMotion 実機ではサブピクセル境界で上下に震え続ける）。
+		// 幅が不変ならフォントを動かす必要はないので、幅ガードでループを断ち切る。
+		let lastW = -1;
 		const measure = () => {
+			const cw = el.clientWidth;
+			if (cw === lastW) return; // 幅が変わっていない＝自分の font 変更由来の再発火 → 何もしない
+			lastW = cw;
 			let s = max;
 			el.style.fontSize = s + "px";
 			let guard = 120;
