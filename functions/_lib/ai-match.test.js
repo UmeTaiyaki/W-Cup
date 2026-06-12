@@ -263,7 +263,10 @@ test("generateMatchAi: 成功時に summary を upsert", async () => {
 		model: "gemini-2.5-pro",
 		now: 1000,
 		getDetail: async () => ({
-			fixture: { home_name: "A", away_name: "B", home_score: 1, away_score: 0 },
+			fixture: {
+				home: { team_id: 1, name: "A", score: 1 },
+				away: { team_id: 2, name: "B", score: 0 },
+			},
 			events: [],
 			stats: [],
 			lineups: [],
@@ -357,7 +360,10 @@ test("maybeGenerateMatchAi: success経路 — 注入したdetail/AIでFTを生�
 	const agg = await maybeGenerateMatchAi(db, 1000, {
 		apiKey: "k",
 		getDetail: async () => ({
-			fixture: { home_name: "A", away_name: "B", home_score: 1, away_score: 0 },
+			fixture: {
+				home: { team_id: 1, name: "A", score: 1 },
+				away: { team_id: 2, name: "B", score: 0 },
+			},
 			events: [],
 			stats: [],
 			lineups: [],
