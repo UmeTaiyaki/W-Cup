@@ -7,6 +7,7 @@ import {
 	deriveGroupResult,
 	deriveKnockout,
 	deriveResult,
+	deriveScorers,
 	deriveTopScorer,
 	isFinalRound,
 	roundKey,
@@ -177,6 +178,30 @@ test("deriveTopScorer は app_code 欠落なら名前のみ", () => {
 
 test("deriveTopScorer は空なら空文字", () => {
 	assert.equal(deriveTopScorer([]), "");
+});
+
+test("deriveScorers は position 順に '名前 (CODE)'/goals 配列を返す", () => {
+	const rows = [
+		{ player_name: "B", app_code: "FRA", goals: 4, position: 2 },
+		{ player_name: "A. Striker", app_code: "ARG", goals: 6, position: 1 },
+	];
+	assert.deepEqual(deriveScorers(rows), [
+		{ name: "A. Striker (ARG)", goals: 6 },
+		{ name: "B (FRA)", goals: 4 },
+	]);
+});
+
+test("deriveScorers は app_code 欠落なら名前のみ・goals欠落/空入力は除外", () => {
+	assert.deepEqual(
+		deriveScorers([
+			{ player_name: "X", app_code: null, goals: 3, position: 1 },
+			{ player_name: "NoGoals", app_code: "BRA", goals: null, position: 2 },
+			{ player_name: "", app_code: "GER", goals: 1, position: 3 },
+		]),
+		[{ name: "X", goals: 3 }],
+	);
+	assert.deepEqual(deriveScorers([]), []);
+	assert.deepEqual(deriveScorers(null), []);
 });
 
 test("deriveResult は各導出を 1 つの result 型に束ねる", () => {

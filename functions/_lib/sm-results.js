@@ -183,6 +183,24 @@ export function deriveTopScorer(rows) {
 	return top?.app_code ? `${name} (${top.app_code})` : name;
 }
 
+// sm_topscorers 行 → 得点王ランキング「表示用」配列。フロントの SCORERS と同形:
+//   { name: "PLAYER (CODE)" | "PLAYER", goals }
+// position 昇順 → goals 降順。氏名/得点欠落は除外（graceful degradation）。
+export function deriveScorers(rows) {
+	const list = Array.isArray(rows) ? rows.slice() : [];
+	return list
+		.filter((r) => r && r.player_name && isNum(r.goals))
+		.sort(
+			(a, b) =>
+				(a?.position ?? 1e9) - (b?.position ?? 1e9) ||
+				(b?.goals ?? 0) - (a?.goals ?? 0),
+		)
+		.map((r) => ({
+			name: r.app_code ? `${r.player_name} (${r.app_code})` : r.player_name,
+			goals: r.goals,
+		}));
+}
+
 // 全導出を採点が読む result 型に束ねる。groupMatches は順位表表示用に別関数で返す。
 export function deriveResult(fixtures, topscorers, groups) {
 	const { champion, runnerUp } = deriveChampion(fixtures);

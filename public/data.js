@@ -401,6 +401,11 @@
 					data.groupMatches,
 				);
 			}
+			// 得点王ランキングのライブ反映: 自動(SportMonks)が取れたら手動configより優先。
+			// 空配列(未同期/シーズン初期)は手動を維持する（graceful degradation）。
+			if (Array.isArray(data.scorers) && data.scorers.length) {
+				window.WC.SCORERS = data.scorers;
+			}
 			return true;
 		} catch (e) {
 			return false;
