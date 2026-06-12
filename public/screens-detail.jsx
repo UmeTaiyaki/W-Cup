@@ -2157,9 +2157,43 @@ function PlayerSheet({ T, player, onClose }) {
 	return root ? ReactDOM.createPortal(node, root) : node;
 }
 
+// ── PlayerMarks: 選手のイベントマーク（ゴール数分のボール＋カード）──────────
+// スタメン/控え共通。ゴールは数だけボールを並べ、オウンゴールは赤系ボールで区別。
+// カードは赤系(レッド/2枚目)優先、無ければイエロー。イベント無しなら何も描かない。
+function PlayerMarks({ ev, size = 12 }) {
+	if (!ev) return null;
+	const goals = ev.goals || [];
+	const cards = ev.cards || [];
+	const hasRed = cards.some(
+		(c) => c.type === "redcard" || c.type === "yellowredcard",
+	);
+	const hasYellow = cards.some((c) => c.type === "yellowcard");
+	if (goals.length === 0 && !hasRed && !hasYellow) return null;
+	return (
+		<span
+			style={{ display: "inline-flex", alignItems: "center", gap: 2 }}
+			aria-hidden="true"
+		>
+			{goals.map((g, i) => (
+				<span key={"g" + i} style={{ display: "inline-flex" }}>
+					{g.own ? <IcoOwnGoal s={size} /> : <IcoSoccerBall s={size} />}
+				</span>
+			))}
+			{hasRed ? (
+				<IcoCard s={size} color="#EA3B2E" stroke="#B5241A" />
+			) : hasYellow ? (
+				<IcoCard s={size} color="#FFCB05" stroke="#C99A00" />
+			) : null}
+		</span>
+	);
+}
+
 // ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
 function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 	const sn = surname(player.player_name);
+	const hasMarks =
+		ev &&
+		((ev.goals && ev.goals.length > 0) || (ev.cards && ev.cards.length > 0));
 
 	return (
 		<div
@@ -2198,24 +2232,6 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 				}}
 			>
 				{player.jersey_number}
-				{/* カード（最重を優先表示: 赤系 > 黄） */}
-				{ev && ev.cards && ev.cards.length > 0 && (
-					<div
-						style={{
-							position: "absolute",
-							top: -6,
-							right: -6,
-							fontSize: 12,
-							lineHeight: 1,
-						}}
-					>
-						{ev.cards.some(
-							(c) => c.type === "redcard" || c.type === "yellowredcard",
-						)
-							? "🟥"
-							: "🟨"}
-					</div>
-				)}
 				{/* 交代OUT（先発が退く） */}
 				{ev && ev.subOff != null && (
 					<div
@@ -2251,6 +2267,12 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 			>
 				{sn}
 			</div>
+			{/* イベントマーク（ゴール数分のボール＋カード） */}
+			{hasMarks && (
+				<div style={{ marginTop: 2 }}>
+					<PlayerMarks ev={ev} size={12} />
+				</div>
+			)}
 		</div>
 	);
 }
@@ -2431,7 +2453,8 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 				{`控え ${bench.length}`}
 			</div>
 			{bench.map((p, i) => {
-				const sub = playerEvents(evIndex, p).subOn;
+				const pev = playerEvents(evIndex, p);
+				const sub = pev.subOn;
 				return (
 					<div
 						key={p.player_id || "bench-" + i}
@@ -2462,6 +2485,8 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 						<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
 							{p.player_name}
 						</span>
+						{/* ゴール数分のボール＋カード（途中出場の活躍） */}
+						<PlayerMarks ev={pev} size={13} />
 						{sub != null ? (
 							<span
 								style={{
@@ -2506,12 +2531,12 @@ function playerEventIndex(events) {
 	};
 	(events || []).forEach((e) => {
 		const t = e.type;
-		if (t === "goal" || t === "penalty" || t === "owngoal") {
+		if (t === "goal" || t === "penalty" || t === "own_goal") {
 			const slot = ensure(byId, e.player_id) || ensure(byName, e.player_name);
 			if (slot)
 				slot.goals.push({
 					minute: e.minute,
-					own: t === "owngoal",
+					own: t === "own_goal",
 					pen: t === "penalty",
 				});
 		} else if (t === "yellowcard" || t === "redcard" || t === "yellowredcard") {
