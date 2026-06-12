@@ -559,26 +559,16 @@ function CheerBar({ T, match, a, b }) {
 	);
 }
 
-// フォーカス日の試合をスワイプ/矢印/ドットで切替表示
-function MatchCarousel({ T, dateStr, matches, today }) {
-	const [idx, setIdx] = React.useState(0);
-	const touch = React.useRef(null);
-	const n = matches.length;
-	const cur = matches[Math.min(idx, n - 1)];
+// カルーセル1枚分のカード。表示中(active)かどうかでスケール/不透明度を変え、
+// スライド遷移中に隣カードが奥から手前へ立ち上がる奥行き感を出す。
+function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
 	const teamMap = window.WC.TEAM || {};
-	const a = window.WC.formatMatchTeam(cur.a, teamMap, cur.round);
-	const b = window.WC.formatMatchTeam(cur.b, teamMap, cur.round);
-	const live = window.WC.liveForMatch ? window.WC.liveForMatch(cur) : null;
-
-	// 1秒ごと再描画（24時間以内のカウントダウンを秒まで更新するため）。
-	const [nowMs, setNowMs] = React.useState(() => Date.now());
-	React.useEffect(() => {
-		const id = setInterval(() => setNowMs(Date.now()), 1000);
-		return () => clearInterval(id);
-	}, []);
+	const a = window.WC.formatMatchTeam(match.a, teamMap, match.round);
+	const b = window.WC.formatMatchTeam(match.b, teamMap, match.round);
+	const live = window.WC.liveForMatch ? window.WC.liveForMatch(match) : null;
 
 	// 右上表記: 残り24h未満→"H:MM:SS"、それ以外→"あとN日"/"本日"。
-	const koMs = kickoffMs(dateStr, cur.time);
+	const koMs = kickoffMs(dateStr, match.time);
 	const msLeft = koMs != null ? koMs - nowMs : null;
 	let countdown;
 	if (msLeft != null && msLeft > 0 && msLeft < 86400000) {
@@ -590,7 +580,221 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 	// キックオフ時刻を過ぎたか。ライブ反映のラグに関係なく、応援UIは確実に消す。
 	const kickedOff = koMs != null && nowMs >= koMs;
 
-	const go = (delta) => setIdx((p) => Math.max(0, Math.min(n - 1, p + delta)));
+	const side = (team) => (
+		<div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+			<div
+				style={{
+					height: 48,
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+				}}
+			>
+				{team.resolved && <Flag code={team.code} size={42} />}
+			</div>
+			<div
+				style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}
+			>
+				{team.resolved ? team.code : team.label}
+			</div>
+		</div>
+	);
+
+	return (
+		<div
+			style={{
+				flex: "0 0 100%",
+				minWidth: 0,
+				boxSizing: "border-box",
+				// 非アクティブは奥に沈める。トラック移動中だけ視界に入り立体的に見える。
+				transform: active ? "scale(1)" : "scale(0.92)",
+				opacity: active ? 1 : 0.45,
+				transition:
+					"transform .5s cubic-bezier(.22,1,.36,1), opacity .5s cubic-bezier(.22,1,.36,1)",
+			}}
+		>
+			<Card
+				T={T}
+				style={{
+					borderColor: live ? "rgba(255,90,90,0.45)" : "rgba(182,255,60,0.30)",
+					boxShadow: live ? "0 0 0 1px rgba(255,90,90,0.25)" : undefined,
+				}}
+			>
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						marginBottom: 14,
+					}}
+				>
+					<span
+						style={{
+							fontSize: 11,
+							fontWeight: 700,
+							padding: "3px 9px",
+							borderRadius: 999,
+							background: "rgba(182,255,60,0.14)",
+							color: T.accent,
+							border: "1px solid rgba(182,255,60,0.25)",
+						}}
+					>
+						{window.WC.roundLabel(match.round)}
+					</span>
+					{live ? (
+						<LiveBadge
+							T={T}
+							status={live.status}
+							stateId={live.state_id}
+							minute={live.minute}
+							added={live.added_time}
+						/>
+					) : (
+						<span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>
+							{countdown}
+						</span>
+					)}
+				</div>
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+					}}
+				>
+					{side(a)}
+					<div style={{ textAlign: "center", minWidth: 64 }}>
+						{live ? (
+							<div>
+								<div
+									style={{
+										fontSize: 27,
+										fontWeight: 800,
+										color: T.text,
+										letterSpacing: 1,
+									}}
+								>
+									{live.a ?? 0}
+									<span style={{ color: T.faint, margin: "0 6px" }}>-</span>
+									{live.b ?? 0}
+								</div>
+								<div
+									style={{
+										fontSize: 10,
+										color: live.status === "LIVE" ? "#ff5a5a" : T.faint,
+									}}
+								>
+									{live.status === "LIVE" ? "LIVE" : "終了"}
+								</div>
+							</div>
+						) : (
+							<div>
+								<div style={{ fontSize: 23, fontWeight: 800, color: T.text }}>
+									{match.time || "--:--"}
+								</div>
+								<div style={{ fontSize: 10, color: T.faint }}>KICK OFF</div>
+							</div>
+						)}
+					</div>
+					{side(b)}
+				</div>
+				{/* 応援バーは表示中カードのみ購読（非表示カードの無駄なfetchを抑止） */}
+				{active && !live && !kickedOff && (
+					<CheerBar T={T} match={match} a={a} b={b} />
+				)}
+				<div
+					style={{
+						marginTop: 14,
+						paddingTop: 12,
+						borderTop: `1px solid ${T.line}`,
+					}}
+				>
+					<MediaTags T={T} match={match} justify="center" />
+				</div>
+				{live && live.result_info && (
+					<div
+						style={{
+							textAlign: "center",
+							fontSize: 11,
+							color: T.faint,
+							marginTop: 12,
+						}}
+					>
+						{live.result_info}
+					</div>
+				)}
+				{match.note && (
+					<div
+						style={{
+							textAlign: "center",
+							fontSize: 11,
+							color: T.faint,
+							marginTop: 14,
+						}}
+					>
+						📍 {match.note}
+					</div>
+				)}
+			</Card>
+		</div>
+	);
+}
+
+// フォーカス日の試合をスワイプ/矢印/ドットで切替表示。
+// ・トラックをtranslateXで滑らせるスライドアニメーション
+// ・試合中がなければ一定間隔で次ページへ自動送り
+// ・試合中があれば自動送りを止め、その試合（複数なら左側優先）に固定
+function MatchCarousel({ T, dateStr, matches, today }) {
+	const [idx, setIdx] = React.useState(0);
+	const touch = React.useRef(null);
+	const n = matches.length;
+
+	// 1秒ごと再描画（24時間以内のカウントダウンを秒まで更新するため）。
+	const [nowMs, setNowMs] = React.useState(() => Date.now());
+	React.useEffect(() => {
+		const id = setInterval(() => setNowMs(Date.now()), 1000);
+		return () => clearInterval(id);
+	}, []);
+
+	// 試合中（LIVE）の最左インデックス。なければ -1。
+	const liveIdx = matches.findIndex((m) => {
+		const l = window.WC.liveForMatch ? window.WC.liveForMatch(m) : null;
+		return l && l.status === "LIVE";
+	});
+
+	// 手動操作の直近時刻。操作後しばらくは自動送り/ライブ固定を控える。
+	const interactRef = React.useRef(0);
+	const RESUME_MS = 12000; // 手動操作後に自動制御を再開するまでの猶予
+	const ADVANCE_MS = 6000; // 自動送りの間隔
+
+	const clamp = (i) => Math.max(0, Math.min(n - 1, i));
+	const go = (delta) => {
+		interactRef.current = nowMs;
+		setIdx((p) => clamp(p + delta));
+	};
+	const jump = (i) => {
+		interactRef.current = nowMs;
+		setIdx(clamp(i));
+	};
+
+	// 自動制御：試合中があればその試合へ固定、なければ次ページへ循環。
+	React.useEffect(() => {
+		if (n <= 1) return;
+		const id = setInterval(() => {
+			if (Date.now() - interactRef.current < RESUME_MS) return;
+			if (liveIdx >= 0) setIdx(liveIdx);
+			else setIdx((p) => (p + 1) % n);
+		}, ADVANCE_MS);
+		return () => clearInterval(id);
+	}, [n, liveIdx]);
+
+	// 試合中になった瞬間は待たずに即その試合へスナップ（手動直後を除く）。
+	React.useEffect(() => {
+		if (liveIdx >= 0 && Date.now() - interactRef.current >= RESUME_MS) {
+			setIdx(liveIdx);
+		}
+	}, [liveIdx]);
+
 	const onTouchStart = (e) => {
 		touch.current = e.touches[0].clientX;
 	};
@@ -602,6 +806,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 	};
 
 	function handleCardClick() {
+		const cur = matches[clamp(idx)];
 		const id = window.WC.fixtureIdForMatch && window.WC.fixtureIdForMatch(cur);
 		if (id != null) window.WC.openDetail && window.WC.openDetail(id);
 	}
@@ -634,31 +839,14 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 				cursor: on ? "pointer" : "default",
 				opacity: on ? 0.5 : 0.12,
 				userSelect: "none",
+				zIndex: 2,
 			}}
 		>
 			{char}
 		</button>
 	);
 
-	const side = (team) => (
-		<div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
-			<div
-				style={{
-					height: 48,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-				}}
-			>
-				{team.resolved && <Flag code={team.code} size={42} />}
-			</div>
-			<div
-				style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}
-			>
-				{team.resolved ? team.code : team.label}
-			</div>
-		</div>
-	);
+	const safeIdx = clamp(idx);
 
 	return (
 		<div>
@@ -674,7 +862,7 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 					📅 {formatDateJa(dateStr)} の試合
 				</span>
 				<span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>
-					{idx + 1} / {n}
+					{safeIdx + 1} / {n}
 				</span>
 			</div>
 			<div
@@ -685,122 +873,31 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 				onTouchStart={onTouchStart}
 				onTouchEnd={onTouchEnd}
 			>
-				<Card T={T} style={{ borderColor: "rgba(182,255,60,0.30)" }}>
+				{/* ビューポート：はみ出すトラックを切り取る */}
+				<div style={{ overflow: "hidden" }}>
 					<div
 						style={{
 							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "center",
-							marginBottom: 14,
+							transform: `translateX(-${safeIdx * 100}%)`,
+							transition: "transform .5s cubic-bezier(.22,1,.36,1)",
+							willChange: "transform",
 						}}
 					>
-						<span
-							style={{
-								fontSize: 11,
-								fontWeight: 700,
-								padding: "3px 9px",
-								borderRadius: 999,
-								background: "rgba(182,255,60,0.14)",
-								color: T.accent,
-								border: "1px solid rgba(182,255,60,0.25)",
-							}}
-						>
-							{window.WC.roundLabel(cur.round)}
-						</span>
-						{live ? (
-							<LiveBadge
+						{matches.map((m, i) => (
+							<MatchSlide
+								key={i}
 								T={T}
-								status={live.status}
-								stateId={live.state_id}
-								minute={live.minute}
-								added={live.added_time}
+								dateStr={dateStr}
+								match={m}
+								today={today}
+								nowMs={nowMs}
+								active={i === safeIdx}
 							/>
-						) : (
-							<span style={{ fontSize: 11, fontWeight: 700, color: T.faint }}>
-								{countdown}
-							</span>
-						)}
+						))}
 					</div>
-					<div
-						style={{
-							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "center",
-						}}
-					>
-						{side(a)}
-						<div style={{ textAlign: "center", minWidth: 64 }}>
-							{live ? (
-								<div>
-									<div
-										style={{
-											fontSize: 27,
-											fontWeight: 800,
-											color: T.text,
-											letterSpacing: 1,
-										}}
-									>
-										{live.a ?? 0}
-										<span style={{ color: T.faint, margin: "0 6px" }}>-</span>
-										{live.b ?? 0}
-									</div>
-									<div
-										style={{
-											fontSize: 10,
-											color: live.status === "LIVE" ? "#ff5a5a" : T.faint,
-										}}
-									>
-										{live.status === "LIVE" ? "LIVE" : "終了"}
-									</div>
-								</div>
-							) : (
-								<div>
-									<div style={{ fontSize: 23, fontWeight: 800, color: T.text }}>
-										{cur.time || "--:--"}
-									</div>
-									<div style={{ fontSize: 10, color: T.faint }}>KICK OFF</div>
-								</div>
-							)}
-						</div>
-						{side(b)}
-					</div>
-					{!live && !kickedOff && <CheerBar T={T} match={cur} a={a} b={b} />}
-					<div
-						style={{
-							marginTop: 14,
-							paddingTop: 12,
-							borderTop: `1px solid ${T.line}`,
-						}}
-					>
-						<MediaTags T={T} match={cur} justify="center" />
-					</div>
-					{live && live.result_info && (
-						<div
-							style={{
-								textAlign: "center",
-								fontSize: 11,
-								color: T.faint,
-								marginTop: 12,
-							}}
-						>
-							{live.result_info}
-						</div>
-					)}
-					{cur.note && (
-						<div
-							style={{
-								textAlign: "center",
-								fontSize: 11,
-								color: T.faint,
-								marginTop: 14,
-							}}
-						>
-							📍 {cur.note}
-						</div>
-					)}
-				</Card>
-				{n > 1 && arrow(-1, "‹", idx > 0, "left")}
-				{n > 1 && arrow(1, "›", idx < n - 1, "right")}
+				</div>
+				{n > 1 && arrow(-1, "‹", safeIdx > 0, "left")}
+				{n > 1 && arrow(1, "›", safeIdx < n - 1, "right")}
 			</div>
 			{n > 1 && (
 				<div
@@ -814,12 +911,17 @@ function MatchCarousel({ T, dateStr, matches, today }) {
 					{matches.map((_, i) => (
 						<span
 							key={i}
+							onClick={(e) => {
+								e.stopPropagation();
+								jump(i);
+							}}
 							style={{
-								width: i === idx ? 18 : 7,
+								width: i === safeIdx ? 18 : 7,
 								height: 7,
 								borderRadius: 4,
-								background: i === idx ? T.accent : "rgba(255,255,255,0.18)",
-								transition: "all .2s",
+								background: i === safeIdx ? T.accent : "rgba(255,255,255,0.18)",
+								cursor: "pointer",
+								transition: "all .3s cubic-bezier(.22,1,.36,1)",
 							}}
 						/>
 					))}
