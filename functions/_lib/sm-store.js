@@ -203,16 +203,50 @@ export function topscorersStatements(rows, updatedAt) {
 	return list.map((r) => topscorerStatement(r, updatedAt));
 }
 
+// 取り込み済みだが現APIに無い「孤児」イベントを削除する文。
+// 背景: SportMonks はライブ中に誤投入したイベント（壊れたVAR等）を後でAPIから消すが、
+//   eventStatement は upsert のみで削除しないため D1 にゴミが残る（例: "vip_for_unknown.true"）。
+// 保護: ゴール系(goal/own_goal/penalty/pen_shootout_goal)は残す。VAR取消ゴールはAPIから
+//   消えるが、読み出し層 reconcileVarDisallowedGoals が「取消ゴール」として再現するため。
+// 注意: SQLite では NULL NOT IN (...) は NULL(=偽)になり消えないので type IS NULL を明示。
+const GOAL_FAMILY_TYPES = ["goal", "own_goal", "penalty", "pen_shootout_goal"];
+function eventCleanupStatement(fixtureId, keepIds, updatedAt) {
+	const ph = keepIds.map(() => "?").join(",");
+	const goalPh = GOAL_FAMILY_TYPES.map(() => "?").join(",");
+	return {
+		sql: `DELETE FROM sm_events
+          WHERE sm_fixture_id = ?
+            AND (type IS NULL OR type NOT IN (${goalPh}))
+            AND sm_event_id NOT IN (${ph})`,
+		args: [fixtureId, ...GOAL_FAMILY_TYPES, ...keepIds],
+	};
+}
+
 // fixture 詳細1件 → teams/fixture/events/stats/lineups/player_stats の upsert 文配列（純粋）
 export function fixtureDetailStatements(detail, updatedAt) {
-	return [
+	const eventRows = toEventRows(detail);
+	const fixtureId = detail?.id ?? null;
+	const stmts = [
 		...toTeamRows(detail).map((r) => teamStatement(r, updatedAt)),
 		fixtureStatement(toFixtureRow(detail), updatedAt),
-		...toEventRows(detail).map((r) => eventStatement(r, updatedAt)),
+	];
+	// 孤児掃除は API にイベントがある時だけ（瞬間的な空応答で全削除しないため）。
+	if (eventRows.length > 0 && fixtureId != null) {
+		stmts.push(
+			eventCleanupStatement(
+				fixtureId,
+				eventRows.map((r) => r.sm_event_id),
+				updatedAt,
+			),
+		);
+	}
+	stmts.push(
+		...eventRows.map((r) => eventStatement(r, updatedAt)),
 		...toStatRows(detail).map((r) => statStatement(r, updatedAt)),
 		...toLineupRows(detail).map((r) => lineupStatement(r, updatedAt)),
 		...toPlayerStatRows(detail).map((r) => playerStatStatement(r, updatedAt)),
-	];
+	);
+	return stmts;
 }
 
 // core/types data[] → sm_types の upsert 文配列（純粋）

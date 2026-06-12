@@ -17,17 +17,18 @@ export const EVENT_TYPE_NAMES = Object.freeze({
 	23: "pen_shootout_goal",
 });
 
-// VAR レビュー（type_id=10）。判定内容は event.sub_type_id（汎用 sub_event 記述子）に入る。
-// 実データ確定済: 1512=Goal Disallowed（ゴール取消）。未知の VAR サブタイプは汎用 "var" に倒す。
+// VAR レビュー系 type_id。判定内容は event.sub_type_id（汎用 sub_event 記述子）に入る。
+// 実データ確定済: 10=VAR / 1697=VAR_CARD（カード判定）。sub 1512=Goal Disallowed（ゴール取消）。
+// 未知の VAR サブタイプは汎用 "var" に倒す。
 // ※ type 列に解決済みトークンを載せることで、別マイグレーション無しに表示/AI へ届ける。
-export const VAR_TYPE_ID = 10;
+export const VAR_TYPE_IDS = new Set([10, 1697]);
 export const VAR_SUBTYPE_TYPES = Object.freeze({
 	1512: "var_goal_disallowed", // ゴール取消
 });
 
 // 1イベント → 正規化 type 名。VAR はサブタイプまで解決し、未知 type_id は null。
 export function resolveEventType(e) {
-	if (e?.type_id === VAR_TYPE_ID) {
+	if (VAR_TYPE_IDS.has(e?.type_id)) {
 		return VAR_SUBTYPE_TYPES[e?.sub_type_id] ?? "var";
 	}
 	return EVENT_TYPE_NAMES[e?.type_id] ?? null;

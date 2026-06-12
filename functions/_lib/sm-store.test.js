@@ -105,8 +105,8 @@ const detail = {
 
 test("fixtureDetailStatements: teams/fixture/event/stat の文を生成", () => {
 	const specs = fixtureDetailStatements(detail, 1000);
-	// 2 teams + 1 fixture + 1 event + 1 stat + 3 lineups + 1 player_stat = 9
-	assert.equal(specs.length, 9);
+	// 2 teams + 1 fixture + 1 孤児掃除DELETE + 1 event + 1 stat + 3 lineups + 1 player_stat = 10
+	assert.equal(specs.length, 10);
 	for (const s of specs) {
 		assert.ok(typeof s.sql === "string" && s.sql.length > 0);
 		assert.ok(Array.isArray(s.args));
@@ -115,7 +115,34 @@ test("fixtureDetailStatements: teams/fixture/event/stat の文を生成", () => 
 
 test("全 upsert に ON CONFLICT(冪等)が含まれる", () => {
 	const specs = fixtureDetailStatements(detail, 1000);
-	for (const s of specs) assert.match(s.sql, /ON CONFLICT/i);
+	// DELETE(孤児掃除)以外は全て upsert
+	for (const s of specs.filter((s) => !/^\s*DELETE/.test(s.sql))) {
+		assert.match(s.sql, /ON CONFLICT/i);
+	}
+});
+
+test("fixtureDetailStatements: 孤児イベント掃除DELETEを含む(ゴール系は保護)", () => {
+	const specs = fixtureDetailStatements(detail, 1000);
+	const del = specs.find((s) => /^\s*DELETE FROM sm_events/.test(s.sql));
+	assert.ok(del, "DELETE文がある");
+	// 現APIのイベントid(100)を keep に含む
+	assert.ok(del.args.includes(100));
+	// ゴール系は消さない・NULL型も消す条件
+	assert.match(del.sql, /type IS NULL OR type NOT IN/);
+	assert.ok(del.args.includes("goal"));
+	// DELETE は upsert 群より前に実行（孤児削除→再投入の順）
+	const delIdx = specs.findIndex((s) => /^\s*DELETE/.test(s.sql));
+	const evIdx = specs.findIndex((s) => /INSERT INTO sm_events/.test(s.sql));
+	assert.ok(delIdx < evIdx);
+});
+
+test("fixtureDetailStatements: イベント0件なら掃除DELETEを出さない(空応答で全削除しない)", () => {
+	const noEv = { ...detail, events: [] };
+	const specs = fixtureDetailStatements(noEv, 1000);
+	assert.equal(
+		specs.find((s) => /^\s*DELETE FROM sm_events/.test(s.sql)),
+		undefined,
+	);
 });
 
 test("fixture 文に正しい列と updated_at が乗る", () => {
