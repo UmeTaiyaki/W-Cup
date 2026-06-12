@@ -8,16 +8,14 @@ import {
 	selectFixturesForAi,
 } from "./ai-match.js";
 
+// fixture は getFixtureDetail(mapFixtureRow) と同じ NESTED 構造（home/away に team_id・name・score・xg）。
+// 旧テストはフラット(home_name等)でバグを隠していた（本番は nested）。
 const baseDetail = {
 	fixture: {
-		home_name: "日本",
-		away_name: "ブラジル",
-		home_score: 1,
-		away_score: 2,
-		home_xg: 1.3,
-		away_xg: 1.8,
 		state_id: 5,
 		round_name: "グループF",
+		home: { team_id: 10, name: "日本", score: 1, xg: 1.3 },
+		away: { team_id: 20, name: "ブラジル", score: 2, xg: 1.8 },
 	},
 	events: [
 		{ minute: 23, type: "goal", team_id: 10, player_name: "三笘" },
@@ -26,6 +24,7 @@ const baseDetail = {
 	stats: [
 		{ team_id: 10, type_id: 5304, value: 1.3 },
 		{ team_id: 10, type_id: 42, value: 8 },
+		{ team_id: 20, type_id: 42, value: 2 },
 	],
 	lineups: [
 		{
@@ -61,6 +60,17 @@ test("buildMatchPrompt: ht/ft はスコアとxGを含む", () => {
 	assert.match(p, /1\s*-\s*2|1-2/);
 	assert.match(p, /1\.3/);
 	assert.match(p, /三笘|ヴィニシウス/);
+});
+
+test("buildMatchPrompt: チーム統計を正しいチーム名に帰属する（数値IDのまま出さない）", () => {
+	const p = buildMatchPrompt("ht", baseDetail);
+	// 日本(team 10)=シュート8本 / ブラジル(team 20)=2本 を名前付きで提示
+	assert.match(p, /日本[^\n]*シュート=8/);
+	assert.match(p, /ブラジル[^\n]*シュート=2/);
+	// 数値 team_id を生で出さない（AIが帰属を推測して取り違える原因）
+	assert.doesNotMatch(p, /team 10|team 20/);
+	// ヘッダーにチーム名（"Home vs Away" にフォールバックしない）
+	assert.match(p, /日本 vs ブラジル/);
 });
 
 test("buildMatchPrompt: xG欠損でも壊れない（graceful）", () => {

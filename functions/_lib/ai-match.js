@@ -64,22 +64,40 @@ function eventLabel(type) {
 	}
 }
 
+// team_id → チーム名の対応（fixture.home/away から）。
+// これが無いと統計/イベントを数値IDで渡すことになり、AIが帰属を推測して取り違える
+// （実例: 韓国vsチェコのHT分析で前半優勢チームを逆に記述）。未知IDは "team N" にフォールバック。
+function teamNameMap(detail) {
+	const f = (detail && detail.fixture) || {};
+	const m = {};
+	if (f.home && f.home.team_id != null)
+		m[f.home.team_id] = f.home.name || "ホーム";
+	if (f.away && f.away.team_id != null)
+		m[f.away.team_id] = f.away.name || "アウェイ";
+	return m;
+}
+const teamLabel = (names, id) => names[id] || `team ${id}`;
+
 function eventLines(detail) {
+	const names = teamNameMap(detail);
 	return (detail.events || [])
 		.map((e) => {
 			const label = eventLabel(e.type);
+			const team =
+				e.team_id != null && names[e.team_id] ? `[${names[e.team_id]}] ` : "";
 			const who = e.player_name ? ` ${e.player_name}` : "";
 			// 交代は OUT 選手も添える（related=途中出場/交代相手）
 			const rel =
 				e.type === "substitution" && e.related_player_name
 					? `（→${e.related_player_name}）`
 					: "";
-			return `- ${e.minute ?? "?"}'${who} ${label}${rel}`.trim();
+			return `- ${e.minute ?? "?"}' ${team}${label}${who}${rel}`.trim();
 		})
 		.join("\n");
 }
 
 function statLines(detail) {
+	const names = teamNameMap(detail);
 	const byTeam = new Map();
 	for (const s of detail.stats || []) {
 		const label = STAT_LABELS[s.type_id];
@@ -88,7 +106,7 @@ function statLines(detail) {
 		byTeam.set(s.team_id, [...prev, `${label}=${s.value}`]);
 	}
 	return [...byTeam.entries()]
-		.map(([t, arr]) => `- team ${t}: ${arr.join(", ")}`)
+		.map(([t, arr]) => `- ${teamLabel(names, t)}: ${arr.join(", ")}`)
 		.join("\n");
 }
 
@@ -351,15 +369,23 @@ export function buildMatchPrompt(phase, detail) {
 		throw new Error(`buildMatchPrompt: unknown phase "${phase}"`);
 	}
 	const f = safe.fixture || {};
-	const head = `${f.home_name ?? "Home"} vs ${f.away_name ?? "Away"}（${f.round_name ?? ""}）`;
+	// fixture は NESTED（home/away に name・score・xg）。旧コードはフラット名で読み undefined→
+	// チーム名/スコア/xG が全欠落し、AIが帰属を推測する原因になっていた。
+	const home = f.home || {};
+	const away = f.away || {};
+	const head = `${home.name ?? "Home"} vs ${away.name ?? "Away"}（${f.round_name ?? ""}）`;
 	const parts = [PHASE_GOAL[phase], CONSTRAINT, "", head];
 
 	if (phase !== "lineup") {
-		if (f.home_score != null && f.away_score != null) {
-			parts.push(`スコア: ${f.home_score} - ${f.away_score}`);
+		if (home.score != null && away.score != null) {
+			parts.push(
+				`スコア: ${home.name ?? "ホーム"} ${home.score} - ${away.score} ${away.name ?? "アウェイ"}`,
+			);
 		}
-		if (f.home_xg != null || f.away_xg != null) {
-			parts.push(`xG: ${f.home_xg ?? "—"} - ${f.away_xg ?? "—"}`);
+		if (home.xg != null || away.xg != null) {
+			parts.push(
+				`xG: ${home.name ?? "ホーム"} ${home.xg ?? "—"} - ${away.xg ?? "—"} ${away.name ?? "アウェイ"}`,
+			);
 		}
 		const evs = eventLines(safe);
 		if (evs) parts.push("主なイベント:\n" + evs);
