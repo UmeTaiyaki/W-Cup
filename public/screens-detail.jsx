@@ -3065,14 +3065,10 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 
 	const fx = detail.fixture;
 
-	// FT(終了)試合のみ「ハイライト」タブを追加（タイムラインの隣）。
+	// FT(終了)試合のみ「ハイライト」タブを先頭(一番左)に追加。
 	const tabs =
 		fx && fx.status === "FT"
-			? [
-					DETAIL_TABS[0],
-					{ id: "highlight", label: "ハイライト" },
-					...DETAIL_TABS.slice(1),
-				]
+			? [{ id: "highlight", label: "ハイライト" }, ...DETAIL_TABS]
 			: DETAIL_TABS;
 
 	function renderTabBody() {
