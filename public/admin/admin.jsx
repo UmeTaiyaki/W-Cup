@@ -296,6 +296,145 @@ function TeamSelect({ teams, value, onChange, allowEmpty = true }) {
 	);
 }
 
+// 試合ハイライト手動登録（Phase1）。config 本体とは独立して /api/highlight に保存する。
+// FT(終了)試合に YouTube URL を貼って紐付け、クリアで削除。
+function HighlightsSection({ token, onAuthExpired }) {
+	const [fixtures, setFixtures] = useState([]);
+	const [fixtureId, setFixtureId] = useState("");
+	const [url, setUrl] = useState("");
+	const [busy, setBusy] = useState(false);
+	const [msg, setMsg] = useState("");
+
+	useEffect(() => {
+		let alive = true;
+		api("/api/live")
+			.then((r) => r.json())
+			.then((d) => {
+				if (!alive) return;
+				const fts = (d.fixtures || []).filter((f) => f && f.status === "FT");
+				setFixtures(fts);
+			})
+			.catch(() => {
+				/* defensive: 取得失敗時は空のまま（手入力 ID 運用も可） */
+			});
+		return () => {
+			alive = false;
+		};
+	}, []);
+
+	function labelFor(f) {
+		const h = (f.home && f.home.name) || "?";
+		const a = (f.away && f.away.name) || "?";
+		const hs = f.home && f.home.score != null ? f.home.score : "";
+		const as = f.away && f.away.score != null ? f.away.score : "";
+		const score = hs !== "" || as !== "" ? ` ${hs}-${as}` : "";
+		const date = f.starting_at
+			? ` (${String(f.starting_at).slice(0, 10)})`
+			: "";
+		return `${h} vs ${a}${score}${date}`;
+	}
+
+	async function submit(method) {
+		if (!fixtureId) {
+			setMsg("試合を選択してください");
+			return;
+		}
+		setBusy(true);
+		setMsg("");
+		try {
+			const body =
+				method === "POST"
+					? { fixtureId: Number(fixtureId), url }
+					: { fixtureId: Number(fixtureId) };
+			const r = await api("/api/highlight", {
+				method,
+				headers: {
+					"content-type": "application/json",
+					authorization: "Bearer " + token,
+				},
+				body: JSON.stringify(body),
+			});
+			const data = await r.json().catch(() => ({}));
+			if (r.ok) {
+				setMsg(method === "POST" ? "✅ 登録しました" : "✅ 削除しました");
+				if (method === "DELETE") setUrl("");
+			} else if (r.status === 401) {
+				setMsg("❌ セッションの有効期限が切れました。再ログインします");
+				if (onAuthExpired) onAuthExpired();
+			} else {
+				setMsg("❌ " + (data.error || "失敗しました"));
+			}
+		} catch (e) {
+			setMsg("❌ 通信エラー");
+		}
+		setBusy(false);
+	}
+
+	const btnStyle = (bg) => ({
+		...inputStyle,
+		cursor: busy ? "default" : "pointer",
+		background: bg,
+		color: "#0A1410",
+		fontWeight: 800,
+		opacity: busy ? 0.6 : 1,
+	});
+
+	return (
+		<Section title="試合ハイライト（YouTube）">
+			<p style={{ fontSize: 12.5, color: "#9fb3a8", margin: "0 0 12px" }}>
+				終了した試合に YouTube のハイライト動画 URL を貼って紐付けます。
+				試合詳細の「ハイライト」タブに表示されます（HIGHLIGHTS_ENABLED
+				有効時）。
+			</p>
+			<div
+				style={{
+					display: "flex",
+					flexWrap: "wrap",
+					gap: 10,
+					alignItems: "center",
+				}}
+			>
+				<select
+					value={fixtureId}
+					onChange={(e) => setFixtureId(e.target.value)}
+					style={{ ...inputStyle, minWidth: 260, maxWidth: "100%" }}
+				>
+					<option value="">— 試合を選択（FTのみ）—</option>
+					{fixtures.map((f) => (
+						<option key={f.id} value={f.id}>
+							{labelFor(f)}
+						</option>
+					))}
+				</select>
+				<input
+					type="text"
+					value={url}
+					onChange={(e) => setUrl(e.target.value)}
+					placeholder="https://youtu.be/… または 動画ID"
+					style={{ ...inputStyle, flex: 1, minWidth: 220 }}
+				/>
+			</div>
+			<div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+				<button
+					onClick={() => submit("POST")}
+					disabled={busy}
+					style={btnStyle("#B6FF3C")}
+				>
+					{busy ? "処理中…" : "登録 / 更新"}
+				</button>
+				<button
+					onClick={() => submit("DELETE")}
+					disabled={busy}
+					style={btnStyle("#caa")}
+				>
+					クリア
+				</button>
+			</div>
+			{msg && <p style={{ marginTop: 8, fontSize: 13 }}>{msg}</p>}
+		</Section>
+	);
+}
+
 function Editor({ token, onAuthExpired, initial }) {
 	const [cfg, setCfg] = useState(initial);
 	const [msg, setMsg] = useState("");
@@ -1327,6 +1466,9 @@ function Editor({ token, onAuthExpired, initial }) {
 					＋ 試合を追加
 				</button>
 			</Section>
+
+			{/* 試合ハイライト（config 本体とは独立して /api/highlight に保存） */}
+			<HighlightsSection token={token} onAuthExpired={onAuthExpired} />
 
 			<div
 				style={{

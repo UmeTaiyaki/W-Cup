@@ -25,6 +25,10 @@ export async function onRequestGet(context) {
 
 	try {
 		const detail = await getFixtureDetail(env.DB, id);
+		// ハイライト機能は独立フラグでゲート。OFF時はデータがあっても highlight を出さない（安全なロールアウト）。
+		if (detail && env.HIGHLIGHTS_ENABLED !== "true") {
+			detail.highlight = null;
+		}
 		return json(
 			200,
 			{ enabled: true, detail },

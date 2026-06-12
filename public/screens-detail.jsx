@@ -340,7 +340,8 @@ function DetailHeader({ T, fx, goBack }) {
 }
 
 // ── DetailTabBar ──────────────────────────────────────────────────────────
-function DetailTabBar({ T, tab, setTab }) {
+// tabs は表示するタブ配列（試合状態で増減する。例: FTのみ「ハイライト」を含む）。
+function DetailTabBar({ T, tab, setTab, tabs = DETAIL_TABS }) {
 	return (
 		<div
 			style={{
@@ -364,7 +365,7 @@ function DetailTabBar({ T, tab, setTab }) {
 					scrollbarWidth: "none",
 				}}
 			>
-				{DETAIL_TABS.map((t) => {
+				{tabs.map((t) => {
 					const active = tab === t.id;
 					return (
 						<button
@@ -406,6 +407,62 @@ function PlaceholderBody({ T, label }) {
 			}}
 		>
 			{label}（このタブは実装予定）
+		</div>
+	);
+}
+
+// ── ハイライト常設ブロック ────────────────────────────────────────────────
+// スコアヘッダーとタブバーの間に置く。highlight.video_id がある時だけ表示（無ければ何も出さない）。
+// 表示可否は API 側の HIGHLIGHTS_ENABLED ゲートにも依存（OFF時は highlight=null）。
+// プライバシー強化ドメイン youtube-nocookie を使う。
+function HighlightSection({ T, detail }) {
+	const hl = detail && detail.highlight;
+	if (!hl || !hl.video_id) return null;
+	const src = `https://www.youtube-nocookie.com/embed/${hl.video_id}`;
+	return (
+		<div style={{ padding: "12px 16px 4px" }}>
+			{/* 16:9 レスポンシブ枠 */}
+			<div
+				style={{
+					position: "relative",
+					width: "100%",
+					paddingTop: "56.25%",
+					borderRadius: 12,
+					overflow: "hidden",
+					background: "#000",
+					border: `1px solid ${T.line}`,
+				}}
+			>
+				<iframe
+					src={src}
+					title="試合ハイライト"
+					loading="lazy"
+					allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+					allowFullScreen
+					referrerPolicy="strict-origin-when-cross-origin"
+					style={{
+						position: "absolute",
+						top: 0,
+						left: 0,
+						width: "100%",
+						height: "100%",
+						border: "none",
+					}}
+				/>
+			</div>
+			{hl.title ? (
+				<div
+					style={{
+						marginTop: 10,
+						fontSize: 12.5,
+						color: T.sub,
+						fontWeight: 700,
+						lineHeight: 1.5,
+					}}
+				>
+					{hl.title}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -3037,6 +3094,12 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 		}
 	}, []);
 
+	// 別の試合へ遷移(fixtureId変化)したら先頭タブへ戻す。
+	// FT試合だけの「ハイライト」を選んだまま非FT試合に移ってタブが消えても残留しないように。
+	React.useEffect(() => {
+		setTab("timeline");
+	}, [fixtureId]);
+
 	React.useEffect(() => {
 		if (fixtureId == null) return;
 		let alive = true;
@@ -3100,6 +3163,9 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 			{/* 固定スコアヘッダー（戻るボタンを内包） */}
 			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
+			{/* ハイライト常設ブロック（スコアヘッダーとタブバーの間。FT＋動画ありの時だけ表示） */}
+			<HighlightSection T={T} detail={detail} />
+
 			{/* タブバー */}
 			<DetailTabBar T={T} tab={tab} setTab={setTab} />
 
@@ -3118,6 +3184,7 @@ Object.assign(window, {
 	StatsTab,
 	XgTab,
 	LineupTab,
+	HighlightSection,
 	H2HPlaceholder,
 	DetailSkeleton,
 	DetailUnavailable,

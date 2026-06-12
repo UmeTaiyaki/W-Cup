@@ -145,3 +145,21 @@ CREATE TABLE IF NOT EXISTS sm_match_ai (
   PRIMARY KEY (sm_fixture_id, phase)
 );
 CREATE INDEX IF NOT EXISTS idx_sm_match_ai_fixture ON sm_match_ai (sm_fixture_id);
+
+-- 10) 試合ハイライト動画（YouTube。手動登録(Phase1)＋公式チャンネル自動紐付け(Phase2)）
+--     source 優先順位: manual > dazn > fifa > sportmonks。読み取り時に video_id 有りの最上位を1本に解決。
+--     (sm_fixture_id, source) 複合PK＝手動と自動が共存し、自動が来ても手動を上書きしない。
+--     attempts/updated_at は Phase2 自動取得のリトライ・バックオフ管理に使う（手動は attempts=0）。
+CREATE TABLE IF NOT EXISTS sm_highlights (
+  sm_fixture_id INTEGER NOT NULL,
+  source        TEXT    NOT NULL,        -- 'manual' | 'dazn' | 'fifa' | 'sportmonks'
+  video_id      TEXT,                    -- YouTube videoId（未取得は NULL）
+  title         TEXT,                    -- 動画タイトル（マッチ根拠の記録）
+  channel_id    TEXT,                    -- 取得元 channelId（手動は NULL 可）
+  confidence    REAL,                    -- マッチ確度（手動=1.0）
+  published_at  INTEGER,                 -- 動画公開 epoch秒（任意）
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  updated_at    INTEGER NOT NULL DEFAULT 0, -- epoch秒
+  PRIMARY KEY (sm_fixture_id, source)
+);
+CREATE INDEX IF NOT EXISTS idx_sm_highlights_fixture ON sm_highlights (sm_fixture_id);
