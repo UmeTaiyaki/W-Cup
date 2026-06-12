@@ -595,4 +595,36 @@
 			return null;
 		}
 	};
+
+	// /api/news 一覧。OFF/失敗/空は [] を返す(ホーム本体に波及させない)。
+	window.WC.fetchNews = async function fetchNews() {
+		try {
+			const res = await fetch("/api/news", { cache: "no-store" });
+			if (!res.ok) return [];
+			const data = await res.json();
+			return data && data.enabled && Array.isArray(data.items)
+				? data.items
+				: [];
+		} catch (e) {
+			return [];
+		}
+	};
+
+	// /api/news 本文(fixtureId, type)。失敗/OFF は null。
+	window.WC.fetchNewsBody = async function fetchNewsBody(fixtureId, type) {
+		try {
+			const res = await fetch(
+				"/api/news?id=" +
+					encodeURIComponent(fixtureId) +
+					"&type=" +
+					encodeURIComponent(type || "postmatch"),
+				{ cache: "no-store" },
+			);
+			if (!res.ok) return null;
+			const data = await res.json();
+			return data && data.enabled ? data.body || null : null;
+		} catch (e) {
+			return null;
+		}
+	};
 })();

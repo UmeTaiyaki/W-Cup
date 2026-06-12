@@ -960,9 +960,294 @@ function HomeScreen({ T }) {
 				matches={focusGroup.matches}
 				today={today}
 			/>
+			<NewsCarousel T={T} />
 			<DayTimeline T={T} groups={rest} />
 		</div>
 	);
 }
 
-Object.assign(window, { HomeScreen, MatchRow, DayTimeline });
+// fixture_id → SCHEDULE の match を逆引き(best-effort・無ければ null)
+function matchByFixtureId(fixtureId) {
+	const sched = window.WC.SCHEDULE || [];
+	for (const m of sched) {
+		if (
+			window.WC.fixtureIdForMatch &&
+			window.WC.fixtureIdForMatch(m) === fixtureId
+		)
+			return m;
+	}
+	return null;
+}
+
+const NEWS_TYPE_LABEL = { prematch: "プレビュー", postmatch: "レポート" };
+
+function NewsHero({ hero, T }) {
+	if (!hero) return null;
+	if (hero.kind === "crest") {
+		return (
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "center",
+					gap: 24,
+					alignItems: "center",
+					height: 160,
+				}}
+			>
+				<img
+					src={hero.url}
+					alt=""
+					style={{ width: 64, height: 64, objectFit: "contain" }}
+				/>
+				<span style={{ color: T.sub }}>vs</span>
+				<img
+					src={hero.url2}
+					alt=""
+					style={{ width: 64, height: 64, objectFit: "contain" }}
+				/>
+			</div>
+		);
+	}
+	return (
+		<img
+			src={hero.url}
+			alt={hero.alt || ""}
+			style={{
+				width: "100%",
+				height: 160,
+				objectFit: "cover",
+				borderRadius: 12,
+				background: T.bg,
+			}}
+			onError={(e) => {
+				e.currentTarget.style.display = "none";
+			}}
+		/>
+	);
+}
+
+function NewsSheet({ T, item, onClose }) {
+	const [body, setBody] = React.useState(null);
+	const [loading, setLoading] = React.useState(true);
+	React.useEffect(() => {
+		let alive = true;
+		setLoading(true);
+		if (window.WC.fetchNewsBody) {
+			window.WC.fetchNewsBody(item.fixture_id, item.type).then((b) => {
+				if (alive) {
+					setBody(b);
+					setLoading(false);
+				}
+			});
+		} else {
+			setLoading(false);
+		}
+		return () => {
+			alive = false;
+		};
+	}, [item.fixture_id, item.type]);
+
+	const canOpenDetail = typeof window.WC.openDetail === "function";
+	return (
+		<Sheet
+			open
+			onClose={onClose}
+			T={T}
+			title={NEWS_TYPE_LABEL[item.type] || "ニュース"}
+		>
+			<div style={{ padding: "4px 4px 16px" }}>
+				<NewsHero hero={body && body.hero} T={T} />
+				<h3
+					style={{
+						fontSize: 16,
+						fontWeight: 800,
+						color: T.text,
+						margin: "12px 0 8px",
+						lineHeight: 1.4,
+					}}
+				>
+					{(body && body.title_ja) || item.title_ja || item.title_en}
+				</h3>
+				{body && body.scoreline && (
+					<div style={{ fontSize: 12, color: T.sub, marginBottom: 8 }}>
+						{body.scoreline}
+					</div>
+				)}
+				{loading ? (
+					<div style={{ color: T.sub, fontSize: 13, padding: "16px 0" }}>
+						読み込み中…
+					</div>
+				) : body && body.body_ja ? (
+					<p
+						style={{
+							fontSize: 14,
+							color: T.text,
+							lineHeight: 1.8,
+							whiteSpace: "pre-wrap",
+						}}
+					>
+						{body.body_ja}
+					</p>
+				) : (
+					<div style={{ color: T.sub, fontSize: 13 }}>
+						本文を取得できませんでした
+					</div>
+				)}
+				{canOpenDetail && (
+					<button
+						type="button"
+						onClick={() => {
+							onClose();
+							window.WC.openDetail(item.fixture_id);
+						}}
+						style={{
+							marginTop: 16,
+							width: "100%",
+							padding: "12px",
+							borderRadius: 12,
+							border: "none",
+							background: T.accent || "#2563eb",
+							color: "#fff",
+							fontWeight: 800,
+							cursor: "pointer",
+						}}
+					>
+						試合を見る
+					</button>
+				)}
+			</div>
+		</Sheet>
+	);
+}
+
+function NewsCard({ T, item, onOpen }) {
+	const m = matchByFixtureId(item.fixture_id);
+	const a =
+		m && window.WC.formatMatchTeam
+			? window.WC.formatMatchTeam(m.a, window.WC.TEAM || {}, m.round)
+			: null;
+	const b =
+		m && window.WC.formatMatchTeam
+			? window.WC.formatMatchTeam(m.b, window.WC.TEAM || {}, m.round)
+			: null;
+	return (
+		<button
+			type="button"
+			onClick={() => onOpen(item)}
+			style={{
+				flex: "0 0 auto",
+				width: 220,
+				textAlign: "left",
+				background: T.card,
+				border: `1px solid ${T.border}`,
+				borderRadius: 14,
+				padding: 12,
+				cursor: "pointer",
+				scrollSnapAlign: "start",
+			}}
+		>
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 6,
+					marginBottom: 8,
+					minHeight: 28,
+				}}
+			>
+				{a && a.resolved && <Flag code={a.code} size={22} />}
+				{a && b && <span style={{ fontSize: 12, color: T.sub }}>vs</span>}
+				{b && b.resolved && <Flag code={b.code} size={22} />}
+				<span
+					style={{
+						marginLeft: "auto",
+						fontSize: 10,
+						fontWeight: 700,
+						color: T.sub,
+						border: `1px solid ${T.border}`,
+						borderRadius: 8,
+						padding: "2px 6px",
+					}}
+				>
+					{NEWS_TYPE_LABEL[item.type] || "ニュース"}
+				</span>
+			</div>
+			<div
+				style={{
+					fontSize: 13,
+					fontWeight: 700,
+					color: T.text,
+					lineHeight: 1.4,
+					display: "-webkit-box",
+					WebkitLineClamp: 3,
+					WebkitBoxOrient: "vertical",
+					overflow: "hidden",
+				}}
+			>
+				{item.title_ja || item.title_en}
+			</div>
+		</button>
+	);
+}
+
+function NewsCarousel({ T }) {
+	const [items, setItems] = React.useState(null);
+	const [open, setOpen] = React.useState(null);
+	React.useEffect(() => {
+		let alive = true;
+		if (window.WC.fetchNews) {
+			window.WC.fetchNews().then((list) => {
+				if (alive) setItems(list);
+			});
+		} else {
+			setItems([]);
+		}
+		return () => {
+			alive = false;
+		};
+	}, []);
+
+	if (!items || items.length === 0) return null; // 取得前/空は非表示＝既存ホームと同一
+
+	return (
+		<div style={{ margin: "8px 0 4px" }}>
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 6,
+					padding: "0 8px 6px",
+				}}
+			>
+				<span style={{ fontSize: 14, fontWeight: 800, color: T.text }}>
+					📰 ニュース
+				</span>
+			</div>
+			<div
+				style={{
+					display: "flex",
+					gap: 10,
+					overflowX: "auto",
+					padding: "0 8px 4px",
+					scrollSnapType: "x mandatory",
+					WebkitOverflowScrolling: "touch",
+				}}
+			>
+				{items.map((it) => (
+					<NewsCard key={it.newsitem_id} T={T} item={it} onOpen={setOpen} />
+				))}
+			</div>
+			{open && <NewsSheet T={T} item={open} onClose={() => setOpen(null)} />}
+		</div>
+	);
+}
+
+Object.assign(window, {
+	HomeScreen,
+	MatchRow,
+	DayTimeline,
+	NewsCarousel,
+	NewsCard,
+	NewsSheet,
+	NewsHero,
+});
