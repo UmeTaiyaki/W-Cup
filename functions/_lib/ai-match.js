@@ -42,6 +42,8 @@ function eventLabel(type) {
 			return "PK戦成功";
 		case "own_goal":
 			return "オウンゴール";
+		case "goal_disallowed":
+			return "ゴール（VAR判定で取消）";
 		case "yellowcard":
 			return "イエローカード";
 		case "redcard":
