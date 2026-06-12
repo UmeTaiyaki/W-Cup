@@ -312,7 +312,13 @@ test("lineup statement includes bio columns and args", () => {
 	assert.ok(lu.sql.includes("date_of_birth"));
 	assert.ok(lu.sql.includes("nationality_name"));
 	assert.ok(lu.sql.includes("club_name"));
+	assert.ok(lu.sql.includes("player_image"));
 	assert.ok(lu.args.includes("Japan"));
+	// VALUES のプレースホルダ数と args 数の一致（列追加時の取りこぼし検知）
+	const placeholders = (
+		lu.sql.match(/VALUES\s*\(([^)]*)\)/)[1].match(/\?/g) || []
+	).length;
+	assert.equal(lu.args.length, placeholders);
 });
 
 test("event statement includes player_id columns and args", () => {

@@ -1695,13 +1695,6 @@ function parseField(formation_field) {
 	return { row, col };
 }
 
-/** 選手名の苗字（スペース区切り最後のトークン）*/
-function surname(player_name) {
-	if (!player_name) return "?";
-	const tokens = player_name.trim().split(/\s+/);
-	return tokens[tokens.length - 1] || player_name;
-}
-
 // "YYYY-MM-DD" → 満年齢（タイムゾーン非依存の単純年差）。不正は null。
 function ageFromDob(dob) {
 	if (!dob) return null;
@@ -2208,7 +2201,8 @@ function PlayerMarks({ ev, size = 12 }) {
 // ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
 // マーク配置（参考画像準拠）: カード=右上 / ゴール(数分のボール)=右下 / 交代OUT=左下。
 function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
-	const sn = surname(player.player_name);
+	const fullName = player.player_name || "?";
+	const num = player.jersey_number;
 	const goals = (ev && ev.goals) || [];
 	const cards = (ev && ev.cards) || [];
 	const hasRed = cards.some(
@@ -2234,11 +2228,11 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 				userSelect: "none",
 			}}
 		>
-			{/* 丸 */}
+			{/* 顔写真の丸（画像が無い/失敗時は背番号の色付き丸にフォールバック） */}
 			<div
 				style={{
-					width: 30,
-					height: 30,
+					width: 44,
+					height: 44,
 					borderRadius: "50%",
 					background: T.accent,
 					color: T.accentInk,
@@ -2246,13 +2240,36 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					alignItems: "center",
 					justifyContent: "center",
 					fontWeight: 900,
-					fontSize: 11,
+					fontSize: 15,
 					boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
-					border: "2px solid rgba(255,255,255,0.18)",
+					border: "2px solid rgba(255,255,255,0.85)",
 					position: "relative",
+					overflow: "visible",
 				}}
 			>
-				{player.jersey_number}
+				{/* フォールバックの背番号（画像の下に敷く） */}
+				{num != null ? num : "?"}
+				{/* 顔写真（読み込み失敗で非表示→背番号が見える） */}
+				{player.player_image && (
+					<img
+						src={player.player_image}
+						alt=""
+						loading="lazy"
+						onError={(e) => {
+							e.target.style.display = "none";
+						}}
+						style={{
+							position: "absolute",
+							inset: 0,
+							width: "100%",
+							height: "100%",
+							borderRadius: "50%",
+							objectFit: "cover",
+							objectPosition: "top center",
+							background: "#cfd8d3",
+						}}
+					/>
+				)}
 				{/* カード（右上・赤系優先） */}
 				{(hasRed || hasYellow) && (
 					<div
@@ -2308,21 +2325,30 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					</div>
 				)}
 			</div>
-			{/* 苗字 */}
+			{/* 背番号＋フルネーム（2行まで） */}
 			<div
 				style={{
 					fontSize: 10.5,
 					fontWeight: 700,
 					color: T.text,
 					marginTop: 4,
-					whiteSpace: "nowrap",
-					maxWidth: 58,
+					maxWidth: 84,
+					textAlign: "center",
+					lineHeight: 1.15,
+					display: "-webkit-box",
+					WebkitLineClamp: 2,
+					WebkitBoxOrient: "vertical",
 					overflow: "hidden",
-					textOverflow: "ellipsis",
+					wordBreak: "break-word",
 					textShadow: "0 1px 3px rgba(0,0,0,0.7)",
 				}}
 			>
-				{sn}
+				{num != null && (
+					<span style={{ fontWeight: 900, marginRight: 3, opacity: 0.85 }}>
+						{num}
+					</span>
+				)}
+				{fullName}
 			</div>
 		</div>
 	);

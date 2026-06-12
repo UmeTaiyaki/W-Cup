@@ -128,8 +128,8 @@ function lineupStatement(row, updatedAt) {
             (sm_fixture_id, team_id, player_id, player_name, jersey_number,
              position, formation_field, is_start, xg,
              date_of_birth, height, weight, nationality_id, nationality_name,
-             detailed_position, club_name, club_image, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             detailed_position, club_name, club_image, player_image, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(sm_fixture_id, player_id) DO UPDATE SET
             team_id=excluded.team_id, player_name=excluded.player_name,
             jersey_number=excluded.jersey_number, position=excluded.position,
@@ -143,6 +143,7 @@ function lineupStatement(row, updatedAt) {
             detailed_position=COALESCE(excluded.detailed_position, sm_lineups.detailed_position),
             club_name=COALESCE(excluded.club_name, sm_lineups.club_name),
             club_image=COALESCE(excluded.club_image, sm_lineups.club_image),
+            player_image=COALESCE(excluded.player_image, sm_lineups.player_image),
             updated_at=excluded.updated_at`,
 		args: [
 			row.sm_fixture_id,
@@ -162,6 +163,7 @@ function lineupStatement(row, updatedAt) {
 			row.detailed_position ?? null,
 			row.club_name ?? null,
 			row.club_image ?? null,
+			row.player_image ?? null,
 			updatedAt,
 		],
 	};
