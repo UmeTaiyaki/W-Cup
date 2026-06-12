@@ -499,6 +499,191 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
 	);
 }
 
+// ── タイムライン用 SVG アイコン ───────────────────────────────────────────
+// 暗背景(pitch-night)でも視認できる高コントラスト配色。viewBox 24×24・既定16px。
+// ボールの内部パターンは BallPaths を共有し、取消/オウンゴール等で配色だけ差し替える。
+function BallPaths({ white, dark }) {
+	return (
+		<>
+			<circle
+				cx="12"
+				cy="12"
+				r="9.4"
+				fill={white}
+				stroke={dark}
+				strokeWidth="1.1"
+			/>
+			<path
+				d="M12 9 L14.85 11.07 L13.76 14.43 L10.24 14.43 L9.15 11.07 Z"
+				fill={dark}
+			/>
+			<g stroke={dark} strokeWidth="1.05" strokeLinecap="round" fill="none">
+				<path d="M12 9 L12 3" />
+				<path d="M14.85 11.07 L20.56 9.22" />
+				<path d="M13.76 14.43 L17.29 19.28" />
+				<path d="M10.24 14.43 L6.71 19.28" />
+				<path d="M9.15 11.07 L3.44 9.22" />
+			</g>
+		</>
+	);
+}
+function Svg({ s = 16, children }) {
+	return (
+		<svg
+			width={s}
+			height={s}
+			viewBox="0 0 24 24"
+			fill="none"
+			aria-hidden="true"
+			style={{ display: "block" }}
+		>
+			{children}
+		</svg>
+	);
+}
+function IcoSoccerBall({ s }) {
+	return (
+		<Svg s={s}>
+			<BallPaths white="#ffffff" dark="#15181d" />
+		</Svg>
+	);
+}
+function IcoOwnGoal({ s }) {
+	// 赤系のボール＝オウンゴール
+	return (
+		<Svg s={s}>
+			<BallPaths white="#ffd9d6" dark="#c0392b" />
+		</Svg>
+	);
+}
+function IcoGoalDisallowed({ s }) {
+	// くすませたボール＋赤スラッシュ＝VAR取消
+	return (
+		<Svg s={s}>
+			<g opacity="0.5">
+				<BallPaths white="#cfd4da" dark="#3a4048" />
+			</g>
+			<line
+				x1="4.5"
+				y1="19.5"
+				x2="19.5"
+				y2="4.5"
+				stroke="#ff3b30"
+				strokeWidth="2.6"
+				strokeLinecap="round"
+			/>
+		</Svg>
+	);
+}
+function IcoMissedPen({ s }) {
+	// くすませたボール＋赤×＝PK失敗
+	return (
+		<Svg s={s}>
+			<g opacity="0.5">
+				<BallPaths white="#cfd4da" dark="#3a4048" />
+			</g>
+			<path
+				d="M7.2 7.2 L16.8 16.8 M16.8 7.2 L7.2 16.8"
+				stroke="#ff3b30"
+				strokeWidth="2.4"
+				strokeLinecap="round"
+			/>
+		</Svg>
+	);
+}
+function IcoCard({ s, color, stroke }) {
+	return (
+		<Svg s={s}>
+			<rect
+				x="8"
+				y="3.6"
+				width="10"
+				height="15"
+				rx="2"
+				fill={color}
+				stroke={stroke}
+				strokeWidth="0.8"
+				transform="rotate(10 12 11)"
+			/>
+		</Svg>
+	);
+}
+function IcoCardDouble({ s }) {
+	// 2枚目の警告＝退場（黄の後ろ＋赤の前）
+	return (
+		<Svg s={s}>
+			<rect
+				x="5.5"
+				y="4.4"
+				width="9"
+				height="14"
+				rx="2"
+				fill="#FFCB05"
+				stroke="#C99A00"
+				strokeWidth="0.7"
+				transform="rotate(10 10 11)"
+			/>
+			<rect
+				x="10"
+				y="4.4"
+				width="9"
+				height="14"
+				rx="2"
+				fill="#EA3B2E"
+				stroke="#B5241A"
+				strokeWidth="0.7"
+				transform="rotate(10 14 11)"
+			/>
+		</Svg>
+	);
+}
+function IcoSub({ s }) {
+	return (
+		<Svg s={s}>
+			{/* IN: 緑・上向き */}
+			<g
+				stroke="#2fd968"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				fill="none"
+			>
+				<path d="M8 19 L8 7" />
+				<path d="M4.8 10.2 L8 6.6 L11.2 10.2" />
+			</g>
+			{/* OUT: 赤・下向き */}
+			<g
+				stroke="#ff5a5f"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				fill="none"
+			>
+				<path d="M16 5 L16 17" />
+				<path d="M12.8 13.8 L16 17.4 L19.2 13.8" />
+			</g>
+		</Svg>
+	);
+}
+function IcoVar({ s }) {
+	// 主審のVARジェスチャ(画面の四角)＋レビュー三角
+	return (
+		<Svg s={s}>
+			<rect
+				x="3"
+				y="5.5"
+				width="18"
+				height="13"
+				rx="2.2"
+				fill="none"
+				stroke="#4da3ff"
+				strokeWidth="2"
+			/>
+			<path d="M10 9.4 L15.2 12 L10 14.6 Z" fill="#4da3ff" />
+		</Svg>
+	);
+}
+
 // ── TimelineTab ───────────────────────────────────────────────────────────
 function TimelineTab({ T, detail }) {
 	const events = (detail && detail.events) || [];
@@ -525,37 +710,40 @@ function TimelineTab({ T, detail }) {
 		return `${ev.minute}'`;
 	}
 
-	/** typeからアイコン文字列を返す */
+	/** type から SVG アイコン要素を返す（未知 type は null＝無アイコン） */
 	function eventIcon(type) {
 		switch (type) {
 			case "goal":
 			case "penalty":
 			case "pen_shootout_goal":
-				return "⚽";
+				return <IcoSoccerBall />;
 			case "own_goal":
-				return "⚽";
+				return <IcoOwnGoal />;
+			case "goal_disallowed":
+			case "var_goal_disallowed":
+				return <IcoGoalDisallowed />;
 			case "yellowcard":
-				return "🟨";
+				return <IcoCard color="#FFCB05" stroke="#C99A00" />;
 			case "redcard":
+				return <IcoCard color="#EA3B2E" stroke="#B5241A" />;
 			case "yellowredcard":
-				return "🟥";
+				return <IcoCardDouble />;
 			case "substitution":
-				return "🔁";
+				return <IcoSub />;
 			case "missed_penalty":
 			case "pen_shootout_miss":
-				return "✖";
-			case "var_goal_disallowed":
-				return "🚫"; // VAR ゴール取消
+				return <IcoMissedPen />;
 			case "var":
-				return "📺"; // VAR 判定（その他）
+				return <IcoVar />;
 			default:
-				return ""; // 未知 type は黒丸を出さず無アイコン
+				return null;
 		}
 	}
 
 	/** VAR など type の補足ラベル（無ければ null）。交代相手は別途 sideNote で扱う。 */
 	function eventNote(type) {
 		switch (type) {
+			case "goal_disallowed":
 			case "var_goal_disallowed":
 				return "VAR: ゴール取消";
 			case "var":
@@ -565,12 +753,14 @@ function TimelineTab({ T, detail }) {
 		}
 	}
 
-	// sort_order → minute の順にソート
-	const sorted = [...events].sort((a, b) => {
-		const sa = a.sort_order != null ? a.sort_order : a.minute * 60;
-		const sb = b.sort_order != null ? b.sort_order : b.minute * 60;
-		return sa - sb;
-	});
+	// 時系列順: minute → extra_minute → sort_order(同分内の安定化)。
+	// sort_order 単独は SportMonks の型別連番でグローバル時系列にならないため主キーにしない。
+	const sorted = [...events].sort(
+		(a, b) =>
+			(a.minute ?? 0) - (b.minute ?? 0) ||
+			(a.extra_minute ?? 0) - (b.extra_minute ?? 0) ||
+			(a.sort_order ?? 0) - (b.sort_order ?? 0),
+	);
 
 	if (sorted.length === 0) {
 		const emptyMsg =
@@ -614,9 +804,21 @@ function TimelineTab({ T, detail }) {
 					const icon = eventIcon(ev.type);
 					const isOwnGoal = ev.type === "own_goal";
 					const isSub = ev.type === "substitution";
+					const isCancelled =
+						ev.type === "goal_disallowed" || ev.type === "var_goal_disallowed";
 					const note = eventNote(ev.type);
-					const playerColor = isOwnGoal ? T.sub : T.text;
+					const playerStyle = {
+						fontWeight: 700,
+						color: isOwnGoal || isCancelled ? T.sub : T.text,
+						textDecoration: isCancelled ? "line-through" : undefined,
+					};
 					const isNew = ev.sm_event_id != null && newIdSet.has(ev.sm_event_id);
+
+					const iconNode = icon ? (
+						<span style={{ display: "inline-flex", alignItems: "center" }}>
+							{icon}
+						</span>
+					) : null;
 
 					// ホーム→左側、アウェイ→右側
 					return (
@@ -658,10 +860,8 @@ function TimelineTab({ T, detail }) {
 												{note}
 											</span>
 										)}
-										<span style={{ fontWeight: 700, color: playerColor }}>
-											{ev.player_name}
-										</span>
-										{icon && <span>{icon}</span>}
+										<span style={playerStyle}>{ev.player_name}</span>
+										{iconNode}
 									</>
 								)}
 							</div>
@@ -698,10 +898,8 @@ function TimelineTab({ T, detail }) {
 							>
 								{!isHome && (
 									<>
-										{icon && <span>{icon}</span>}
-										<span style={{ fontWeight: 700, color: playerColor }}>
-											{ev.player_name}
-										</span>
+										{iconNode}
+										<span style={playerStyle}>{ev.player_name}</span>
 										{isSub && ev.related_player_name && (
 											<span style={{ color: T.sub, fontSize: 10.5 }}>
 												→{ev.related_player_name}

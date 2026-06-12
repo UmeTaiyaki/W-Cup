@@ -84,6 +84,38 @@ const FIXTURE_ONE_SQL = `
   LEFT JOIN sm_teams a ON a.sm_team_id = f.away_team_id
   WHERE f.sm_fixture_id = ?`;
 
+// VAR ゴール取消(type=var_goal_disallowed)を対象ゴールへ統合する（表示/AI 共通の前処理）。
+// 背景: SportMonks は取消ゴールを API レスポンスから消すが、ライブ中に取り込んだ
+//   goal 行は D1 に残る（取り込みは upsert で削除しない）。結果、同一選手のゴール(77')と
+//   VARイベント(78')が二重表示される。
+// 方針: VAR と同一選手の直近ゴール(minute<=VAR minute)を goal_disallowed に上書きし、
+//   別個の VAR 行は畳む（=対象ゴールの時間にプロットしたまま「取消」表示にする）。
+//   対応ゴールが見つからなければ VAR 行は残す（review時刻で「ゴール取消」と表示）。
+export function reconcileVarDisallowedGoals(events) {
+	const list = Array.isArray(events) ? events : [];
+	const vars = list.filter((e) => e && e.type === "var_goal_disallowed");
+	if (vars.length === 0) return list;
+	const out = list.map((e) => ({ ...e }));
+	const drop = new Set();
+	for (const v of vars) {
+		const goal = out
+			.filter(
+				(e) =>
+					e.type === "goal" &&
+					(v.player_id != null
+						? e.player_id === v.player_id
+						: !!e.player_name && e.player_name === v.player_name) &&
+					(e.minute ?? 0) <= (v.minute ?? Number.MAX_SAFE_INTEGER),
+			)
+			.sort((a, b) => (b.minute ?? 0) - (a.minute ?? 0))[0];
+		if (goal) {
+			goal.type = "goal_disallowed"; // 対象ゴールを取消へ上書き
+			drop.add(v.sm_event_id); // 別個の VAR 行は畳む
+		}
+	}
+	return out.filter((e) => !drop.has(e.sm_event_id));
+}
+
 export async function getFixtureDetail(db, id) {
 	const fxRes = await db.prepare(FIXTURE_ONE_SQL).bind(id).all();
 	const fxRow = (Array.isArray(fxRes?.results) ? fxRes.results : [])[0];
@@ -93,9 +125,12 @@ export async function getFixtureDetail(db, id) {
 		const r = await db.prepare(sql).bind(id).all();
 		return Array.isArray(r?.results) ? r.results : [];
 	};
-	const events = await all(
-		"SELECT * FROM sm_events WHERE sm_fixture_id = ? ORDER BY sort_order ASC, minute ASC",
+	// 時系列順は minute(+extra_minute) で取る。sort_order は SportMonks の「型別連番」
+	// (1st goal / 2nd substitution …)でグローバル時系列ではないため主キーに使わない。
+	const eventsRaw = await all(
+		"SELECT * FROM sm_events WHERE sm_fixture_id = ? ORDER BY minute ASC, COALESCE(extra_minute,0) ASC, sort_order ASC",
 	);
+	const events = reconcileVarDisallowedGoals(eventsRaw);
 	const stats = await all("SELECT * FROM sm_stats WHERE sm_fixture_id = ?");
 	const lineups = await all("SELECT * FROM sm_lineups WHERE sm_fixture_id = ?");
 	const player_stats = await all(

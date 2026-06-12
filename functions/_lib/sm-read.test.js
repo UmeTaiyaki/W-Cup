@@ -5,6 +5,7 @@ import {
 	listFixtures,
 	listTopscorers,
 	mapFixtureRow,
+	reconcileVarDisallowedGoals,
 	statusFromState,
 } from "./sm-read.js";
 
@@ -233,4 +234,58 @@ test("listTopscorers: results 欠落でも空配列（例外なし）", async ()
 	const db = { prepare: () => ({ bind: () => ({ all: async () => ({}) }) }) };
 	const rows = await listTopscorers(db, 26618);
 	assert.deepEqual(rows, []);
+});
+
+test("reconcileVarDisallowedGoals: 同一選手の直近ゴールを取消へ統合しVAR行を畳む", () => {
+	// 韓国vsチェコ実データ: 77' Souček goal(D1残存) + 78' var_goal_disallowed
+	const events = [
+		{
+			sm_event_id: 1,
+			minute: 59,
+			type: "goal",
+			player_id: 10,
+			player_name: "Krejci",
+		},
+		{
+			sm_event_id: 2,
+			minute: 77,
+			type: "goal",
+			player_id: 20,
+			player_name: "Souček",
+		},
+		{
+			sm_event_id: 3,
+			minute: 78,
+			type: "var_goal_disallowed",
+			player_id: 20,
+			player_name: "Souček",
+		},
+	];
+	const out = reconcileVarDisallowedGoals(events);
+	// VAR行(3)は畳まれ、対象ゴール(2)は goal_disallowed に上書き・77'のまま
+	assert.equal(out.length, 2);
+	assert.equal(
+		out.find((e) => e.sm_event_id === 3),
+		undefined,
+	);
+	const g = out.find((e) => e.sm_event_id === 2);
+	assert.equal(g.type, "goal_disallowed");
+	assert.equal(g.minute, 77);
+	// 無関係なゴール(1)は不変
+	assert.equal(out.find((e) => e.sm_event_id === 1).type, "goal");
+});
+
+test("reconcileVarDisallowedGoals: 対応ゴールが無ければVAR行を残す（grace）", () => {
+	const events = [
+		{ sm_event_id: 9, minute: 78, type: "var_goal_disallowed", player_id: 20 },
+	];
+	const out = reconcileVarDisallowedGoals(events);
+	assert.equal(out.length, 1);
+	assert.equal(out[0].type, "var_goal_disallowed");
+});
+
+test("reconcileVarDisallowedGoals: VARが無ければそのまま返す", () => {
+	const events = [{ sm_event_id: 1, minute: 10, type: "goal", player_id: 1 }];
+	assert.equal(reconcileVarDisallowedGoals(events), events);
+	assert.deepEqual(reconcileVarDisallowedGoals(null), []);
 });
