@@ -2340,13 +2340,13 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					))}
 				</div>
 			)}
-			{/* 交代OUT（先発が退く・左下） */}
+			{/* 交代OUT（先発が退く・左下）。丸の下端付近に置き、名前ラベルと被らせない。 */}
 			{ev && ev.subOff != null && (
 				<div
 					style={{
 						position: "absolute",
-						bottom: -9,
-						left: -10,
+						bottom: 3,
+						left: -8,
 						background: "rgba(255,90,90,0.92)",
 						color: "#1a0c0c",
 						fontSize: 9,
