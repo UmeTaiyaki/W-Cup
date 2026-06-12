@@ -102,7 +102,10 @@
 
 ## 5. フィーチャーフラグ / シークレット
 - `NEWS_ENABLED`（Pages 環境変数）: 既定 OFF。Preview で true、本番は確認後に true。
-- `GEMINI_API_KEY`（Pages secret）: 翻訳用。未設定なら英語フォールバックで動作継続。
+- `GCP_SERVICE_ACCOUNT`（Pages secret・JSON）: 翻訳用。**新規キーは作らず、worker-watch で本番稼働中の
+  GCP サービスアカウントを Pages にも登録して流用**。トークン発行は既存 `mintGcpAccessToken` 再利用、
+  Vertex AI(grounding 無し・gemini-2.5-flash)で翻訳。未設定/発行失敗なら英語フォールバックで動作継続。
+  任意で `GCP_PROJECT`（既定は SA の project_id）/`GCP_LOCATION`（既定 global）/`NEWS_TRANSLATE_MODEL`。
 - `SPORTMONKS_TOKEN`（既存 Pages secret）: 流用。
 
 ## 6. テスト（80%+ 目標・純関数中心）

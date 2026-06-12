@@ -6,7 +6,9 @@
 
 **Architecture:** `/api/player` と同型のオンデマンド Pages Function `/api/news`。一覧は SportMonks の season ニュースを統合＋タイトル日本語訳(KVキャッシュ)。本文はタップ時に fixture include で lines＋得点者写真＋venue＋スコアを1コールで取得し日本語訳。D1スキーマ・Cron変更なし。`NEWS_ENABLED` フラグで OFF時は完全非表示。
 
-**Tech Stack:** Cloudflare Pages Functions (ESM), SportMonks Football API v3, Gemini Developer API (generativelanguage, grounding無し翻訳), Cloudflare KV (env.CONFIG), React 18 UMD + Babel (public/*.jsx), vitest。
+**Tech Stack:** Cloudflare Pages Functions (ESM), SportMonks Football API v3, **Vertex AI (既存 `GCP_SERVICE_ACCOUNT` 認証を流用・grounding無し翻訳)**, Cloudflare KV (env.CONFIG), React 18 UMD + Babel (public/*.jsx), vitest。
+
+**翻訳認証の方針:** 新規 Gemini API キーは作らず、worker-watch で本番稼働中の **GCP サービスアカウント認証**(`GCP_SERVICE_ACCOUNT` secret・JSON)を Pages 側にも登録して流用する。トークン発行は既存 `mintGcpAccessToken`(`functions/_lib/gcp-auth.js`)を再利用。`callVertexText`(ai-match.js)は grounding/温度がハードコードのため翻訳では使わず、grounding 無し・低温度の専用 Vertex 呼び出しを sm-news-i18n.js 内に持つ(match-ai 側は不変)。
 
 **前提コマンド:** テストは `npm test`(vitest)。単体実行は `npx vitest run functions/_lib/<name>.test.js`。
 
@@ -156,17 +158,21 @@ git commit -m "feat(news): sm-news 純関数(一覧統合/本文連結/ヒーロ
 
 ---
 
-### Task 2: sm-news-i18n.js 翻訳レイヤー(KVキャッシュ＋Gemini・grounding無し)
+### Task 2: sm-news-i18n.js 翻訳レイヤー(KVキャッシュ＋Vertex AI・grounding無し)
 
 **Files:**
 - Create: `functions/_lib/sm-news-i18n.js`
 - Test: `functions/_lib/sm-news-i18n.test.js`
 
+**設計メモ:** トークン発行(`mintGcpAccessToken`)はハンドラ側で1回だけ行い、`translateToJa` には
+発行済みの `vertex = { accessToken, project, location, fetchImpl }` を渡す(一覧の N 件翻訳で
+トークン二重発行を避ける)。`vertex` が null(SA 未設定/発行失敗)なら翻訳せず原文(英語)を返す。
+
 - [ ] **Step 1: 失敗するテストを書く** — `functions/_lib/sm-news-i18n.test.js`
 
 ```js
 import { describe, it, expect, vi } from "vitest";
-import { translateToJa } from "./sm-news-i18n.js";
+import { translateToJa, vertexGenerateUrl } from "./sm-news-i18n.js";
 
 function fakeKv(initial = {}) {
   const store = new Map(Object.entries(initial));
@@ -176,35 +182,52 @@ function fakeKv(initial = {}) {
     _store: store,
   };
 }
-const okGemini = (text) => vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text }] } }] }) }));
+// Vertex generateContent 応答スタブ
+const okVertex = (text) => vi.fn(async () => ({ ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text }] } }] }) }));
+const vertex = (fetchImpl) => ({ accessToken: "tok", project: "proj", location: "global", fetchImpl });
+
+describe("vertexGenerateUrl", () => {
+  it("global は aiplatform.googleapis.com", () => {
+    expect(vertexGenerateUrl("proj", "global", "gemini-2.5-flash")).toBe(
+      "https://aiplatform.googleapis.com/v1/projects/proj/locations/global/publishers/google/models/gemini-2.5-flash:generateContent",
+    );
+  });
+  it("region は {loc}-aiplatform", () => {
+    expect(vertexGenerateUrl("proj", "us-central1", "m")).toContain("us-central1-aiplatform.googleapis.com");
+  });
+});
 
 describe("translateToJa", () => {
-  it("KV ヒット時は Gemini を呼ばず即返し", async () => {
+  it("KV ヒット時は Vertex を呼ばず即返し", async () => {
     const kv = fakeKv({ "news:tr:ja:1:title": "日本語済み" });
     const fetchImpl = vi.fn();
-    const out = await translateToJa("Hello", { kv, cacheKey: "news:tr:ja:1:title", apiKey: "k", fetchImpl });
+    const out = await translateToJa("Hello", { kv, cacheKey: "news:tr:ja:1:title", vertex: vertex(fetchImpl) });
     expect(out).toBe("日本語済み");
     expect(fetchImpl).not.toHaveBeenCalled();
   });
-  it("KV ミス時は翻訳して KV 保存し訳文返し", async () => {
+  it("KV ミス時は翻訳して KV 保存し訳文返し(grounding 無し・低温度のボディ)", async () => {
     const kv = fakeKv();
-    const fetchImpl = okGemini("メキシコが勝利");
-    const out = await translateToJa("Mexico won", { kv, cacheKey: "news:tr:ja:2:title", apiKey: "k", fetchImpl });
+    const fetchImpl = okVertex("メキシコが勝利");
+    const out = await translateToJa("Mexico won", { kv, cacheKey: "news:tr:ja:2:title", vertex: vertex(fetchImpl) });
     expect(out).toBe("メキシコが勝利");
     expect(kv.put).toHaveBeenCalledWith("news:tr:ja:2:title", "メキシコが勝利");
+    const sentBody = JSON.parse(fetchImpl.mock.calls[0][1].body);
+    expect(sentBody.tools).toBeUndefined(); // grounding を付けない
+    expect(sentBody.generationConfig.temperature).toBe(0.2);
+    expect(fetchImpl.mock.calls[0][1].headers.Authorization).toBe("Bearer tok");
   });
-  it("翻訳失敗時は原文(英語)を返し落ちない", async () => {
+  it("翻訳失敗(HTTP不可)時は原文を返し落ちない", async () => {
     const kv = fakeKv();
     const fetchImpl = vi.fn(async () => ({ ok: false, status: 500, text: async () => "err" }));
-    const out = await translateToJa("Fallback EN", { kv, cacheKey: "news:tr:ja:3:title", apiKey: "k", fetchImpl });
+    const out = await translateToJa("Fallback EN", { kv, cacheKey: "news:tr:ja:3:title", vertex: vertex(fetchImpl) });
     expect(out).toBe("Fallback EN");
   });
-  it("apiKey 無しは翻訳せず原文返し", async () => {
-    const out = await translateToJa("No key", { kv: fakeKv(), cacheKey: "x", apiKey: "", fetchImpl: vi.fn() });
-    expect(out).toBe("No key");
+  it("vertex 無し(null)は翻訳せず原文返し", async () => {
+    const out = await translateToJa("No vertex", { kv: fakeKv(), cacheKey: "x", vertex: null });
+    expect(out).toBe("No vertex");
   });
   it("空文字は空文字", async () => {
-    expect(await translateToJa("", { kv: fakeKv(), cacheKey: "x", apiKey: "k", fetchImpl: vi.fn() })).toBe("");
+    expect(await translateToJa("", { kv: fakeKv(), cacheKey: "x", vertex: vertex(vi.fn()) })).toBe("");
   });
 });
 ```
@@ -214,12 +237,19 @@ describe("translateToJa", () => {
 - [ ] **Step 3: 最小実装** — `functions/_lib/sm-news-i18n.js`
 
 ```js
-// SportMonks 英語ニュースの日本語訳。grounding 無し・低温度。KV(env.CONFIG)で1回だけ翻訳。
-// 失敗・キー欠如時は原文(英語)を返し、ホーム本体には決して波及させない。
+// SportMonks 英語ニュースの日本語訳。Vertex AI(既存 GCP サービスアカウント認証を流用)。
+// grounding 無し・低温度。KV(env.CONFIG)で1回だけ翻訳。トークン発行はハンドラ側で実施し
+// 発行済み accessToken を vertex で受け取る。失敗・vertex 欠如時は原文(英語)を返し、
+// ホーム本体には決して波及させない。
 
 const TRANSLATE_MODEL = "gemini-2.5-flash";
-const ENDPOINT = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 const PROMPT = (text) => `次のサッカーのニュース文を自然な日本語に翻訳してください。固有名詞(チーム名・選手名・大会名)は一般的な日本語表記にし、訳文のみを返してください(前置き・引用符・注釈は不要)。\n\n${text}`;
+
+// Vertex generateContent の URL。location=global は無印ホスト、それ以外は {loc}-aiplatform。
+export function vertexGenerateUrl(project, location, model) {
+  const host = location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
+  return `https://${host}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
+}
 
 function extractText(jsonBody) {
   const parts = jsonBody?.candidates?.[0]?.content?.parts;
@@ -227,8 +257,9 @@ function extractText(jsonBody) {
   return parts.map((p) => p?.text || "").join("").trim();
 }
 
-// text を日本語化。kv:KVNamespace, cacheKey:string, apiKey:string, model?, fetchImpl?
-export async function translateToJa(text, { kv, cacheKey, apiKey, model = TRANSLATE_MODEL, fetchImpl } = {}) {
+// text を日本語化。
+// 引数: { kv:KVNamespace, cacheKey:string, vertex:{accessToken,project,location?,model?,fetchImpl?}|null }
+export async function translateToJa(text, { kv, cacheKey, vertex } = {}) {
   const src = typeof text === "string" ? text : "";
   if (!src.trim()) return src;
   if (kv && cacheKey) {
@@ -239,15 +270,20 @@ export async function translateToJa(text, { kv, cacheKey, apiKey, model = TRANSL
       console.error("news i18n: KV get failed", e?.message);
     }
   }
-  if (!apiKey) return src;
-  const doFetch = fetchImpl || fetch;
+  if (!vertex || !vertex.accessToken || !vertex.project) return src; // 翻訳不可 → 英語フォールバック
+  const model = vertex.model || TRANSLATE_MODEL;
+  const location = vertex.location || "global";
+  const doFetch = vertex.fetchImpl || fetch;
   try {
-    const res = await doFetch(ENDPOINT(model), {
+    const res = await doFetch(vertexGenerateUrl(vertex.project, location, model), {
       method: "POST",
-      headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: PROMPT(src) }] }], generationConfig: { temperature: 0.2 } }),
+      headers: { Authorization: `Bearer ${vertex.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: PROMPT(src) }] }],
+        generationConfig: { temperature: 0.2 },
+      }),
     });
-    if (!res.ok) { console.error("news i18n: Gemini HTTP", res.status); return src; }
+    if (!res.ok) { console.error("news i18n: Vertex HTTP", res.status); return src; }
     const body = await res.json();
     const ja = extractText(body);
     if (!ja) return src;
@@ -268,7 +304,7 @@ export async function translateToJa(text, { kv, cacheKey, apiKey, model = TRANSL
 
 ```bash
 git add functions/_lib/sm-news-i18n.js functions/_lib/sm-news-i18n.test.js
-git commit -m "feat(news): 日本語翻訳レイヤー(KVキャッシュ+Gemini flash・英語フォールバック)"
+git commit -m "feat(news): 日本語翻訳レイヤー(KVキャッシュ+Vertex AI流用・英語フォールバック)"
 ```
 
 ---
@@ -283,6 +319,10 @@ git commit -m "feat(news): 日本語翻訳レイヤー(KVキャッシュ+Gemini 
 - 一覧: season(WC_SEASON_ID||26618) の pre/post→mergeNewsList→title 翻訳→`{enabled:true, items:[...]}`。
 - 本文(`?id=&type=`): fixture include 1コール→該当 news の lines→joinLines→翻訳、pickHero、result_info→`{enabled:true, body:{...}}`。
 - ゲート: `env.NEWS_ENABLED !== "true"` で `{enabled:false, items:[]}`。
+- **翻訳認証**: `env.GCP_SERVICE_ACCOUNT`(JSON) をパースし、リクエスト先頭で `mintGcpAccessToken` で
+  トークンを **1回だけ** 発行→`vertex = { accessToken, project, location, fetchImpl }` を全 `translateToJa` に渡す。
+  SA 未設定/JSON 不正/発行失敗時は `vertex=null`→英語フォールバック(縮退・500 にしない)。
+  project は `env.GCP_PROJECT || sa.project_id`、location は `env.GCP_LOCATION || "global"`。
 
 - [ ] **Step 1: 失敗するテストを書く** — `functions/api/news.test.js`
 
@@ -292,13 +332,18 @@ import { onRequestGet } from "./news.js";
 
 const req = (url) => new Request(url);
 const fakeKv = () => ({ get: vi.fn(async () => null), put: vi.fn(async () => {}) });
+// 最小ダミー SA(JSON 文字列)。token 発行 fetch と Vertex 翻訳 fetch を兼ねたスタブで処理。
+const SA = JSON.stringify({ client_email: "svc@proj.iam", private_key: "PK", project_id: "proj" });
 
+// SportMonks / GCP token / Vertex を URL で分岐する fetch スタブ
 function makeFetch({ pre = [], post = [], fixture = null, ja = "JA" } = {}) {
   return vi.fn(async (url) => {
-    if (String(url).includes("generativelanguage")) return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: ja }] } }] }) };
-    if (String(url).includes("/news/pre-match/seasons/")) return { ok: true, json: async () => ({ data: pre }) };
-    if (String(url).includes("/news/post-match/seasons/")) return { ok: true, json: async () => ({ data: post }) };
-    if (String(url).includes("/fixtures/")) return { ok: true, json: async () => ({ data: fixture }) };
+    const u = String(url);
+    if (u.includes("oauth2.googleapis.com/token")) return { ok: true, json: async () => ({ access_token: "tok", expires_in: 3600 }) };
+    if (u.includes("aiplatform.googleapis.com")) return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: ja }] } }] }) };
+    if (u.includes("/news/pre-match/seasons/")) return { ok: true, json: async () => ({ data: pre }) };
+    if (u.includes("/news/post-match/seasons/")) return { ok: true, json: async () => ({ data: post }) };
+    if (u.includes("/fixtures/")) return { ok: true, json: async () => ({ data: fixture }) };
     return { ok: false, status: 404, text: async () => "nf" };
   });
 }
@@ -309,8 +354,8 @@ describe("GET /api/news", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ enabled: false, items: [] });
   });
-  it("一覧モード: pre/post 統合しタイトル日本語訳を付与", async () => {
-    const env = { NEWS_ENABLED: "true", SPORTMONKS_TOKEN: "t", GEMINI_API_KEY: "g", CONFIG: fakeKv(),
+  it("一覧モード: pre/post 統合しタイトル日本語訳を付与(SA 認証で翻訳)", async () => {
+    const env = { NEWS_ENABLED: "true", SPORTMONKS_TOKEN: "t", GCP_SERVICE_ACCOUNT: SA, CONFIG: fakeKv(),
       __fetchImpl: makeFetch({ post: [{ id: 9, fixture_id: 30, title: "R", type: "postmatch" }], pre: [{ id: 1, fixture_id: 10, title: "P", type: "prematch" }], ja: "日本語訳" }) };
     const res = await onRequestGet({ env, request: req("https://x/api/news") });
     const body = await res.json();
@@ -320,11 +365,18 @@ describe("GET /api/news", () => {
   });
   it("本文モード: lines を連結・翻訳しヒーローを返す", async () => {
     const fixture = { id: 30, result_info: "Mexico won after full-time.", postmatchnews: [{ id: 9, lines: [{ text: "Mexico won." }] }], events: [{ type_id: 14, player: { image_path: "p.png", name: "S" } }], venue: { image_path: "v.png" }, participants: [{ image_path: "c1.png" }, { image_path: "c2.png" }] };
-    const env = { NEWS_ENABLED: "true", SPORTMONKS_TOKEN: "t", GEMINI_API_KEY: "g", CONFIG: fakeKv(), __fetchImpl: makeFetch({ fixture, ja: "メキシコ勝利" }) };
+    const env = { NEWS_ENABLED: "true", SPORTMONKS_TOKEN: "t", GCP_SERVICE_ACCOUNT: SA, CONFIG: fakeKv(), __fetchImpl: makeFetch({ fixture, ja: "メキシコ勝利" }) };
     const res = await onRequestGet({ env, request: req("https://x/api/news?id=30&type=postmatch") });
     const body = await res.json();
     expect(body.body.body_ja).toBe("メキシコ勝利");
     expect(body.body.hero).toMatchObject({ kind: "player", url: "p.png" });
+  });
+  it("GCP_SERVICE_ACCOUNT 無しでも 200・英語フォールバック(title_ja=英語)", async () => {
+    const env = { NEWS_ENABLED: "true", SPORTMONKS_TOKEN: "t", CONFIG: fakeKv(),
+      __fetchImpl: makeFetch({ post: [{ id: 9, fixture_id: 30, title: "EN only", type: "postmatch" }] }) };
+    const res = await onRequestGet({ env, request: req("https://x/api/news") });
+    const body = await res.json();
+    expect(body.items[0].title_ja).toBe("EN only");
   });
   it("本文モード不正id は 400", async () => {
     const env = { NEWS_ENABLED: "true", SPORTMONKS_TOKEN: "t", CONFIG: fakeKv() };
@@ -348,8 +400,10 @@ describe("GET /api/news", () => {
 // GET /api/news — ホーム用 W杯ニュース配信。NEWS_ENABLED ゲート＋障害隔離。
 //  - 一覧: news/{pre,post}-match/seasons/{seasonId} を統合＋タイトル日本語訳。
 //  - 本文(?id=&type=): fixture include で lines＋得点者写真＋venue＋スコアを1コール取得し日本語訳。
+//  - 翻訳は既存 GCP サービスアカウント(GCP_SERVICE_ACCOUNT)を流用し Vertex AI へ(grounding 無し)。
 import { json } from "../_lib/http.js";
 import { createSportmonks } from "../_lib/sportmonks.js";
+import { mintGcpAccessToken } from "../_lib/gcp-auth.js";
 import { mergeNewsList, joinLines, pickHero, translationCacheKey, newsBodyInclude } from "../_lib/sm-news.js";
 import { translateToJa } from "../_lib/sm-news-i18n.js";
 
@@ -359,6 +413,36 @@ const BODY_CACHE = "public, s-maxage=21600, stale-while-revalidate=86400";
 function newsByType(fixture, type) {
   const arr = type === "prematch" ? fixture?.prematchnews : fixture?.postmatchnews;
   return Array.isArray(arr) ? arr[0] : null;
+}
+
+// GCP_SERVICE_ACCOUNT からトークンを1回発行し vertex 設定を返す。未設定/失敗は null(英語フォールバック)。
+async function buildVertex(env) {
+  const raw = env.GCP_SERVICE_ACCOUNT;
+  if (!raw) return null;
+  let sa;
+  try {
+    sa = JSON.parse(raw);
+  } catch {
+    console.error("/api/news: GCP_SERVICE_ACCOUNT invalid JSON");
+    return null;
+  }
+  try {
+    const { token } = await mintGcpAccessToken({
+      clientEmail: sa.client_email,
+      privateKey: sa.private_key,
+      fetchImpl: env.__fetchImpl,
+    });
+    return {
+      accessToken: token,
+      project: env.GCP_PROJECT || sa.project_id,
+      location: env.GCP_LOCATION || "global",
+      model: env.NEWS_TRANSLATE_MODEL || undefined,
+      fetchImpl: env.__fetchImpl,
+    };
+  } catch (e) {
+    console.error("/api/news: token mint failed", e?.message);
+    return null;
+  }
 }
 
 export async function onRequestGet(context) {
@@ -372,7 +456,6 @@ export async function onRequestGet(context) {
   const url = new URL(request.url);
   const idParam = url.searchParams.get("id");
   const seasonId = env.WC_SEASON_ID || "26618";
-  const apiKey = env.GEMINI_API_KEY || "";
   const kv = env.CONFIG || null;
   const sm = createSportmonks({ token: env.SPORTMONKS_TOKEN, fetchImpl: env.__fetchImpl });
 
@@ -384,14 +467,17 @@ export async function onRequestGet(context) {
       return json(400, { enabled: true, body: null, error: "invalid id" });
     }
     try {
-      const res = await sm.get(`fixtures/${id}`, { include: newsBodyInclude(type) });
+      const [res, vertex] = await Promise.all([
+        sm.get(`fixtures/${id}`, { include: newsBodyInclude(type) }),
+        buildVertex(env),
+      ]);
       const fx = res?.data;
       const item = newsByType(fx, type);
       const titleEn = item?.title || "";
       const bodyEn = joinLines(item?.lines);
       const [titleJa, bodyJa] = await Promise.all([
-        translateToJa(titleEn, { kv, cacheKey: translationCacheKey(item?.id, "title"), apiKey, fetchImpl: env.__fetchImpl }),
-        translateToJa(bodyEn, { kv, cacheKey: translationCacheKey(item?.id, "body"), apiKey, fetchImpl: env.__fetchImpl }),
+        translateToJa(titleEn, { kv, cacheKey: translationCacheKey(item?.id, "title"), vertex }),
+        translateToJa(bodyEn, { kv, cacheKey: translationCacheKey(item?.id, "body"), vertex }),
       ]);
       return json(200, { enabled: true, body: { title_ja: titleJa, body_ja: bodyJa, hero: pickHero(fx), scoreline: fx?.result_info || "" } }, { "cache-control": BODY_CACHE });
     } catch (err) {
@@ -402,15 +488,16 @@ export async function onRequestGet(context) {
 
   // ── 一覧モード ──
   try {
-    const [preRes, postRes] = await Promise.all([
+    const [preRes, postRes, vertex] = await Promise.all([
       sm.get(`news/pre-match/seasons/${seasonId}`),
       sm.get(`news/post-match/seasons/${seasonId}`),
+      buildVertex(env),
     ]);
     const merged = mergeNewsList(preRes?.data, postRes?.data);
     const items = await Promise.all(
       merged.map(async (it) => ({
         ...it,
-        title_ja: await translateToJa(it.title_en, { kv, cacheKey: translationCacheKey(it.newsitem_id, "title"), apiKey, fetchImpl: env.__fetchImpl }),
+        title_ja: await translateToJa(it.title_en, { kv, cacheKey: translationCacheKey(it.newsitem_id, "title"), vertex }),
       })),
     );
     return json(200, { enabled: true, items }, { "cache-control": LIST_CACHE });
@@ -422,6 +509,11 @@ export async function onRequestGet(context) {
 ```
 
 - [ ] **Step 4: 通過確認** — Run: `npx vitest run functions/api/news.test.js` / Expected: PASS
+  - 注意: `mintGcpAccessToken` は WebCrypto(RS256)で実署名するため、テストのダミー private_key では
+    署名段階で例外になり得る。その場合 `buildVertex` が null を返し英語フォールバック(縮退)で 200。
+    翻訳済みを検証するテスト(一覧/本文の `日本語訳`/`メキシコ勝利`)が token 発行に依存するなら、
+    `mintGcpAccessToken` を vi.mock する（`vi.mock("../_lib/gcp-auth.js", () => ({ mintGcpAccessToken: async () => ({ token: "tok", expiresAt: 9e9 }) }))`）。
+    実装者は WebCrypto 可否に応じて vi.mock を採用すること。
 
 - [ ] **Step 5: 全体テストとコミット**
 
@@ -662,7 +754,7 @@ git commit -m "chore(news): index.html の ?v をバンプ(jsx反映)"
 ### Task 8: 全体検証・PR・Preview デプロイ
 
 - [ ] **Step 1: 全テスト緑** — Run: `npm test` / Expected: 全 PASS
-- [ ] **Step 2: ローカル目視(任意・モック)** — `.dev.vars` に `NEWS_ENABLED=true`＋`GEMINI_API_KEY=<実キー>`(gitignore済)、`wrangler pages dev public --port 8799` 起動。`service_workers="block"` で目視。
+- [ ] **Step 2: ローカル目視(任意・モック)** — `.dev.vars` に `NEWS_ENABLED=true`＋`GCP_SERVICE_ACCOUNT=<SA JSON 1行>`＋必要なら `GCP_PROJECT`/`GCP_LOCATION`(gitignore済。worker-watch で使っている SA を流用)、`wrangler pages dev public --port 8799` 起動。`service_workers="block"` で目視。SA 未設定でも英語フォールバックで動く。
 - [ ] **Step 3: PR 作成(base=main)**
 
 ```bash
@@ -670,7 +762,7 @@ git push -u origin feat/home-news-carousel
 gh pr create --base main --title "feat(news): ホーム ニュースカルーセル(SM+Gemini日本語訳+licensedヒーロー)" --body "設計: docs/superpowers/specs/2026-06-12-home-news-carousel-design.md / 計画: docs/superpowers/plans/2026-06-12-home-news-carousel.md。NEWS_ENABLED=false 既定。Preview で確認後に本番判断。"
 ```
 
-- [ ] **Step 4: Preview 環境設定** — Cloudflare Pages Preview に `NEWS_ENABLED=true`＋secret `GEMINI_API_KEY`。`SPORTMONKS_TOKEN` 流用。⚠️ secret は次回デプロイ時取り込み→設定後に再デプロイ。Preview URL: `https://pr-<N>.wcup2026-yosou.pages.dev`。
+- [ ] **Step 4: Preview 環境設定** — Cloudflare Pages Preview に `NEWS_ENABLED=true`＋secret `GCP_SERVICE_ACCOUNT`(worker-watch と同じ SA JSON を `wrangler pages secret put GCP_SERVICE_ACCOUNT --project-name wcup2026-yosou`)。必要なら var `GCP_LOCATION`/`GCP_PROJECT`。`SPORTMONKS_TOKEN` 流用。⚠️ secret は次回デプロイ時取り込み→設定後に再デプロイ。Preview URL: `https://pr-<N>.wcup2026-yosou.pages.dev`。
 - [ ] **Step 5: Preview 目視チェックリスト**
   - [ ] 試合カルーセル下にニュースカルーセル表示
   - [ ] タイトル日本語化(翻訳失敗時は英語でも落ちない)
@@ -687,6 +779,7 @@ gh pr create --base main --title "feat(news): ホーム ニュースカルーセ
 
 - spec の各節(データソース/アーキ/フロント/フラグ/テスト/デプロイ/リスク)に対応タスクあり。
 - pre-match 本文フィールド `prematchnews` は post(`postmatchnews` 実測済)と同型を仮定(spec オープン事項)。Task 8 目視で要確認(小文字 `prematchnews` か camel か)。
-- 翻訳モデルは spec の pro でなく flash(翻訳用途で十分・高速安価)に確定。
+- 翻訳モデルは spec の pro でなく flash(翻訳用途で十分・高速安価)に確定。Vertex 経由(`gemini-2.5-flash`・env `NEWS_TRANSLATE_MODEL` で上書き可)。
+- 翻訳認証は新規キーを作らず既存 `GCP_SERVICE_ACCOUNT`(worker-watch で本番稼働中の SA)を Pages にも登録して流用。トークン発行は `mintGcpAccessToken` 再利用・リクエスト1回。
 - ヒーロー写真は本文モードでのみ取得(一覧は軽量・spec 3.4 準拠)。
 - `T.accent` が無いテーマ向けに `#2563eb` フォールバックを明示。
