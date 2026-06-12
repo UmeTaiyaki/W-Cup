@@ -411,17 +411,16 @@ function PlaceholderBody({ T, label }) {
 	);
 }
 
-// ── ハイライトタブ ────────────────────────────────────────────────────────
-// 終了試合(FT)のみ表示。highlight.video_id があれば YouTube 埋め込み、無ければ「準備中」。
+// ── ハイライト常設ブロック ────────────────────────────────────────────────
+// スコアヘッダーとタブバーの間に置く。highlight.video_id がある時だけ表示（無ければ何も出さない）。
+// 表示可否は API 側の HIGHLIGHTS_ENABLED ゲートにも依存（OFF時は highlight=null）。
 // プライバシー強化ドメイン youtube-nocookie を使う。
-function HighlightTab({ T, detail }) {
+function HighlightSection({ T, detail }) {
 	const hl = detail && detail.highlight;
-	if (!hl || !hl.video_id) {
-		return <PlaceholderBody T={T} label="ハイライトは準備中です" />;
-	}
+	if (!hl || !hl.video_id) return null;
 	const src = `https://www.youtube-nocookie.com/embed/${hl.video_id}`;
 	return (
-		<div style={{ padding: "16px" }}>
+		<div style={{ padding: "12px 16px 4px" }}>
 			{/* 16:9 レスポンシブ枠 */}
 			<div
 				style={{
@@ -3141,15 +3140,8 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 
 	const fx = detail.fixture;
 
-	// FT(終了)試合のみ「ハイライト」タブを先頭(一番左)に追加。
-	const tabs =
-		fx && fx.status === "FT"
-			? [{ id: "highlight", label: "ハイライト" }, ...DETAIL_TABS]
-			: DETAIL_TABS;
-
 	function renderTabBody() {
 		if (tab === "timeline") return <TimelineTab T={T} detail={detail} />;
-		if (tab === "highlight") return <HighlightTab T={T} detail={detail} />;
 		if (tab === "ai") return <AiTab T={T} detail={detail} />;
 		if (tab === "stats") return <StatsTab T={T} detail={detail} />;
 		if (tab === "xg") return <XgTab T={T} detail={detail} />;
@@ -3171,8 +3163,11 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 			{/* 固定スコアヘッダー（戻るボタンを内包） */}
 			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
+			{/* ハイライト常設ブロック（スコアヘッダーとタブバーの間。FT＋動画ありの時だけ表示） */}
+			<HighlightSection T={T} detail={detail} />
+
 			{/* タブバー */}
-			<DetailTabBar T={T} tab={tab} setTab={setTab} tabs={tabs} />
+			<DetailTabBar T={T} tab={tab} setTab={setTab} />
 
 			{/* タブ本体 */}
 			<div style={{ flex: 1, overflowY: "auto" }}>{renderTabBody()}</div>
@@ -3189,7 +3184,7 @@ Object.assign(window, {
 	StatsTab,
 	XgTab,
 	LineupTab,
-	HighlightTab,
+	HighlightSection,
 	H2HPlaceholder,
 	DetailSkeleton,
 	DetailUnavailable,
