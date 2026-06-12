@@ -2340,19 +2340,21 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					))}
 				</div>
 			)}
-			{/* 交代OUT（先発が退く・左下）。丸の下端付近に置き、名前ラベルと被らせない。 */}
+			{/* 交代OUT（先発が退く）。コンパクトにして左下角へ寄せ、顔と名前への被りを最小化。 */}
 			{ev && ev.subOff != null && (
 				<div
 					style={{
 						position: "absolute",
-						bottom: 3,
-						left: -8,
+						bottom: 1,
+						left: -11,
 						background: "rgba(255,90,90,0.92)",
 						color: "#1a0c0c",
-						fontSize: 9,
+						fontSize: 8,
 						fontWeight: 900,
-						padding: "0 4px",
-						borderRadius: 6,
+						lineHeight: 1.5,
+						padding: "0 2.5px",
+						borderRadius: 5,
+						whiteSpace: "nowrap",
 						zIndex: 3,
 					}}
 				>
