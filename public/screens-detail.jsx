@@ -1958,7 +1958,8 @@ function PlayerSheet({ T, player, onClose }) {
 							weight: player.weight,
 							date_of_birth: player.date_of_birth,
 							preferred_foot: null,
-							detailed_position: player.detailed_position || player.position,
+							detailed_position:
+								player.detailed_position || positionLabel(player.position),
 							nationality_name: player.nationality_name,
 							club_name: player.club_name,
 							club_image: player.club_image,
@@ -2198,26 +2199,46 @@ function PlayerMarks({ ev, size = 12 }) {
 	);
 }
 
+// SportMonks の一般ポジション position_id を略号へ。未知はそのまま返す（障害隔離）。
+const POSITION_LABELS = { 24: "GK", 25: "DF", 26: "MF", 27: "FW" };
+function positionLabel(position) {
+	if (position == null || position === "") return null;
+	return POSITION_LABELS[Number(position)] || String(position);
+}
+function isGoalkeeper(player) {
+	return String(player?.position) === "24";
+}
+// GK を際立たせるアクセント（参考: SofaScore 風）。
+const GK_ACCENT = "#f59e0b";
+const GK_INK = "#3a2400";
+
 // ── PlayerAvatar: 顔写真の丸（PlayerDot/BenchList 共用） ───────────────────
 // 画像が無い/読み込み失敗時は背番号の色付き丸へフォールバック（graceful degradation）。
 // overflow:hidden で写真を円形にクリップ。バッジ類は呼び出し側が外側に重ねる。
+// GK は accent/ink を差し替えて色分け（写真があれば写真が優先表示される）。
 function PlayerAvatar({ T, player, size }) {
 	const num = player.jersey_number;
+	const gk = isGoalkeeper(player);
 	return (
 		<div
 			style={{
 				width: size,
 				height: size,
 				borderRadius: "50%",
-				background: T.accent,
-				color: T.accentInk,
+				background: gk ? GK_ACCENT : T.accent,
+				color: gk ? GK_INK : T.accentInk,
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
 				fontWeight: 900,
 				fontSize: Math.round(size * 0.34),
-				border: "2px solid rgba(255,255,255,0.85)",
-				boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+				// GK は枠をアクセント色に（写真があっても識別できる）。
+				border: gk
+					? `2.5px solid ${GK_ACCENT}`
+					: "2px solid rgba(255,255,255,0.85)",
+				boxShadow: gk
+					? `0 0 0 1px ${GK_ACCENT}55, 0 2px 6px rgba(0,0,0,0.35)`
+					: "0 2px 6px rgba(0,0,0,0.35)",
 				position: "relative",
 				overflow: "hidden",
 				flexShrink: 0,
@@ -2624,9 +2645,17 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 									↑{sub}'
 								</span>
 							)}
-							{p.position && (
-								<span style={{ fontSize: 11, fontWeight: 800, color: T.faint }}>
-									{p.position}
+							{positionLabel(p.position) && (
+								<span
+									style={{
+										fontSize: 10.5,
+										fontWeight: 800,
+										color: isGoalkeeper(p) ? GK_ACCENT : T.faint,
+										minWidth: 22,
+										textAlign: "right",
+									}}
+								>
+									{positionLabel(p.position)}
 								</span>
 							)}
 						</span>
