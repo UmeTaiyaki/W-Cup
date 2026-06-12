@@ -2241,15 +2241,15 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					<div
 						style={{
 							position: "absolute",
-							top: -6,
-							right: -6,
+							top: -8,
+							right: -8,
 							display: "inline-flex",
 						}}
 					>
 						{hasRed ? (
-							<IcoCard s={13} color="#EA3B2E" stroke="#B5241A" />
+							<IcoCard s={17} color="#EA3B2E" stroke="#B5241A" />
 						) : (
-							<IcoCard s={13} color="#FFCB05" stroke="#C99A00" />
+							<IcoCard s={17} color="#FFCB05" stroke="#C99A00" />
 						)}
 					</div>
 				)}
@@ -2258,8 +2258,8 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					<div
 						style={{
 							position: "absolute",
-							bottom: -6,
-							right: -6,
+							bottom: -8,
+							right: -8,
 							display: "inline-flex",
 							alignItems: "center",
 							gap: 1,
@@ -2267,7 +2267,7 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					>
 						{goals.map((g, i) => (
 							<span key={"g" + i} style={{ display: "inline-flex" }}>
-								{g.own ? <IcoOwnGoal s={12} /> : <IcoSoccerBall s={12} />}
+								{g.own ? <IcoOwnGoal s={17} /> : <IcoSoccerBall s={17} />}
 							</span>
 						))}
 					</div>
@@ -2277,14 +2277,14 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 					<div
 						style={{
 							position: "absolute",
-							bottom: -7,
-							left: -8,
+							bottom: -9,
+							left: -10,
 							background: "rgba(255,90,90,0.92)",
 							color: "#1a0c0c",
-							fontSize: 7.5,
+							fontSize: 9,
 							fontWeight: 900,
-							padding: "0 3px",
-							borderRadius: 5,
+							padding: "0 4px",
+							borderRadius: 6,
 						}}
 					>
 						↓{ev.subOff}'
@@ -2294,12 +2294,12 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 			{/* 苗字 */}
 			<div
 				style={{
-					fontSize: 9,
+					fontSize: 10.5,
 					fontWeight: 700,
 					color: T.text,
-					marginTop: 3,
+					marginTop: 4,
 					whiteSpace: "nowrap",
-					maxWidth: 52,
+					maxWidth: 58,
 					overflow: "hidden",
 					textOverflow: "ellipsis",
 					textShadow: "0 1px 3px rgba(0,0,0,0.7)",
@@ -2528,16 +2528,16 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 								gap: 8,
 							}}
 						>
-							<PlayerMarks ev={pev} size={14} />
+							<PlayerMarks ev={pev} size={18} />
 							{sub != null && (
 								<span
-									style={{ fontSize: 10, fontWeight: 900, color: T.accent }}
+									style={{ fontSize: 12, fontWeight: 900, color: T.accent }}
 								>
 									↑{sub}'
 								</span>
 							)}
 							{p.position && (
-								<span style={{ fontSize: 10, fontWeight: 800, color: T.faint }}>
+								<span style={{ fontSize: 11, fontWeight: 800, color: T.faint }}>
 									{p.position}
 								</span>
 							)}
