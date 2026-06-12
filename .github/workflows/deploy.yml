@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # GitHub が push トリガーを取りこぼした時などに、main へ手動で本番デプロイを再起動できる。
+  # 手動実行(workflow_dispatch)は event_name が pull_request でないため Deploy 先は 'main'(本番)に解決される。
+  workflow_dispatch:
 
 # 同一ブランチの古い実行は新しい push でキャンセルする
 concurrency:
