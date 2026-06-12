@@ -502,42 +502,55 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
 // ── タイムライン用 SVG アイコン ───────────────────────────────────────────
 // 暗背景(pitch-night)でも視認できる高コントラスト配色。viewBox 24×24・既定16px。
 // ボールの内部パターンは BallPaths を共有し、取消/オウンゴール等で配色だけ差し替える。
-// サッカーボール柄(Telstar): 中央＋外周5枚の黒ペンタゴン＋シーム。
-// パスは規則ペンタゴンから生成した固定値（中央R3.2/外周R2.6・中心半径6.5で実寸でも黒斑が残る）。
+// 本格フットボール柄: 中央＋外周5枚の黒ペンタゴン(頂点方向・内向き)を円縁でクリップし、
+// 白ヘキサゴンとの古典的配置にする＋中央頂点から外周へシーム。パスは規則ペンタゴン生成の固定値。
+// 外周ペンタゴンは円外まで張り出し clipPath(円)で切るため、シルエットに「途切れたペンタゴン」が出る。
 const BALL_PATCHES = [
-	"M12.00 8.80L15.04 11.01L13.88 14.59L10.12 14.59L8.96 11.01Z",
-	"M17.35 4.64L18.29 7.54L15.82 9.34L13.35 7.54L14.29 4.64Z",
-	"M20.65 14.81L18.18 16.61L15.71 14.81L16.65 11.91L19.71 11.91Z",
-	"M12.00 21.10L9.53 19.30L10.47 16.40L13.53 16.40L14.47 19.30Z",
-	"M3.35 14.81L4.29 11.91L7.35 11.91L8.29 14.81L5.82 16.61Z",
-	"M6.65 4.64L9.71 4.64L10.65 7.54L8.18 9.34L5.71 7.54Z",
+	"M12.00 8.60L15.23 10.95L14.00 14.75L10.00 14.75L8.77 10.95Z",
+	"M12.00 6.80L8.96 4.59L10.12 1.01L13.88 1.01L15.04 4.59Z",
+	"M16.95 10.39L18.11 6.82L21.87 6.82L23.03 10.39L19.99 12.60Z",
+	"M15.06 16.21L18.82 16.21L19.98 19.78L16.94 22.00L13.89 19.78Z",
+	"M8.94 16.21L10.11 19.78L7.06 22.00L4.02 19.78L5.18 16.21Z",
+	"M7.05 10.39L4.01 12.60L0.97 10.39L2.13 6.82L5.89 6.82Z",
 ];
 const BALL_SEAMS = [
-	"M12.00 8.80 L12.00 2.90",
-	"M15.04 11.01 L20.65 9.19",
-	"M13.88 14.59 L17.35 19.36",
-	"M10.12 14.59 L6.65 19.36",
-	"M8.96 11.01 L3.35 9.19",
+	"M12.00 8.60 L12.00 2.60",
+	"M15.23 10.95 L20.94 9.10",
+	"M14.00 14.75 L17.53 19.60",
+	"M10.00 14.75 L6.47 19.60",
+	"M8.77 10.95 L3.06 9.10",
 ];
+// clipPath は要素ごとに一意な id が要る（複数ボール同時描画でも干渉しない）。
+let _ballSeq = 0;
 function BallPaths({ white, dark }) {
+	const idRef = React.useRef(null);
+	if (idRef.current == null) idRef.current = "wcBallClip" + _ballSeq++;
+	const cid = idRef.current;
 	return (
 		<>
+			<defs>
+				<clipPath id={cid}>
+					<circle cx="12" cy="12" r="9.4" />
+				</clipPath>
+			</defs>
 			<circle
 				cx="12"
 				cy="12"
 				r="9.4"
 				fill={white}
 				stroke={dark}
-				strokeWidth="1.1"
+				strokeWidth="1.2"
 			/>
-			<g stroke={dark} strokeWidth="1" fill="none" strokeLinecap="round">
-				{BALL_SEAMS.map((d, i) => (
-					<path key={i} d={d} />
+			<g clipPath={`url(#${cid})`}>
+				{BALL_PATCHES.map((d, i) => (
+					<path key={i} d={d} fill={dark} />
 				))}
+				<g stroke={dark} strokeWidth="1.1" fill="none" strokeLinecap="round">
+					{BALL_SEAMS.map((d, i) => (
+						<path key={i} d={d} />
+					))}
+				</g>
 			</g>
-			{BALL_PATCHES.map((d, i) => (
-				<path key={i} d={d} fill={dark} />
-			))}
 		</>
 	);
 }
