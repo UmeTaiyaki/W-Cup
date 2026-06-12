@@ -4,7 +4,11 @@
 import { DEFAULT_CONFIG } from "../_lib/defaults.js";
 import { json } from "../_lib/http.js";
 import { listFixtures, listTopscorers } from "../_lib/sm-read.js";
-import { deriveGroupMatches, deriveResult } from "../_lib/sm-results.js";
+import {
+	deriveGroupMatches,
+	deriveResult,
+	deriveScorers,
+} from "../_lib/sm-results.js";
 
 const SEASON_2026 = 26618;
 // エッジキャッシュTTL(秒)。全利用者共通の導出データを Cloudflare エッジで配信し、
@@ -45,8 +49,16 @@ export async function onRequestGet(context) {
 		const topscorers = await listTopscorers(env.DB, SEASON_2026);
 		const result = deriveResult(fixtures, topscorers, groups);
 		const groupMatches = deriveGroupMatches(fixtures, groups);
+		// 得点王ランキング表示用（フロントはライブ取得時に手動 SCORERS より優先）。
+		const scorers = deriveScorers(topscorers);
 		const resp = new Response(
-			JSON.stringify({ enabled: true, result, groupMatches, updatedAt: null }),
+			JSON.stringify({
+				enabled: true,
+				result,
+				groupMatches,
+				scorers,
+				updatedAt: null,
+			}),
 			{
 				status: 200,
 				headers: {
