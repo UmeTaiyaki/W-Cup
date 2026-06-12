@@ -6,6 +6,7 @@ import {
 	listTopscorers,
 	mapFixtureRow,
 	reconcileVarDisallowedGoals,
+	resolveHighlight,
 	statusFromState,
 } from "./sm-read.js";
 
@@ -18,13 +19,16 @@ function makeFakeDb({
 	lineups = [],
 	playerStats = [],
 	matchAi = [],
+	highlights = [],
 } = {}) {
 	return {
 		prepare: (sql) => ({
 			bind: (_id) => ({
 				all: async () => {
 					let results;
-					if (sql.includes("sm_match_ai")) {
+					if (sql.includes("sm_highlights")) {
+						results = highlights;
+					} else if (sql.includes("sm_match_ai")) {
 						results = matchAi;
 					} else if (sql.includes("sm_player_stats")) {
 						results = playerStats;
@@ -288,4 +292,58 @@ test("reconcileVarDisallowedGoals: VARが無ければそのまま返す", () => 
 	const events = [{ sm_event_id: 1, minute: 10, type: "goal", player_id: 1 }];
 	assert.equal(reconcileVarDisallowedGoals(events), events);
 	assert.deepEqual(reconcileVarDisallowedGoals(null), []);
+});
+
+test("resolveHighlight: manual を最優先で選ぶ", () => {
+	const rows = [
+		{ source: "fifa", video_id: "fifaVIDEO11", title: "FIFA" },
+		{ source: "manual", video_id: "manualVID11", title: "Manual" },
+		{ source: "dazn", video_id: "daznVIDEO11", title: "DAZN" },
+	];
+	assert.deepEqual(resolveHighlight(rows), {
+		video_id: "manualVID11",
+		source: "manual",
+		title: "Manual",
+	});
+});
+
+test("resolveHighlight: manual 無しなら dazn > fifa", () => {
+	const rows = [
+		{ source: "fifa", video_id: "fifaVIDEO11", title: "FIFA" },
+		{ source: "dazn", video_id: "daznVIDEO11", title: "DAZN" },
+	];
+	assert.equal(resolveHighlight(rows).source, "dazn");
+});
+
+test("resolveHighlight: video_id が無い行は無視", () => {
+	const rows = [
+		{ source: "manual", video_id: null, title: "空manual" },
+		{ source: "fifa", video_id: "fifaVIDEO11", title: "FIFA" },
+	];
+	assert.equal(resolveHighlight(rows).source, "fifa");
+});
+
+test("resolveHighlight: 空・null は null", () => {
+	assert.equal(resolveHighlight([]), null);
+	assert.equal(resolveHighlight(null), null);
+	assert.equal(resolveHighlight([{ source: "manual", video_id: null }]), null);
+});
+
+test("getFixtureDetail: highlight を解決して返す", async () => {
+	const db = makeFakeDb({
+		fixture: [{ sm_fixture_id: 9, state_id: 5 }],
+		highlights: [
+			{ source: "manual", video_id: "manualVID11", title: "M" },
+			{ source: "dazn", video_id: "daznVIDEO11", title: "D" },
+		],
+	});
+	const out = await getFixtureDetail(db, 9);
+	assert.equal(out.highlight.video_id, "manualVID11");
+	assert.equal(out.highlight.source, "manual");
+});
+
+test("getFixtureDetail: highlight 無しは null", async () => {
+	const db = makeFakeDb({ fixture: [{ sm_fixture_id: 9, state_id: 5 }] });
+	const out = await getFixtureDetail(db, 9);
+	assert.equal(out.highlight, null);
 });

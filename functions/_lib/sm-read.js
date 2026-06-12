@@ -118,6 +118,32 @@ export function reconcileVarDisallowedGoals(events) {
 	return out.filter((e) => !drop.has(e.sm_event_id));
 }
 
+// ハイライト動画のソース優先順位（小さいほど優先）。手動が最優先で自動に上書きされない。
+const HIGHLIGHT_SOURCE_PRIORITY = {
+	manual: 0,
+	dazn: 1,
+	fifa: 2,
+	sportmonks: 3,
+};
+
+// sm_highlights 行群から表示する1本を解決する（純粋）。
+// video_id を持つ行のうち最優先 source を選ぶ。無ければ null。
+export function resolveHighlight(rows) {
+	const list = (Array.isArray(rows) ? rows : []).filter((r) => r && r.video_id);
+	if (list.length === 0) return null;
+	list.sort(
+		(a, b) =>
+			(HIGHLIGHT_SOURCE_PRIORITY[a.source] ?? 99) -
+			(HIGHLIGHT_SOURCE_PRIORITY[b.source] ?? 99),
+	);
+	const top = list[0];
+	return {
+		video_id: top.video_id,
+		source: top.source,
+		title: top.title ?? null,
+	};
+}
+
 export async function getFixtureDetail(db, id) {
 	const fxRes = await db.prepare(FIXTURE_ONE_SQL).bind(id).all();
 	const fxRow = (Array.isArray(fxRes?.results) ? fxRes.results : [])[0];
@@ -147,7 +173,17 @@ export async function getFixtureDetail(db, id) {
 		model: r.model ?? null,
 		generated_at: r.updated_at ?? null,
 	}));
-	return { fixture, events, stats, lineups, player_stats, ai };
+	// ハイライト動画（手動/自動）。テーブル未作成や読み失敗でも例外を投げず null（障害隔離）。
+	let highlight = null;
+	try {
+		const hlRows = await all(
+			"SELECT source, video_id, title FROM sm_highlights WHERE sm_fixture_id = ?",
+		);
+		highlight = resolveHighlight(hlRows);
+	} catch (e) {
+		console.error("getFixtureDetail: highlights read failed", e?.message);
+	}
+	return { fixture, events, stats, lineups, player_stats, ai, highlight };
 }
 
 // 得点王ランキング。topscorers.team_id を sm_teams.app_code で解決し、

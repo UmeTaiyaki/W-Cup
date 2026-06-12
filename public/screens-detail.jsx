@@ -340,7 +340,8 @@ function DetailHeader({ T, fx, goBack }) {
 }
 
 // ── DetailTabBar ──────────────────────────────────────────────────────────
-function DetailTabBar({ T, tab, setTab }) {
+// tabs は表示するタブ配列（試合状態で増減する。例: FTのみ「ハイライト」を含む）。
+function DetailTabBar({ T, tab, setTab, tabs = DETAIL_TABS }) {
 	return (
 		<div
 			style={{
@@ -364,7 +365,7 @@ function DetailTabBar({ T, tab, setTab }) {
 					scrollbarWidth: "none",
 				}}
 			>
-				{DETAIL_TABS.map((t) => {
+				{tabs.map((t) => {
 					const active = tab === t.id;
 					return (
 						<button
@@ -406,6 +407,63 @@ function PlaceholderBody({ T, label }) {
 			}}
 		>
 			{label}（このタブは実装予定）
+		</div>
+	);
+}
+
+// ── ハイライトタブ ────────────────────────────────────────────────────────
+// 終了試合(FT)のみ表示。highlight.video_id があれば YouTube 埋め込み、無ければ「準備中」。
+// プライバシー強化ドメイン youtube-nocookie を使う。
+function HighlightTab({ T, detail }) {
+	const hl = detail && detail.highlight;
+	if (!hl || !hl.video_id) {
+		return <PlaceholderBody T={T} label="ハイライトは準備中です" />;
+	}
+	const src = `https://www.youtube-nocookie.com/embed/${hl.video_id}`;
+	return (
+		<div style={{ padding: "16px" }}>
+			{/* 16:9 レスポンシブ枠 */}
+			<div
+				style={{
+					position: "relative",
+					width: "100%",
+					paddingTop: "56.25%",
+					borderRadius: 12,
+					overflow: "hidden",
+					background: "#000",
+					border: `1px solid ${T.line}`,
+				}}
+			>
+				<iframe
+					src={src}
+					title="試合ハイライト"
+					loading="lazy"
+					allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+					allowFullScreen
+					referrerPolicy="strict-origin-when-cross-origin"
+					style={{
+						position: "absolute",
+						top: 0,
+						left: 0,
+						width: "100%",
+						height: "100%",
+						border: "none",
+					}}
+				/>
+			</div>
+			{hl.title ? (
+				<div
+					style={{
+						marginTop: 10,
+						fontSize: 12.5,
+						color: T.sub,
+						fontWeight: 700,
+						lineHeight: 1.5,
+					}}
+				>
+					{hl.title}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -2961,6 +3019,12 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 		}
 	}, []);
 
+	// 別の試合へ遷移(fixtureId変化)したら先頭タブへ戻す。
+	// FT試合だけの「ハイライト」を選んだまま非FT試合に移ってタブが消えても残留しないように。
+	React.useEffect(() => {
+		setTab("timeline");
+	}, [fixtureId]);
+
 	React.useEffect(() => {
 		if (fixtureId == null) return;
 		let alive = true;
@@ -3001,8 +3065,19 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 
 	const fx = detail.fixture;
 
+	// FT(終了)試合のみ「ハイライト」タブを追加（タイムラインの隣）。
+	const tabs =
+		fx && fx.status === "FT"
+			? [
+					DETAIL_TABS[0],
+					{ id: "highlight", label: "ハイライト" },
+					...DETAIL_TABS.slice(1),
+				]
+			: DETAIL_TABS;
+
 	function renderTabBody() {
 		if (tab === "timeline") return <TimelineTab T={T} detail={detail} />;
+		if (tab === "highlight") return <HighlightTab T={T} detail={detail} />;
 		if (tab === "ai") return <AiTab T={T} detail={detail} />;
 		if (tab === "stats") return <StatsTab T={T} detail={detail} />;
 		if (tab === "xg") return <XgTab T={T} detail={detail} />;
@@ -3025,7 +3100,7 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
 			{/* タブバー */}
-			<DetailTabBar T={T} tab={tab} setTab={setTab} />
+			<DetailTabBar T={T} tab={tab} setTab={setTab} tabs={tabs} />
 
 			{/* タブ本体 */}
 			<div style={{ flex: 1, overflowY: "auto" }}>{renderTabBody()}</div>
@@ -3042,6 +3117,7 @@ Object.assign(window, {
 	StatsTab,
 	XgTab,
 	LineupTab,
+	HighlightTab,
 	H2HPlaceholder,
 	DetailSkeleton,
 	DetailUnavailable,
