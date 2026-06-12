@@ -159,6 +159,44 @@ test("deriveBracket はラウンドFT勝者コードを返す", () => {
 	assert.deepEqual(b.qf, ["ARG"]);
 });
 
+test("deriveBracket: PK決着(本スコア同点)はPK戦スコアで勝者を決める", () => {
+	// 2022 Morocco vs Spain 実例形: 0-0でPK 3-0 Morocco
+	const fx = [
+		{
+			status: "FT",
+			round_name: "Round of 16",
+			home: { app_code: "MAR", score: 0, pen_score: 3 },
+			away: { app_code: "ESP", score: 0, pen_score: 0 },
+		},
+	];
+	assert.deepEqual(deriveBracket(fx).r16, ["MAR"]);
+});
+
+test("deriveBracket: 本スコア同点でPK情報なしは勝者なし（試合中/未到達）", () => {
+	const fx = [
+		{
+			status: "FT",
+			round_name: "Round of 16",
+			home: { app_code: "MAR", score: 0, pen_score: null },
+			away: { app_code: "ESP", score: 0, pen_score: null },
+		},
+	];
+	assert.deepEqual(deriveBracket(fx).r16, []);
+});
+
+test("deriveChampion: 決勝PK決着もPK戦スコアで優勝を判定", () => {
+	// 2022 決勝 Argentina 3-3 France, PK 4-2 Argentina
+	const fx = [
+		{
+			status: "FT",
+			round_name: "Final",
+			home: { app_code: "ARG", score: 3, pen_score: 4 },
+			away: { app_code: "FRA", score: 3, pen_score: 2 },
+		},
+	];
+	assert.deepEqual(deriveChampion(fx), { champion: "ARG", runnerUp: "FRA" });
+});
+
 test("deriveTopScorer は position 最小（goals 最大）を '名前 (CODE)' で返す", () => {
 	const rows = [
 		{ player_name: "B", app_code: "FRA", goals: 4, position: 2 },

@@ -119,6 +119,11 @@ function DetailHeader({ T, fx, goBack }) {
 		homeScore != null && awayScore != null
 			? `${homeScore} - ${awayScore}`
 			: "–";
+	// PK決着の表示（KO戦で本スコア同点→PK戦スコアで決着）
+	const penStr =
+		fx.home.pen_score != null && fx.away.pen_score != null
+			? `PK ${fx.home.pen_score} - ${fx.away.pen_score}`
+			: null;
 
 	// スコアが変化したら数字をポップさせる（key を変えて再マウント＝アニメ再生）
 	const [scorePop, setScorePop] = React.useState(0);
@@ -301,6 +306,18 @@ function DetailHeader({ T, fx, goBack }) {
 					>
 						{scoreStr}
 					</div>
+					{penStr && (
+						<div
+							style={{
+								fontSize: 12,
+								fontWeight: 800,
+								color: T.accent,
+								marginTop: 1,
+							}}
+						>
+							{penStr}
+						</div>
+					)}
 					{statusBadge}
 				</div>
 				{/* アウェイ */}

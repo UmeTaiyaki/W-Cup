@@ -36,6 +36,9 @@ export function resolveEventType(e) {
 
 // 最終/現在スコアは scores[].description == 'CURRENT'（type_id=1525）から取る。
 const SCORE_CURRENT = "CURRENT";
+// PK戦スコアは scores[].description == 'PENALTY_SHOOTOUT'（type_id=5）。本スコア(CURRENT)とは別。
+// KO戦のPK決着で勝者を決める唯一の確実な信号（CURRENT は延長までで同点になるため）。
+const SCORE_PENALTY = "PENALTY_SHOOTOUT";
 
 function participantsByLocation(detail) {
 	const parts = Array.isArray(detail?.participants) ? detail.participants : [];
@@ -44,13 +47,19 @@ function participantsByLocation(detail) {
 	return { home, away };
 }
 
-function currentGoals(detail, participant) {
+function scoreByDescription(detail, description, participant) {
 	const scores = Array.isArray(detail?.scores) ? detail.scores : [];
 	const hit = scores.find(
 		(s) =>
-			s?.description === SCORE_CURRENT && s?.score?.participant === participant,
+			s?.description === description && s?.score?.participant === participant,
 	);
 	return hit ? hit.score.goals : null;
+}
+function currentGoals(detail, participant) {
+	return scoreByDescription(detail, SCORE_CURRENT, participant);
+}
+function penaltyGoals(detail, participant) {
+	return scoreByDescription(detail, SCORE_PENALTY, participant);
 }
 
 // xG は xGFixture include（レスポンスキー xgfixture・配列）から location で取る。
@@ -110,6 +119,8 @@ export function toFixtureRow(detail) {
 		away_team_id: away?.id ?? null,
 		home_score: currentGoals(detail, "home"),
 		away_score: currentGoals(detail, "away"),
+		home_pen: penaltyGoals(detail, "home"), // PK戦スコア（無→null）
+		away_pen: penaltyGoals(detail, "away"),
 		home_xg: xgFor(detail, "home"),
 		away_xg: xgFor(detail, "away"),
 		venue: null, // venue_id のみ。名称は venues include で後付け
@@ -223,7 +234,8 @@ export function toTypeRows(types) {
 // season topscorers data[] → sm_topscorers 行（純変換）
 // ゴール得点王のみ抽出（GOAL_TYPE_ID）。アシスト/カード種別は除外。
 // app_code は participant→sm_teams の解決を要するため取り込み時は null、配信側 JOIN で埋める。
-export const GOAL_TYPE_ID = 208; // 仮値: 本大会データで実 type_id を検証・修正する
+// 208=Goal Topscorer（2026実データで確定: 209=Assist/84=Yellow/83=Red と区別）。
+export const GOAL_TYPE_ID = 208;
 export function toTopscorerRows(body, seasonId) {
 	const list = Array.isArray(body?.data) ? body.data : [];
 	return list
