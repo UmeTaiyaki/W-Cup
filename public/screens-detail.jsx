@@ -2189,11 +2189,15 @@ function PlayerMarks({ ev, size = 12 }) {
 }
 
 // ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
+// マーク配置（参考画像準拠）: カード=右上 / ゴール(数分のボール)=右下 / 交代OUT=左下。
 function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 	const sn = surname(player.player_name);
-	const hasMarks =
-		ev &&
-		((ev.goals && ev.goals.length > 0) || (ev.cards && ev.cards.length > 0));
+	const goals = (ev && ev.goals) || [];
+	const cards = (ev && ev.cards) || [];
+	const hasRed = cards.some(
+		(c) => c.type === "redcard" || c.type === "yellowredcard",
+	);
+	const hasYellow = cards.some((c) => c.type === "yellowcard");
 
 	return (
 		<div
@@ -2232,13 +2236,49 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 				}}
 			>
 				{player.jersey_number}
-				{/* 交代OUT（先発が退く） */}
+				{/* カード（右上・赤系優先） */}
+				{(hasRed || hasYellow) && (
+					<div
+						style={{
+							position: "absolute",
+							top: -6,
+							right: -6,
+							display: "inline-flex",
+						}}
+					>
+						{hasRed ? (
+							<IcoCard s={13} color="#EA3B2E" stroke="#B5241A" />
+						) : (
+							<IcoCard s={13} color="#FFCB05" stroke="#C99A00" />
+						)}
+					</div>
+				)}
+				{/* ゴール（右下・得点数分のボール） */}
+				{goals.length > 0 && (
+					<div
+						style={{
+							position: "absolute",
+							bottom: -6,
+							right: -6,
+							display: "inline-flex",
+							alignItems: "center",
+							gap: 1,
+						}}
+					>
+						{goals.map((g, i) => (
+							<span key={"g" + i} style={{ display: "inline-flex" }}>
+								{g.own ? <IcoOwnGoal s={12} /> : <IcoSoccerBall s={12} />}
+							</span>
+						))}
+					</div>
+				)}
+				{/* 交代OUT（先発が退く・左下） */}
 				{ev && ev.subOff != null && (
 					<div
 						style={{
 							position: "absolute",
 							bottom: -7,
-							right: -8,
+							left: -8,
 							background: "rgba(255,90,90,0.92)",
 							color: "#1a0c0c",
 							fontSize: 7.5,
@@ -2267,12 +2307,6 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 			>
 				{sn}
 			</div>
-			{/* イベントマーク（ゴール数分のボール＋カード） */}
-			{hasMarks && (
-				<div style={{ marginTop: 2 }}>
-					<PlayerMarks ev={ev} size={12} />
-				</div>
-			)}
 		</div>
 	);
 }
@@ -2485,32 +2519,29 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 						<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
 							{p.player_name}
 						</span>
-						{/* ゴール数分のボール＋カード（途中出場の活躍） */}
-						<PlayerMarks ev={pev} size={13} />
-						{sub != null ? (
-							<span
-								style={{
-									fontSize: 10,
-									fontWeight: 900,
-									color: T.accent,
-									marginLeft: "auto",
-								}}
-							>
-								↑{sub}'
-							</span>
-						) : null}
-						{p.position && (
-							<span
-								style={{
-									fontSize: 10,
-									fontWeight: 800,
-									color: T.faint,
-									marginLeft: sub != null ? 8 : "auto",
-								}}
-							>
-								{p.position}
-							</span>
-						)}
+						{/* 右端クラスタ: マーク（ゴール/カード）→ 交代時間 → ポジション */}
+						<span
+							style={{
+								marginLeft: "auto",
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 8,
+							}}
+						>
+							<PlayerMarks ev={pev} size={14} />
+							{sub != null && (
+								<span
+									style={{ fontSize: 10, fontWeight: 900, color: T.accent }}
+								>
+									↑{sub}'
+								</span>
+							)}
+							{p.position && (
+								<span style={{ fontSize: 10, fontWeight: 800, color: T.faint }}>
+									{p.position}
+								</span>
+							)}
+						</span>
 					</div>
 				);
 			})}
