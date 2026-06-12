@@ -95,6 +95,31 @@ test("GET /api/news: 本文モードは lines を連結・翻訳しヒーロー�
 	assert.equal(body.body.hero.url, "p.png");
 });
 
+test("GET /api/news: 本文モード type=prematch は prematchnews の lines を読む", async () => {
+	const fixture = {
+		id: 40,
+		prematchnews: [{ id: 7, lines: [{ text: "Preview text." }] }],
+		venue: { image_path: "v.png" },
+		participants: [{ image_path: "c1.png" }, { image_path: "c2.png" }],
+	};
+	const env = {
+		NEWS_ENABLED: "true",
+		SPORTMONKS_TOKEN: "t",
+		GCP_SERVICE_ACCOUNT: SA,
+		CONFIG: fakeKv(),
+		__mintToken: mintOk,
+		__fetchImpl: makeFetch({ fixture, ja: "プレビュー本文" }),
+	};
+	const res = await onRequestGet({
+		env,
+		request: req("https://x/api/news?id=40&type=prematch"),
+	});
+	const body = await res.json();
+	assert.equal(body.body.body_ja, "プレビュー本文");
+	// 得点者なし→venue にフォールバック
+	assert.equal(body.body.hero.kind, "venue");
+});
+
 test("GET /api/news: GCP_SERVICE_ACCOUNT 無しでも 200・英語フォールバック", async () => {
 	const env = {
 		NEWS_ENABLED: "true",

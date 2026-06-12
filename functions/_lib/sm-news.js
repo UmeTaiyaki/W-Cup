@@ -83,5 +83,5 @@ export function translationCacheKey(newsitemId, kind) {
 export function newsBodyInclude(type) {
 	const newsInc =
 		type === "prematch" ? "prematchNews.lines" : "postmatchNews.lines";
-	return `${newsInc};participants;venue;scores;events.player`;
+	return `${newsInc};participants;venue;events.player`;
 }

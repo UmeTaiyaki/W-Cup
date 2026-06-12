@@ -17,6 +17,8 @@ import { createSportmonks } from "../_lib/sportmonks.js";
 
 const LIST_CACHE = "public, s-maxage=1800, stale-while-revalidate=3600";
 const BODY_CACHE = "public, s-maxage=21600, stale-while-revalidate=86400";
+// カルーセルに出す最大件数。一覧の翻訳は cold-start でこの件数まで並列実行される。
+const NEWS_LIST_MAX = 15;
 
 function newsByType(fixture, type) {
 	const arr =
@@ -132,7 +134,11 @@ export async function onRequestGet(context) {
 			sm.get(`news/post-match/seasons/${seasonId}`),
 			buildVertex(env),
 		]);
-		const merged = mergeNewsList(preRes?.data, postRes?.data);
+		// カルーセル表示分だけに制限（cold-start で大量の翻訳並列呼び出しを防ぐ）。
+		const merged = mergeNewsList(preRes?.data, postRes?.data).slice(
+			0,
+			NEWS_LIST_MAX,
+		);
 		const items = await Promise.all(
 			merged.map(async (it) => ({
 				...it,
