@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS sm_lineups (
   detailed_position TEXT,               -- 詳細ポジション名(解決済み)
   club_name       TEXT,                 -- 現所属クラブ名
   club_image      TEXT,                 -- クラブロゴURL
+  player_image    TEXT,                 -- 選手顔写真URL(lineups.player.image_path)
   updated_at      INTEGER NOT NULL,
   PRIMARY KEY (sm_fixture_id, player_id)
 );
