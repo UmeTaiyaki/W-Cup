@@ -6,6 +6,7 @@ import {
 	isFinished,
 	isInPlay,
 	selectFixturesForDetailSync,
+	shouldRunInterval,
 	syncFixtureDetail,
 	syncLive,
 	syncSeasonFixtures,
@@ -337,4 +338,26 @@ test("syncTopscorers は fetch 失敗でも例外を投げず error を返す", 
 	const r = await syncTopscorers(football, db, 26618, 1700);
 	assert.equal(r.count, 0);
 	assert.equal(r.error, "boom");
+});
+
+test("shouldRunInterval: intervalMin 分境界でのみ true（重い同期の間引き）", () => {
+	// epoch秒 → 分 = floor(now/60)。interval=3 なら 0,3,6... 分で実行。
+	assert.equal(shouldRunInterval(0, 3), true); // 0分
+	assert.equal(shouldRunInterval(60, 3), false); // 1分
+	assert.equal(shouldRunInterval(120, 3), false); // 2分
+	assert.equal(shouldRunInterval(180, 3), true); // 3分
+	assert.equal(shouldRunInterval(240, 3), false); // 4分
+	assert.equal(shouldRunInterval(360, 3), true); // 6分
+});
+
+test("shouldRunInterval: interval<=1 は常に true（毎分実行＝間引かない）", () => {
+	assert.equal(shouldRunInterval(60, 1), true);
+	assert.equal(shouldRunInterval(120, 1), true);
+	assert.equal(shouldRunInterval(90, 0), true);
+});
+
+test("shouldRunInterval: 不正な now/interval は true（書き込みを止めない安全側）", () => {
+	assert.equal(shouldRunInterval(Number.NaN, 3), true);
+	assert.equal(shouldRunInterval(180, Number.NaN), true);
+	assert.equal(shouldRunInterval(undefined, 5), true);
 });
