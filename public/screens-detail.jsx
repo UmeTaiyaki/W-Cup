@@ -544,8 +544,24 @@ function TimelineTab({ T, detail }) {
 			case "missed_penalty":
 			case "pen_shootout_miss":
 				return "✖";
+			case "var_goal_disallowed":
+				return "🚫"; // VAR ゴール取消
+			case "var":
+				return "📺"; // VAR 判定（その他）
 			default:
-				return "●";
+				return ""; // 未知 type は黒丸を出さず無アイコン
+		}
+	}
+
+	/** VAR など type の補足ラベル（無ければ null）。交代相手は別途 sideNote で扱う。 */
+	function eventNote(type) {
+		switch (type) {
+			case "var_goal_disallowed":
+				return "VAR: ゴール取消";
+			case "var":
+				return "VAR判定";
+			default:
+				return null;
 		}
 	}
 
@@ -598,6 +614,7 @@ function TimelineTab({ T, detail }) {
 					const icon = eventIcon(ev.type);
 					const isOwnGoal = ev.type === "own_goal";
 					const isSub = ev.type === "substitution";
+					const note = eventNote(ev.type);
 					const playerColor = isOwnGoal ? T.sub : T.text;
 					const isNew = ev.sm_event_id != null && newIdSet.has(ev.sm_event_id);
 
@@ -636,10 +653,15 @@ function TimelineTab({ T, detail }) {
 												→{ev.related_player_name}
 											</span>
 										)}
+										{note && (
+											<span style={{ color: T.sub, fontSize: 10.5 }}>
+												{note}
+											</span>
+										)}
 										<span style={{ fontWeight: 700, color: playerColor }}>
 											{ev.player_name}
 										</span>
-										<span>{icon}</span>
+										{icon && <span>{icon}</span>}
 									</>
 								)}
 							</div>
@@ -676,13 +698,18 @@ function TimelineTab({ T, detail }) {
 							>
 								{!isHome && (
 									<>
-										<span>{icon}</span>
+										{icon && <span>{icon}</span>}
 										<span style={{ fontWeight: 700, color: playerColor }}>
 											{ev.player_name}
 										</span>
 										{isSub && ev.related_player_name && (
 											<span style={{ color: T.sub, fontSize: 10.5 }}>
 												→{ev.related_player_name}
+											</span>
+										)}
+										{note && (
+											<span style={{ color: T.sub, fontSize: 10.5 }}>
+												{note}
 											</span>
 										)}
 									</>

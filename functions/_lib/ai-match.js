@@ -32,11 +32,48 @@ function lineupLines(detail) {
 		.join("\n");
 }
 
+// type（正規化名）→ AI プロンプト用の日本語ラベル。空 type を渡さないための要。
+function eventLabel(type) {
+	switch (type) {
+		case "goal":
+		case "penalty":
+			return "ゴール";
+		case "pen_shootout_goal":
+			return "PK戦成功";
+		case "own_goal":
+			return "オウンゴール";
+		case "yellowcard":
+			return "イエローカード";
+		case "redcard":
+		case "yellowredcard":
+			return "退場";
+		case "substitution":
+			return "交代";
+		case "missed_penalty":
+			return "PK失敗";
+		case "pen_shootout_miss":
+			return "PK戦失敗";
+		case "var_goal_disallowed":
+			return "VAR判定でゴール取消";
+		case "var":
+			return "VAR判定";
+		default:
+			return type || "イベント";
+	}
+}
+
 function eventLines(detail) {
 	return (detail.events || [])
-		.map((e) =>
-			`- ${e.minute ?? "?"}' ${e.type || ""} ${e.player_name || ""}`.trim(),
-		)
+		.map((e) => {
+			const label = eventLabel(e.type);
+			const who = e.player_name ? ` ${e.player_name}` : "";
+			// 交代は OUT 選手も添える（related=途中出場/交代相手）
+			const rel =
+				e.type === "substitution" && e.related_player_name
+					? `（→${e.related_player_name}）`
+					: "";
+			return `- ${e.minute ?? "?"}'${who} ${label}${rel}`.trim();
+		})
 		.join("\n");
 }
 

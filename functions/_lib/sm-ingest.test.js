@@ -241,6 +241,33 @@ test("EVENT_TYPE_NAMES: 確定済みの type_id 対応", () => {
 	assert.equal(EVENT_TYPE_NAMES[20], "redcard");
 });
 
+test("toEventRows: VAR(type_id=10) を sub_type で解決し黒丸を出さない", () => {
+	const detail = {
+		id: 1,
+		events: [
+			// 韓国vsチェコ実データ: 78' Souček の VAR ゴール取消
+			{
+				id: 901,
+				type_id: 10,
+				sub_type_id: 1512,
+				minute: 78,
+				player_name: "Tomáš Souček",
+			},
+			// 未知の VAR サブタイプは汎用 "var" にフォールバック
+			{ id: 902, type_id: 10, sub_type_id: 99999, minute: 80 },
+			// 未知 type_id は従来どおり null（フロントは無アイコン）
+			{ id: 903, type_id: 9999, minute: 81 },
+		],
+	};
+	const rows = toEventRows(detail);
+	assert.equal(
+		rows.find((r) => r.sm_event_id === 901).type,
+		"var_goal_disallowed",
+	);
+	assert.equal(rows.find((r) => r.sm_event_id === 902).type, "var");
+	assert.equal(rows.find((r) => r.sm_event_id === 903).type, null);
+});
+
 test("壊れた入力でも例外を投げない（空配列を返す）", () => {
 	assert.deepEqual(toTeamRows({}), []);
 	assert.deepEqual(toEventRows({}), []);
