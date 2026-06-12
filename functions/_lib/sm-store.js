@@ -27,8 +27,8 @@ function fixtureStatement(row, updatedAt) {
 		sql: `INSERT INTO sm_fixtures
             (sm_fixture_id, league_id, season_id, round_name, starting_at, starting_at_ts,
              state_id, state_short, home_team_id, away_team_id, home_score, away_score,
-             home_xg, away_xg, venue, result_info, minute, added_time, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             home_pen, away_pen, home_xg, away_xg, venue, result_info, minute, added_time, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(sm_fixture_id) DO UPDATE SET
             league_id=excluded.league_id, season_id=excluded.season_id,
             round_name=COALESCE(excluded.round_name, sm_fixtures.round_name),
@@ -36,6 +36,7 @@ function fixtureStatement(row, updatedAt) {
             state_id=excluded.state_id, state_short=excluded.state_short,
             home_team_id=excluded.home_team_id, away_team_id=excluded.away_team_id,
             home_score=excluded.home_score, away_score=excluded.away_score,
+            home_pen=excluded.home_pen, away_pen=excluded.away_pen,
             home_xg=COALESCE(excluded.home_xg, sm_fixtures.home_xg),
             away_xg=COALESCE(excluded.away_xg, sm_fixtures.away_xg),
             venue=COALESCE(excluded.venue, sm_fixtures.venue),
@@ -55,6 +56,8 @@ function fixtureStatement(row, updatedAt) {
 			row.away_team_id,
 			row.home_score,
 			row.away_score,
+			row.home_pen ?? null,
+			row.away_pen ?? null,
 			row.home_xg,
 			row.away_xg,
 			row.venue,

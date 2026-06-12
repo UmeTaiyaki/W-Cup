@@ -169,6 +169,52 @@ test("toFixtureRow: 最終スコアは CURRENT(1525) から取る", () => {
 	assert.equal(row.away_score, 2);
 });
 
+test("toFixtureRow: PK戦スコアは PENALTY_SHOOTOUT から取る（CURRENTとは別）", () => {
+	// 2022 Morocco vs Spain 実例形: CURRENT 0-0 / PENALTY_SHOOTOUT 3-0
+	const d = {
+		id: 9,
+		participants: [
+			{ id: 1, name: "MAR", meta: { location: "home" } },
+			{ id: 2, name: "ESP", meta: { location: "away" } },
+		],
+		scores: [
+			{ description: "CURRENT", score: { participant: "home", goals: 0 } },
+			{ description: "CURRENT", score: { participant: "away", goals: 0 } },
+			{
+				description: "PENALTY_SHOOTOUT",
+				score: { participant: "home", goals: 3 },
+			},
+			{
+				description: "PENALTY_SHOOTOUT",
+				score: { participant: "away", goals: 0 },
+			},
+		],
+	};
+	const row = toFixtureRow(d);
+	assert.equal(row.home_score, 0);
+	assert.equal(row.away_score, 0);
+	assert.equal(row.home_pen, 3);
+	assert.equal(row.away_pen, 0);
+});
+
+test("toFixtureRow: 非PK戦は home_pen/away_pen が null", () => {
+	// PENALTY_SHOOTOUT を持たない通常試合
+	const d = {
+		id: 7,
+		participants: [
+			{ id: 1, name: "A", meta: { location: "home" } },
+			{ id: 2, name: "B", meta: { location: "away" } },
+		],
+		scores: [
+			{ description: "CURRENT", score: { participant: "home", goals: 2 } },
+			{ description: "CURRENT", score: { participant: "away", goals: 1 } },
+		],
+	};
+	const row = toFixtureRow(d);
+	assert.equal(row.home_pen, null);
+	assert.equal(row.away_pen, null);
+});
+
 test("toFixtureRow: 基本フィールドと starting_at_ts", () => {
 	const row = toFixtureRow(fixtureDetail);
 	assert.equal(row.sm_fixture_id, 18452339);

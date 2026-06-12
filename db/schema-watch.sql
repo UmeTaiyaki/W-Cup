@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS sm_fixtures (
   away_team_id   INTEGER,
   home_score     INTEGER,
   away_score     INTEGER,
+  home_pen       INTEGER,              -- PK戦スコア(PENALTY_SHOOTOUT)。KO戦PK決着の勝者判定/表示用。非PKはNULL
+  away_pen       INTEGER,
   home_xg        REAL,                 -- 試合終了後 xG(type_id=5304)。実値includeは未解決→当面NULL可
   away_xg        REAL,
   venue          TEXT,

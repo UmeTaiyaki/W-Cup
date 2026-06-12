@@ -20,8 +20,8 @@ const FIXTURES_SQL = `
   SELECT
     f.sm_fixture_id, f.starting_at, f.starting_at_ts, f.state_id, f.round_name, f.result_info,
     f.minute, f.added_time,
-    f.home_team_id, f.home_score, f.home_xg,
-    f.away_team_id, f.away_score, f.away_xg,
+    f.home_team_id, f.home_score, f.home_pen, f.home_xg,
+    f.away_team_id, f.away_score, f.away_pen, f.away_xg,
     h.name AS home_name, h.short_code AS home_short, h.image_url AS home_img, h.app_code AS home_app,
     a.name AS away_name, a.short_code AS away_short, a.image_url AS away_img, a.app_code AS away_app
   FROM sm_fixtures f
@@ -49,6 +49,7 @@ export function mapFixtureRow(row) {
 			short_code: row.home_short ?? null,
 			image_url: row.home_img ?? null,
 			score: row.home_score ?? null,
+			pen_score: row.home_pen ?? null, // PK戦スコア（非PKはnull）
 			xg: row.home_xg ?? null,
 		},
 		away: {
@@ -58,6 +59,7 @@ export function mapFixtureRow(row) {
 			short_code: row.away_short ?? null,
 			image_url: row.away_img ?? null,
 			score: row.away_score ?? null,
+			pen_score: row.away_pen ?? null,
 			xg: row.away_xg ?? null,
 		},
 	};
@@ -75,8 +77,8 @@ const FIXTURE_ONE_SQL = `
   SELECT
     f.sm_fixture_id, f.starting_at, f.starting_at_ts, f.state_id, f.round_name, f.result_info,
     f.minute, f.added_time,
-    f.home_team_id, f.home_score, f.home_xg,
-    f.away_team_id, f.away_score, f.away_xg,
+    f.home_team_id, f.home_score, f.home_pen, f.home_xg,
+    f.away_team_id, f.away_score, f.away_pen, f.away_xg,
     h.name AS home_name, h.short_code AS home_short, h.image_url AS home_img, h.app_code AS home_app,
     a.name AS away_name, a.short_code AS away_short, a.image_url AS away_img, a.app_code AS away_app
   FROM sm_fixtures f

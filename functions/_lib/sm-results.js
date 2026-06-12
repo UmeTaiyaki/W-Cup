@@ -108,8 +108,23 @@ export function deriveGroupResult(fixtures, groups) {
 	return out;
 }
 
-// 決勝(FT)から優勝・準優勝。未FT/同点(PK決着はスコア同点になりうる)は null。
-// 注: PK決着の勝者判定は今後 result_info 解析で補強（YAGNI: まずスコア差）。
+// KO戦の勝者側を返す: "home" | "away" | null。
+// 本スコア差で決まらなければ(=延長まで同点) PK戦スコア(home_pen/away_pen)で決める。
+// KO戦は引き分けで終わらないので、PK決着の試合は本スコア同点でも必ず勝者がいる。
+export function koWinnerSide(fx) {
+	const hs = fx?.home?.score,
+		as = fx?.away?.score;
+	if (!isNum(hs) || !isNum(as)) return null;
+	if (hs > as) return "home";
+	if (hs < as) return "away";
+	// 同点 → PK戦スコアで決める
+	const hp = fx?.home?.pen_score,
+		ap = fx?.away?.pen_score;
+	if (isNum(hp) && isNum(ap) && hp !== ap) return hp > ap ? "home" : "away";
+	return null; // 同点かつPK情報なし（試合中 or データ未到達）
+}
+
+// 決勝(FT)から優勝・準優勝。PK決着もPK戦スコアで判定。未FT/未確定は null。
 export function deriveChampion(fixtures) {
 	const list = Array.isArray(fixtures) ? fixtures : [];
 	const fin = list.find(
@@ -118,11 +133,10 @@ export function deriveChampion(fixtures) {
 	if (!fin) return { champion: null, runnerUp: null };
 	const ha = fin?.home?.app_code,
 		aa = fin?.away?.app_code;
-	const hs = fin?.home?.score,
-		as = fin?.away?.score;
-	if (!ha || !aa || !isNum(hs) || !isNum(as) || hs === as)
-		return { champion: null, runnerUp: null };
-	return hs > as
+	if (!ha || !aa) return { champion: null, runnerUp: null };
+	const side = koWinnerSide(fin);
+	if (!side) return { champion: null, runnerUp: null };
+	return side === "home"
 		? { champion: ha, runnerUp: aa }
 		: { champion: aa, runnerUp: ha };
 }
@@ -150,11 +164,10 @@ export function deriveKnockout(fixtures) {
 export function deriveBracket(fixtures) {
 	const list = Array.isArray(fixtures) ? fixtures : [];
 	const winner = (fx) => {
-		const hs = fx?.home?.score,
-			as = fx?.away?.score;
-		if (fx?.status !== "FT" || !isNum(hs) || !isNum(as) || hs === as)
-			return null;
-		return hs > as ? fx.home.app_code : fx.away.app_code;
+		if (fx?.status !== "FT") return null;
+		const side = koWinnerSide(fx); // PK決着も含めて勝者側を決定
+		if (!side) return null;
+		return side === "home" ? fx.home.app_code : fx.away.app_code;
 	};
 	const out = { r16: [], qf: [], sf: [], final: [] };
 	for (const fx of list) {
