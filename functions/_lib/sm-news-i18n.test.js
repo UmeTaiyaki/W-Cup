@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { translateToJa, vertexGenerateUrl } from "./sm-news-i18n.js";
+import {
+	geminiGenerateUrl,
+	translateToJa,
+	vertexGenerateUrl,
+} from "./sm-news-i18n.js";
 
 // 副作用注入用の最小フェイク。vitest 非依存（node:test ランナーで動く）。
 function fakeKv(initial = {}) {
@@ -39,6 +43,42 @@ const vertex = (fetchImpl) => ({
 	project: "proj",
 	location: "global",
 	fetchImpl,
+});
+
+test("geminiGenerateUrl: generativelanguage エンドポイント", () => {
+	assert.equal(
+		geminiGenerateUrl("gemini-2.5-flash"),
+		"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+	);
+});
+
+test("translateToJa: gemini キー経路は x-goog-api-key で翻訳", async () => {
+	const kv = fakeKv();
+	const f = fetchStub("ジェミニ訳");
+	const out = await translateToJa("Mexico won", {
+		kv,
+		cacheKey: "news:tr:ja:5:title",
+		gemini: { apiKey: "K", fetchImpl: f },
+	});
+	assert.equal(out, "ジェミニ訳");
+	assert.ok(f.calls[0][0].includes("generativelanguage.googleapis.com"));
+	assert.equal(f.calls[0][1].headers["x-goog-api-key"], "K");
+	const body = JSON.parse(f.calls[0][1].body);
+	assert.equal(body.tools, undefined);
+	assert.equal(body.generationConfig.temperature, 0.2);
+});
+
+test("translateToJa: vertex 優先(両方あれば Bearer 経路)", async () => {
+	const f = fetchStub("ベルテックス訳");
+	const out = await translateToJa("x", {
+		kv: fakeKv(),
+		cacheKey: "k",
+		vertex: vertex(f),
+		gemini: { apiKey: "K", fetchImpl: f },
+	});
+	assert.equal(out, "ベルテックス訳");
+	assert.ok(f.calls[0][0].includes("aiplatform.googleapis.com"));
+	assert.equal(f.calls[0][1].headers.Authorization, "Bearer tok");
 });
 
 test("vertexGenerateUrl: global は aiplatform.googleapis.com", () => {

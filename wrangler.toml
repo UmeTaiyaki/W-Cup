@@ -10,6 +10,10 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
 WATCH_ENABLED = "true"
 # 試合前ご当地応援バトルのフィーチャーフラグ。true で /api/cheer が稼働（OFFなら enabled:false＝UI非表示）。
 CHEER_ENABLED = "true"
+# ホームニュースカルーセルのフィーチャーフラグ。true で /api/news が稼働（OFF/未設定なら
+# enabled:false＝カルーセル非表示＝既存ホームと同一）。翻訳は GCP_SERVICE_ACCOUNT(Vertex) 優先、
+# 無ければ GEMINI_API_KEY(Gemini Developer API)。どちらも無ければ英語フォールバック。
+NEWS_ENABLED = "true"
 # 永続データ(user/room/config)の読み取り元バックエンド。KV→D1 無停止移行の切替フラグ。
 #   未設定/"kv" = 二重書き込み・読みは KV（移行 段1）/ "d1" = 二重書き込み・読みは D1（段3）
 #   "d1-only"   = D1 単独・KV 書き込み停止（段4）
