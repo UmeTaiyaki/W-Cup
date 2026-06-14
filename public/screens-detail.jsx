@@ -1373,9 +1373,6 @@ function XgGkValue({
 			}}
 		>
 			{cell(homeName, homeSaved)}
-			<div style={{ alignSelf: "center", fontSize: 9.5, color: T.sub }}>
-				GK評価
-			</div>
 			{cell(awayName, awaySaved)}
 		</div>
 	);
@@ -1603,7 +1600,6 @@ function XgTab({ T, detail }) {
 			)}
 			<XgSectionHead
 				T={T}
-				n={1}
 				title="チームxGサマリー"
 				desc="決定機の「質」の合計。"
 				example="xG0.43＝この内容なら平均0.4点ペース。実際は2点→効率よく決めた"
@@ -1805,7 +1801,6 @@ function XgTab({ T, detail }) {
 				<>
 					<XgSectionHead
 						T={T}
-						n={3}
 						title="xG内訳"
 						badge="NEW"
 						desc="好機の出どころ。"
@@ -1824,7 +1819,6 @@ function XgTab({ T, detail }) {
 				<>
 					<XgSectionHead
 						T={T}
-						n={4}
 						title="npxG（PK除く）"
 						badge="NEW"
 						desc="PKを除いたxG＝地力。"
@@ -1847,38 +1841,44 @@ function XgTab({ T, detail }) {
 				</>
 			)}
 
-			<XgSectionHead
-				T={T}
-				n={5}
-				title="シュートの質（1本あたり）"
-				desc="1本がどれだけ良い形か。"
-				example="0.06＝遠めの薄い形／0.30＝決定機級"
-			/>
-			<XgShotQuality
-				T={T}
-				homeName={homeName}
-				awayName={awayName}
-				homeXg={homeXg}
-				awayXg={awayXg}
-				homeShots={homeShots}
-				awayShots={awayShots}
-			/>
-			<XgSectionHead
-				T={T}
-				n={6}
-				title="GK評価"
-				desc="防いだ失点の量。"
-				example="+0.58＝0.58点ぶん好セーブ／マイナスは取りこぼし"
-			/>
-			<XgGkValue
-				T={T}
-				homeName={homeName}
-				awayName={awayName}
-				homeXgot={homeXgot}
-				awayXgot={awayXgot}
-				homeScore={homeScore}
-				awayScore={awayScore}
-			/>
+			{(homeShots != null || awayShots != null) && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="シュートの質（1本あたり）"
+						desc="1本がどれだけ良い形か。"
+						example="0.06＝遠めの薄い形／0.30＝決定機級"
+					/>
+					<XgShotQuality
+						T={T}
+						homeName={homeName}
+						awayName={awayName}
+						homeXg={homeXg}
+						awayXg={awayXg}
+						homeShots={homeShots}
+						awayShots={awayShots}
+					/>
+				</>
+			)}
+			{(homeXgot != null || awayXgot != null) && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="GK評価"
+						desc="防いだ失点の量。"
+						example="+0.58＝0.58点ぶん好セーブ／マイナスは取りこぼし"
+					/>
+					<XgGkValue
+						T={T}
+						homeName={homeName}
+						awayName={awayName}
+						homeXgot={homeXgot}
+						awayXgot={awayXgot}
+						homeScore={homeScore}
+						awayScore={awayScore}
+					/>
+				</>
+			)}
 			{/* セクション3: 選手別xG */}
 			{hasPlayerXg && (
 				<div>
