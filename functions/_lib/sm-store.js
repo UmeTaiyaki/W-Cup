@@ -6,6 +6,7 @@ import {
 	toFixtureRow,
 	toLineupRows,
 	toPlayerStatRows,
+	toSeriesRow,
 	toStatRows,
 	toTeamRows,
 	toTypeRows,
@@ -201,6 +202,25 @@ function topscorerStatement(row, updatedAt) {
 			updatedAt,
 		],
 	};
+}
+
+function seriesStatement(fixtureId, seriesJson, updatedAt) {
+	return {
+		sql: `INSERT INTO sm_fixture_series (sm_fixture_id, series_json, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(sm_fixture_id) DO UPDATE SET
+            series_json=excluded.series_json, updated_at=excluded.updated_at`,
+		args: [fixtureId, seriesJson, updatedAt],
+	};
+}
+
+// fixture 時系列データ → sm_fixture_series の upsert 文配列（純粋）
+export function fixtureSeriesStatements(detail, updatedAt) {
+	const fixtureId = detail?.id ?? null;
+	if (fixtureId == null) return [];
+	return [
+		seriesStatement(fixtureId, JSON.stringify(toSeriesRow(detail)), updatedAt),
+	];
 }
 
 // sm_topscorers 行配列 → upsert 文配列（純粋）
