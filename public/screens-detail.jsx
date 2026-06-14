@@ -1464,6 +1464,12 @@ function XgTab({ T, detail }) {
 	// xGoT: 5305（無ければ null）
 	const homeXgot = pick(5305, "home");
 	const awayXgot = pick(5305, "away");
+	// xPTS: 7939（期待勝点）
+	const homeXpts = pick(7939, "home");
+	const awayXpts = pick(7939, "away");
+	// npxG: 7943（PK除く xG、Task 12 で使用）
+	const homeNpxg = pick(7943, "home");
+	const awayNpxg = pick(7943, "away");
 	// シュート数: type_id 42
 	const homeShots = pick(42, "home");
 	const awayShots = pick(42, "away");
@@ -1480,10 +1486,10 @@ function XgTab({ T, detail }) {
 	const homeName = homeInfo.ja || (fx && fx.home && fx.home.name) || "ホーム";
 	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
 
-	// xG はリアルタイムでは確定しないため、終了(FT)した試合のみ中身を表示する。
-	// 未終了(NS/LIVE)・データ無しは「試合後に表示されます」プレースホルダを出す。
 	const isFinished = fx && fx.status === "FT";
-	if (!isFinished || (homeXg == null && awayXg == null)) {
+	const isLive = fx && (fx.status === "LIVE" || fx.status === "HT");
+	// xG が1つも無い時だけプレースホルダ。ライブでも xG があれば 1–7 を出す（速報）。
+	if (homeXg == null && awayXg == null) {
 		return (
 			<div
 				style={{
@@ -1494,7 +1500,7 @@ function XgTab({ T, detail }) {
 					fontWeight: 700,
 				}}
 			>
-				xGデータは試合後に表示されます
+				xGデータは試合中〜試合後に表示されます
 			</div>
 		);
 	}
@@ -1544,6 +1550,25 @@ function XgTab({ T, detail }) {
 
 	return (
 		<div style={{ padding: "14px" }}>
+			{isLive && (
+				<div
+					style={{
+						fontSize: 10,
+						color: T.faint,
+						textAlign: "center",
+						marginBottom: 8,
+					}}
+				>
+					⚡ 速報値（試合中は変動します）
+				</div>
+			)}
+			<XgSectionHead
+				T={T}
+				n={1}
+				title="チームxGサマリー"
+				desc="決定機の「質」の合計。"
+				example="xG0.43＝この内容なら平均0.4点ペース。実際は2点→効率よく決めた"
+			/>
 			{/* セクション1: チーム合計バンド */}
 			<div
 				style={{
@@ -1658,6 +1683,14 @@ function XgTab({ T, detail }) {
 								{xgDiff.toFixed(2)}
 							</div>
 							<div>xG差</div>
+						</div>
+					)}
+					{(homeXpts != null || awayXpts != null) && (
+						<div>
+							<div style={{ fontWeight: 800, color: T.text, fontSize: 12 }}>
+								{fmtXg(homeXpts)} / {fmtXg(awayXpts)}
+							</div>
+							<div>xPTS（期待勝点）</div>
 						</div>
 					)}
 				</div>
