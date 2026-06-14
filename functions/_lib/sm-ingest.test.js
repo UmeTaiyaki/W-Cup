@@ -547,6 +547,18 @@ test("toXgStatRows: xgfixture 無しは空配列", () => {
 	assert.deepEqual(toXgStatRows({ id: 1 }), []);
 });
 
+test("toXgStatRows: xGFixture(camelCase)キーでも動く", () => {
+	const detail = {
+		id: 7,
+		xGFixture: [
+			{ participant_id: 11, location: "home", type_id: 5305, value: 0.4 },
+		],
+	};
+	assert.deepEqual(toXgStatRows(detail), [
+		{ sm_fixture_id: 7, team_id: 11, type_id: 5305, value: 0.4 },
+	]);
+});
+
 test("toFixtureRow: home_xg は xgfixture の type_id=5304 を拾う(先頭の別type_idに釣られない)", () => {
 	const detail = {
 		id: 1,

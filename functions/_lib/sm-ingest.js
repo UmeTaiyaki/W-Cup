@@ -169,6 +169,7 @@ export function toStatRows(detail) {
 
 // xGFixture include（配列キー xgfixture）を sm_stats 縦持ち行へ畳む。
 // 各要素: { participant_id, location, type_id, value | data.value }。statistics には来ないため別経路。
+// statistics に xG系 type_id は来ない前提。万一来ても D1 batch は後勝ちで xgfixture 由来値が優先される（fixtureDetailStatements で toStatRows の後に push されるため）。
 export function toXgStatRows(detail) {
 	const xg = Array.isArray(detail?.xgfixture)
 		? detail.xgfixture
@@ -182,6 +183,7 @@ export function toXgStatRows(detail) {
 			sm_fixture_id: x.fixture_id ?? fixtureId,
 			team_id: x.participant_id,
 			type_id: x.type_id,
+			// xGFixture は value がトップレベルにある（statistics の data.value とは構造が異なる）。data.value はフォールバック。
 			value: x.value ?? x?.data?.value ?? null,
 		}));
 }
