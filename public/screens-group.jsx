@@ -73,10 +73,11 @@ function GroupScreen({ T, wide = false }) {
 	);
 }
 
-// ---- ⓪日程（開始済み＝終了＋試合中：新しい順）----
+// ---- ⓪日程（開始済みの試合のみ：新しい順）----
 // 表示は既存ホームの DayTimeline（日付区切り＋MatchRow）を再利用する。
-// 「まだ終わってない試合（未開始/NS）」はこのタブに出さない。
-// ただし試合中(LIVE)はスコアのある“結果”なので残す（終了扱い＝表示）。
+// 「まだ始まっていない試合（未開始）」だけを除外する。終了・試合中はもちろん、
+// スコア未同期でも予定時刻(JST)を過ぎた試合は“開始済み”として残す
+// （ライブフィードから古い試合が落ちると matchResult が null を返すため、時刻でも判定）。
 function ScheduleResults({ T }) {
 	const schedule = window.WC.SCHEDULE || [];
 	if (!schedule.length) {
@@ -87,14 +88,25 @@ function ScheduleResults({ T }) {
 		);
 	}
 
-	// 採用条件: 終了(matchResult=FT) もしくは 試合中(LIVE)。未開始(NS)/データ無しは除外。
-	const played = [];
-	for (const m of schedule) {
-		if (!m) continue;
-		const done = window.WC.matchResult && window.WC.matchResult(m);
-		const live = window.WC.liveForMatch && window.WC.liveForMatch(m);
-		if (done || (live && live.status === "LIVE")) played.push(m);
-	}
+	// 現在の JST 日付・時刻（"YYYY-MM-DD" / "HH:MM"）。lib と同じ +9h 換算。
+	const nowMs = Date.now();
+	const todayStr = window.WC.jstToday
+		? window.WC.jstToday(nowMs)
+		: new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
+	const nowHM = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(11, 16);
+
+	// 開始済み判定: 終了(FT) or 試合中(LIVE) or 予定キックオフ(JST)が現在以前。
+	const hasStarted = (m) => {
+		if (window.WC.matchResult && window.WC.matchResult(m)) return true;
+		const lv = window.WC.liveForMatch && window.WC.liveForMatch(m);
+		if (lv && lv.status === "LIVE") return true;
+		if (!m.date) return false; // 日付未定は対象外
+		if (m.date < todayStr) return true;
+		if (m.date > todayStr) return false;
+		return (m.time || "00:00") <= nowHM;
+	};
+
+	const played = schedule.filter((m) => m && hasStarted(m));
 
 	// 日付・各日内とも新しい順（groupByDate は昇順なので反転。日付未定は除外）。
 	const playedGroups = window.WC.groupByDate(played)
@@ -105,7 +117,7 @@ function ScheduleResults({ T }) {
 	if (playedGroups.length === 0) {
 		return (
 			<div style={{ padding: "40px 8px", textAlign: "center", color: T.sub }}>
-				終了した試合はまだありません
+				開始した試合はまだありません
 			</div>
 		);
 	}
