@@ -192,7 +192,7 @@ export async function getFixtureDetail(db, id) {
 		if (seriesRows.length > 0 && seriesRows[0]?.series_json)
 			series = JSON.parse(seriesRows[0].series_json);
 	} catch (e) {
-		console.error("getFixtureDetail: series read failed", e?.message);
+		console.error("getFixtureDetail: series read failed", id, e?.message);
 	}
 	return {
 		fixture,

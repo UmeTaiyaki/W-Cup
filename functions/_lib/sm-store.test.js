@@ -359,6 +359,11 @@ test("fixtureSeriesStatements: INSERT INTO sm_fixture_series / ON CONFLICT(sm_fi
 	assert.equal(specs[0].args[0], 9);
 	const parsed = JSON.parse(specs[0].args[1]);
 	assert.ok(Array.isArray(parsed.pressure), "pressure は配列");
+	// flow キーの存在と shots/possession/attacks サブキーを検証
+	assert.ok(parsed.flow != null, "flow キーが存在する");
+	assert.ok("shots" in parsed.flow, "flow.shots が存在する");
+	assert.ok("possession" in parsed.flow, "flow.possession が存在する");
+	assert.ok("attacks" in parsed.flow, "flow.attacks が存在する");
 	assert.equal(specs[0].args[2], now);
 });
 

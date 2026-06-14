@@ -12,6 +12,7 @@ import {
 } from "./sm-store.js";
 
 // fixture 時系列データの include（pressure/trends/periods）
+// periods.statistics は現状未使用・将来の前後半分析用に予約（payloadは僅少）
 export const FIXTURE_SERIES_INCLUDE = "pressure;trends;periods.statistics";
 
 // fixture 詳細の include。ラインナップ・xG を含む完全版（lineups/xGFixture を追加）。
