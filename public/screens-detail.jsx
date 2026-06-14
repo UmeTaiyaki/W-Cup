@@ -529,7 +529,7 @@ function MirrorBar({ T, label, unit, homeVal, awayVal }) {
 }
 
 /** 選手別xG 横バー */
-function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
+function PlayerXgBar({ T, playerName, xg, maxXg, isHome, xgot }) {
 	const pct = maxXg > 0 ? (xg / maxXg) * 100 : 0;
 	const barColor = isHome ? T.accent : "rgba(226,240,228,0.55)";
 
@@ -557,6 +557,17 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
 						width: `${pct}%`,
 					}}
 				/>
+				{xgot != null && xgot > 0 && (
+					<div
+						style={{
+							height: 3,
+							marginTop: 1,
+							background: "rgba(226,240,228,0.5)",
+							borderRadius: 2,
+							width: `${Math.min(100, (xgot / maxXg) * 100)}%`,
+						}}
+					/>
+				)}
 			</div>
 			<span
 				style={{
@@ -1180,7 +1191,111 @@ function StatsTab({ T, detail }) {
 	);
 }
 
-// ③ シュートの質: xG per shot（= xG / シュート数）。shots か xG が欠ければ非表示。
+// セクション共通の解説ヘッダ。desc=端的1行、example=改行して緑字「例：」、badge=NEW/FT等(任意)。
+function XgSectionHead({ T, n, title, desc, example, badge }) {
+	return (
+		<div style={{ margin: "16px 0 6px" }}>
+			<div
+				style={{
+					fontSize: 11,
+					fontWeight: 800,
+					color: T.text,
+					display: "flex",
+					alignItems: "center",
+					gap: 6,
+				}}
+			>
+				{n != null && (
+					<span
+						style={{
+							background: T.accent,
+							color: T.accentInk,
+							borderRadius: "50%",
+							width: 16,
+							height: 16,
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							fontSize: 9,
+							fontWeight: 800,
+						}}
+					>
+						{n}
+					</span>
+				)}
+				{title}
+				{badge && (
+					<span
+						style={{
+							fontSize: 8.5,
+							background: T.accent,
+							color: T.accentInk,
+							fontWeight: 800,
+							borderRadius: 3,
+							padding: "0 4px",
+						}}
+					>
+						{badge}
+					</span>
+				)}
+			</div>
+			{desc && (
+				<div
+					style={{
+						fontSize: 10.5,
+						color: T.sub,
+						lineHeight: 1.45,
+						marginTop: 2,
+					}}
+				>
+					{desc}
+					{example && (
+						<span
+							style={{
+								display: "block",
+								color: T.accent,
+								fontWeight: 700,
+								marginTop: 1,
+							}}
+						>
+							例：{example}
+						</span>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
+// ③ セクション3: xG内訳（オープン/CK/FK/PK）。値がある列だけ出す。
+function XgBreakdown({ T, homeName, awayName, parts }) {
+	const shown = parts.filter((p) => p.home != null || p.away != null);
+	if (shown.length === 0) return null;
+	const fmt = (v) => (v != null ? v.toFixed(2) : "–");
+	return (
+		<div
+			style={{
+				background: "rgba(255,255,255,0.03)",
+				borderRadius: 10,
+				padding: "8px 10px",
+			}}
+		>
+			<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+				{shown.map((p) => (
+					<span key={p.label} style={{ fontSize: 10, color: T.sub }}>
+						{p.label} <b style={{ color: T.text }}>{fmt(p.home)}</b>
+						<span style={{ color: T.faint }}> / {fmt(p.away)}</span>
+					</span>
+				))}
+			</div>
+			<div style={{ fontSize: 9, color: T.faint, marginTop: 4 }}>
+				{homeName} / {awayName}
+			</div>
+		</div>
+	);
+}
+
+// ④ シュートの質: xG per shot（= xG / シュート数）。shots か xG が欠ければ非表示。
 function XgShotQuality({
 	T,
 	homeName,
@@ -1269,9 +1384,6 @@ function XgGkValue({
 			}}
 		>
 			{cell(homeName, homeSaved)}
-			<div style={{ alignSelf: "center", fontSize: 9.5, color: T.sub }}>
-				GK評価
-			</div>
 			{cell(awayName, awaySaved)}
 		</div>
 	);
@@ -1358,6 +1470,128 @@ function AiTab({ T, detail }) {
 	);
 }
 
+// モメンタム（pressure の home-away 差分ライン）。FTのみ。
+function XgMomentum({ T, series }) {
+	const pts = (
+		series && Array.isArray(series.pressure) ? series.pressure : []
+	).filter((p) => p && p.minute != null);
+	if (pts.length < 2) return null;
+	const W = 300,
+		H = 70,
+		mid = H / 2;
+	const maxAbs = Math.max(
+		1,
+		...pts.map((p) => Math.abs((p.home || 0) - (p.away || 0))),
+	);
+	const maxMin = Math.max(...pts.map((p) => p.minute));
+	const coords = pts.map((p) => {
+		const x = (p.minute / maxMin) * W;
+		const net = (p.home || 0) - (p.away || 0);
+		const y = mid - (net / maxAbs) * (mid - 4);
+		return `${x.toFixed(1)},${y.toFixed(1)}`;
+	});
+	return (
+		<svg
+			viewBox={`0 0 ${W} ${H}`}
+			preserveAspectRatio="none"
+			style={{
+				width: "100%",
+				height: 70,
+				background: "rgba(255,255,255,0.03)",
+				borderRadius: 6,
+			}}
+		>
+			<line
+				x1="0"
+				y1={mid}
+				x2={W}
+				y2={mid}
+				stroke="rgba(255,255,255,0.14)"
+				strokeWidth="1"
+			/>
+			<polyline
+				points={coords.join(" ")}
+				fill="none"
+				stroke={T.accent}
+				strokeWidth="2"
+			/>
+		</svg>
+	);
+}
+
+// 試合の流れ（trends）。shots/possession/attacks をタブ切替。FTのみ。
+function XgFlow({ T, series }) {
+	const flow = (series && series.flow) || {};
+	const tabs = [
+		{ key: "shots", label: "累積シュート" },
+		{ key: "possession", label: "支配率" },
+		{ key: "attacks", label: "攻撃" },
+	].filter((t) => Array.isArray(flow[t.key]) && flow[t.key].length >= 2);
+	const [active, setActive] = React.useState(tabs[0] ? tabs[0].key : null);
+	if (!active) return null;
+	const pts = flow[active];
+	const W = 300,
+		H = 60;
+	const maxMin = Math.max(...pts.map((p) => p.minute));
+	const maxVal = Math.max(
+		1,
+		...pts.map((p) => Math.max(p.home || 0, p.away || 0)),
+	);
+	const line = (side, color) => {
+		const coords = pts.map((p) => {
+			const x = (p.minute / maxMin) * W;
+			const y = H - ((p[side] || 0) / maxVal) * (H - 4);
+			return `${x.toFixed(1)},${y.toFixed(1)}`;
+		});
+		return (
+			<polyline
+				points={coords.join(" ")}
+				fill="none"
+				stroke={color}
+				strokeWidth="1.8"
+			/>
+		);
+	};
+	return (
+		<div>
+			<div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+				{tabs.map((t) => (
+					<button
+						key={t.key}
+						onClick={() => setActive(t.key)}
+						style={{
+							fontSize: 9.5,
+							fontWeight: 700,
+							padding: "3px 8px",
+							borderRadius: 999,
+							border: "none",
+							cursor: "pointer",
+							background:
+								active === t.key ? T.accent : "rgba(255,255,255,0.06)",
+							color: active === t.key ? T.accentInk : T.sub,
+						}}
+					>
+						{t.label}
+					</button>
+				))}
+			</div>
+			<svg
+				viewBox={`0 0 ${W} ${H}`}
+				preserveAspectRatio="none"
+				style={{
+					width: "100%",
+					height: 60,
+					background: "rgba(255,255,255,0.03)",
+					borderRadius: 6,
+				}}
+			>
+				{line("home", T.accent)}
+				{line("away", "rgba(226,240,228,0.5)")}
+			</svg>
+		</div>
+	);
+}
+
 // ── XgTab ─────────────────────────────────────────────────────────────────
 // セクション1: チーム合計バンド(accent枠) — 未終了(非FT)or 両xGともnull時は早期return
 // セクション2: 効率判定: score>xg+0.3→効率良く / score<xg-0.5→決定機活かせず / else→ほぼ期待通り
@@ -1388,6 +1622,12 @@ function XgTab({ T, detail }) {
 	// xGoT: 5305（無ければ null）
 	const homeXgot = pick(5305, "home");
 	const awayXgot = pick(5305, "away");
+	// xPTS: 7939（期待勝点）
+	const homeXpts = pick(7939, "home");
+	const awayXpts = pick(7939, "away");
+	// npxG: 7943（PK除く xG、Task 12 で使用）
+	const homeNpxg = pick(7943, "home");
+	const awayNpxg = pick(7943, "away");
 	// シュート数: type_id 42
 	const homeShots = pick(42, "home");
 	const awayShots = pick(42, "away");
@@ -1398,16 +1638,27 @@ function XgTab({ T, detail }) {
 	const xgDiff = homeXg != null && awayXg != null ? homeXg - awayXg : null;
 	const fmtXg = (v) => (v != null ? v.toFixed(2) : "–");
 
+	// セクション3: xG内訳 type_id: 7945=オープン / 7942=CK / 7941=FK / 7940=PK
+	const breakdownParts = [
+		{ label: "オープン", home: pick(7945, "home"), away: pick(7945, "away") },
+		{ label: "CK", home: pick(7942, "home"), away: pick(7942, "away") },
+		{ label: "FK", home: pick(7941, "home"), away: pick(7941, "away") },
+		{ label: "PK", home: pick(7940, "home"), away: pick(7940, "away") },
+	];
+	const hasBreakdown = breakdownParts.some(
+		(p) => p.home != null || p.away != null,
+	);
+
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
 	const homeInfo = teamMap[fx && fx.home && fx.home.app_code] || {};
 	const awayInfo = teamMap[fx && fx.away && fx.away.app_code] || {};
 	const homeName = homeInfo.ja || (fx && fx.home && fx.home.name) || "ホーム";
 	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
 
-	// xG はリアルタイムでは確定しないため、終了(FT)した試合のみ中身を表示する。
-	// 未終了(NS/LIVE)・データ無しは「試合後に表示されます」プレースホルダを出す。
 	const isFinished = fx && fx.status === "FT";
-	if (!isFinished || (homeXg == null && awayXg == null)) {
+	const isLive = fx && fx.status === "LIVE";
+	// xG が1つも無い時だけプレースホルダ。ライブでも xG があれば 1–7 を出す（速報）。
+	if (homeXg == null && awayXg == null) {
 		return (
 			<div
 				style={{
@@ -1418,7 +1669,7 @@ function XgTab({ T, detail }) {
 					fontWeight: 700,
 				}}
 			>
-				xGデータは試合後に表示されます
+				xGデータは試合中〜試合後に表示されます
 			</div>
 		);
 	}
@@ -1452,6 +1703,12 @@ function XgTab({ T, detail }) {
 	const awayFinish = finishingNote(awayXg, awayXgot);
 
 	// ── セクション3: 選手別xG ─────────────────────────────────────────────
+	const playerStats = (detail && detail.player_stats) || [];
+	const xgotByPlayer = {};
+	playerStats.forEach((r) => {
+		if (r.type_id === 5305 && r.player_id != null)
+			xgotByPlayer[r.player_id] = r.value;
+	});
 	const withXg = lineups.filter((p) => p.xg != null && p.xg > 0);
 	// チームごとに上位5人に絞る
 	const homeTopPlayers = withXg
@@ -1468,6 +1725,24 @@ function XgTab({ T, detail }) {
 
 	return (
 		<div style={{ padding: "14px" }}>
+			{isLive && (
+				<div
+					style={{
+						fontSize: 10,
+						color: T.faint,
+						textAlign: "center",
+						marginBottom: 8,
+					}}
+				>
+					⚡ 速報値（試合中は変動します）
+				</div>
+			)}
+			<XgSectionHead
+				T={T}
+				title="チームxGサマリー"
+				desc="決定機の「質」の合計。"
+				example="xG0.43＝この内容なら平均0.4点ペース。実際は2点→効率よく決めた"
+			/>
 			{/* セクション1: チーム合計バンド */}
 			<div
 				style={{
@@ -1584,6 +1859,14 @@ function XgTab({ T, detail }) {
 							<div>xG差</div>
 						</div>
 					)}
+					{(homeXpts != null || awayXpts != null) && (
+						<div>
+							<div style={{ fontWeight: 800, color: T.text, fontSize: 12 }}>
+								{fmtXg(homeXpts)} / {fmtXg(awayXpts)}
+							</div>
+							<div>xPTS（期待勝点）</div>
+						</div>
+					)}
 				</div>
 
 				{/* セクション2: 効率 */}
@@ -1653,34 +1936,105 @@ function XgTab({ T, detail }) {
 				</div>
 			</div>
 
-			<XgShotQuality
-				T={T}
-				homeName={homeName}
-				awayName={awayName}
-				homeXg={homeXg}
-				awayXg={awayXg}
-				homeShots={homeShots}
-				awayShots={awayShots}
-			/>
-			<XgGkValue
-				T={T}
-				homeName={homeName}
-				awayName={awayName}
-				homeXgot={homeXgot}
-				awayXgot={awayXgot}
-				homeScore={homeScore}
-				awayScore={awayScore}
-			/>
-			{/* セクション3: 選手別xG */}
+			{hasBreakdown && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="xG内訳"
+						badge="NEW"
+						desc="好機の出どころ。"
+						example="オープン0.35＝流れの中で作れた／CK0.05＝セットプレーは僅か"
+					/>
+					<XgBreakdown
+						T={T}
+						homeName={homeName}
+						awayName={awayName}
+						parts={breakdownParts}
+					/>
+				</>
+			)}
+
+			{(homeNpxg != null || awayNpxg != null) && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="npxG（PK除く）"
+						badge="NEW"
+						desc="PKを除いたxG＝地力。"
+						example="xG1.5でもPK1本(0.8)込みなら実力分は0.7"
+					/>
+					<div
+						style={{
+							background: "rgba(255,255,255,0.03)",
+							borderRadius: 10,
+							padding: "8px 10px",
+							fontSize: 11,
+							color: T.text,
+							fontWeight: 700,
+						}}
+					>
+						{fmtXg(homeNpxg)}{" "}
+						<span style={{ color: T.faint, fontWeight: 400 }}>vs</span>{" "}
+						{fmtXg(awayNpxg)}
+					</div>
+				</>
+			)}
+
+			{(homeShots != null || awayShots != null) && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="シュートの質（1本あたり）"
+						desc="1本がどれだけ良い形か。"
+						example="0.06＝遠めの薄い形／0.30＝決定機級"
+					/>
+					<XgShotQuality
+						T={T}
+						homeName={homeName}
+						awayName={awayName}
+						homeXg={homeXg}
+						awayXg={awayXg}
+						homeShots={homeShots}
+						awayShots={awayShots}
+					/>
+				</>
+			)}
+			{(homeXgot != null || awayXgot != null) && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="GK評価"
+						desc="防いだ失点の量。"
+						example="+0.58＝0.58点ぶん好セーブ／マイナスは取りこぼし"
+					/>
+					<XgGkValue
+						T={T}
+						homeName={homeName}
+						awayName={awayName}
+						homeXgot={homeXgot}
+						awayXgot={awayXgot}
+						homeScore={homeScore}
+						awayScore={awayScore}
+					/>
+				</>
+			)}
+			{/* セクション3: 選手別xG / xGoT */}
 			{hasPlayerXg && (
 				<div>
+					<XgSectionHead
+						T={T}
+						title="選手別 xG / xGoT"
+						badge="NEW"
+						desc="誰が好機を作ったか（細バー＝枠内xGoT）。"
+						example={"0.70＝1人で“ほぼ1点級”の機会を作った"}
+					/>
 					{homeTopPlayers.length > 0 && (
 						<>
 							<div
 								style={{
 									fontSize: 11,
 									fontWeight: 800,
-									margin: "18px 0 9px",
+									margin: "10px 0 6px",
 									display: "flex",
 									alignItems: "center",
 									gap: 6,
@@ -1688,9 +2042,6 @@ function XgTab({ T, detail }) {
 								}}
 							>
 								{homeInfo.flag || "🏠"} {homeName}
-								<span style={{ color: T.sub, fontWeight: 700 }}>
-									選手別xG（誰が好機を作ったか）
-								</span>
 							</div>
 							{homeTopPlayers.map((p, i) => (
 								<PlayerXgBar
@@ -1700,6 +2051,7 @@ function XgTab({ T, detail }) {
 									xg={p.xg}
 									maxXg={maxXg}
 									isHome={true}
+									xgot={xgotByPlayer[p.player_id]}
 								/>
 							))}
 						</>
@@ -1710,7 +2062,7 @@ function XgTab({ T, detail }) {
 								style={{
 									fontSize: 11,
 									fontWeight: 800,
-									margin: "18px 0 9px",
+									margin: "10px 0 6px",
 									display: "flex",
 									alignItems: "center",
 									gap: 6,
@@ -1718,7 +2070,6 @@ function XgTab({ T, detail }) {
 								}}
 							>
 								{awayInfo.flag || "✈️"} {awayName}
-								<span style={{ color: T.sub, fontWeight: 700 }}>選手別xG</span>
 							</div>
 							{awayTopPlayers.map((p, i) => (
 								<PlayerXgBar
@@ -1728,11 +2079,38 @@ function XgTab({ T, detail }) {
 									xg={p.xg}
 									maxXg={maxXg}
 									isHome={false}
+									xgot={xgotByPlayer[p.player_id]}
 								/>
 							))}
 						</>
 					)}
 				</div>
+			)}
+			{/* セクション8: モメンタム */}
+			{isFinished && detail.series && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="モメンタム（勢い）"
+						badge="FT"
+						desc="押してた時間帯。"
+						example={`山が上側＝その時間は${homeName}が攻勢`}
+					/>
+					<XgMomentum T={T} series={detail.series} />
+				</>
+			)}
+			{/* セクション9: 試合の流れ */}
+			{isFinished && detail.series && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="試合の流れ"
+						badge="FT"
+						desc="支配/シュートの推移。"
+						example="右肩上がり＝後半に圧力を強めた"
+					/>
+					<XgFlow T={T} series={detail.series} />
+				</>
 			)}
 		</div>
 	);

@@ -163,3 +163,10 @@ CREATE TABLE IF NOT EXISTS sm_highlights (
   PRIMARY KEY (sm_fixture_id, source)
 );
 CREATE INDEX IF NOT EXISTS idx_sm_highlights_fixture ON sm_highlights (sm_fixture_id);
+
+-- 11) 試合の時系列（pressure/trends）を1 fixture=1行のJSONで保持。FT時に一度だけ書く（rows-written節約）。
+CREATE TABLE IF NOT EXISTS sm_fixture_series (
+  sm_fixture_id INTEGER PRIMARY KEY,
+  series_json   TEXT NOT NULL,
+  updated_at    INTEGER NOT NULL
+);

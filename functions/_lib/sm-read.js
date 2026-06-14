@@ -183,7 +183,27 @@ export async function getFixtureDetail(db, id) {
 	} catch (e) {
 		console.error("getFixtureDetail: highlights read failed", e?.message);
 	}
-	return { fixture, events, stats, lineups, player_stats, ai, highlight };
+	// 時系列データ（FT試合のみ存在）。テーブル未作成や読み失敗でも例外を投げず null（障害隔離）。
+	let series = null;
+	try {
+		const seriesRows = await all(
+			"SELECT series_json FROM sm_fixture_series WHERE sm_fixture_id = ?",
+		);
+		if (seriesRows.length > 0 && seriesRows[0]?.series_json)
+			series = JSON.parse(seriesRows[0].series_json);
+	} catch (e) {
+		console.error("getFixtureDetail: series read failed", id, e?.message);
+	}
+	return {
+		fixture,
+		events,
+		stats,
+		lineups,
+		player_stats,
+		ai,
+		highlight,
+		series,
+	};
 }
 
 // 得点王ランキング。topscorers.team_id を sm_teams.app_code で解決し、

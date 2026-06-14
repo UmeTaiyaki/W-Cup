@@ -16,6 +16,7 @@ import {
 	selectFixturesForDetailSync,
 	shouldRunInterval,
 	syncFixtureDetail,
+	syncFixtureSeries,
 	syncLive,
 	syncSeasonFixtures,
 	syncTopscorers,
@@ -141,6 +142,34 @@ export default {
 						}
 					} catch (e) {
 						console.error("watch-cron: score backfill error", e?.message);
+					}
+
+					try {
+						const seriesTargets = await env.DB.prepare(
+							`SELECT f.sm_fixture_id FROM sm_fixtures f
+							 LEFT JOIN sm_fixture_series s ON s.sm_fixture_id = f.sm_fixture_id
+							 WHERE f.state_id IN (5,7,8) AND s.sm_fixture_id IS NULL
+							 ORDER BY f.starting_at_ts DESC LIMIT 6`,
+						).all();
+						const rows = Array.isArray(seriesTargets?.results)
+							? seriesTargets.results
+							: [];
+						for (const row of rows) {
+							const sr = await syncFixtureSeries(
+								football,
+								env.DB,
+								row.sm_fixture_id,
+								now,
+							);
+							if (!sr.ok)
+								console.error(
+									`watch-cron: series sync failed fixture=${row.sm_fixture_id} err=${sr.error}`,
+								);
+						}
+						if (rows.length > 0)
+							console.log(`watch-cron: series synced=${rows.length}`);
+					} catch (e) {
+						console.error("watch-cron: series sync error", e?.message);
 					}
 				} catch (e) {
 					console.error("watch-cron: detail sync error", e?.message);

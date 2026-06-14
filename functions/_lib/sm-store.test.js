@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	fixtureDetailStatements,
+	fixtureSeriesStatements,
 	runBatch,
 	seasonFixturesStatements,
 	topscorersStatements,
@@ -341,6 +342,34 @@ test("event statement includes player_id columns and args", () => {
 	assert.ok(ev.sql.includes("related_player_id"));
 	assert.ok(ev.args.includes(100));
 	assert.ok(ev.args.includes(200));
+});
+
+test("fixtureSeriesStatements: INSERT INTO sm_fixture_series / ON CONFLICT(sm_fixture_id) を含む", () => {
+	const now = 9999;
+	const d = {
+		id: 9,
+		participants: [],
+		pressure: [],
+		trends: [],
+	};
+	const specs = fixtureSeriesStatements(d, now);
+	assert.equal(specs.length, 1);
+	assert.match(specs[0].sql, /INSERT INTO sm_fixture_series/);
+	assert.match(specs[0].sql, /ON CONFLICT\(sm_fixture_id\)/);
+	assert.equal(specs[0].args[0], 9);
+	const parsed = JSON.parse(specs[0].args[1]);
+	assert.ok(Array.isArray(parsed.pressure), "pressure は配列");
+	// flow キーの存在と shots/possession/attacks サブキーを検証
+	assert.ok(parsed.flow != null, "flow キーが存在する");
+	assert.ok("shots" in parsed.flow, "flow.shots が存在する");
+	assert.ok("possession" in parsed.flow, "flow.possession が存在する");
+	assert.ok("attacks" in parsed.flow, "flow.attacks が存在する");
+	assert.equal(specs[0].args[2], now);
+});
+
+test("fixtureSeriesStatements: id 無しは空配列", () => {
+	assert.deepEqual(fixtureSeriesStatements({}, 1000), []);
+	assert.deepEqual(fixtureSeriesStatements(null, 1000), []);
 });
 
 test("topscorersStatements は player ごとに upsert 文を生成", () => {

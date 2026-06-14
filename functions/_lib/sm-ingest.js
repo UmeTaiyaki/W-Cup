@@ -62,15 +62,18 @@ function penaltyGoals(detail, participant) {
 	return scoreByDescription(detail, SCORE_PENALTY, participant);
 }
 
-// xG は xGFixture include（レスポンスキー xgfixture・配列）から location で取る。
-// 各要素例: { participant_id, location, type_id, value }。statistics には来ない。
+// base xG は xGFixture の type_id=5304 を location で取る。
+// xgfixture は1サイド十数 type_id を含むため type_id を必ず絞る（最初の1件依存はバグ）。
+const XG_BASE_TYPE_ID = 5304;
 function xgFor(detail, location) {
 	const xg = Array.isArray(detail?.xgfixture)
 		? detail.xgfixture
 		: Array.isArray(detail?.xGFixture)
 			? detail.xGFixture
 			: [];
-	const hit = xg.find((x) => x?.location === location);
+	const hit = xg.find(
+		(x) => x?.location === location && x?.type_id === XG_BASE_TYPE_ID,
+	);
 	if (!hit) return null;
 	return hit.value ?? hit?.data?.value ?? null;
 }
@@ -164,6 +167,27 @@ export function toStatRows(detail) {
 		}));
 }
 
+// xGFixture include（配列キー xgfixture）を sm_stats 縦持ち行へ畳む。
+// 各要素: { participant_id, location, type_id, value | data.value }。statistics には来ないため別経路。
+// statistics に xG系 type_id は来ない前提。万一来ても D1 batch は後勝ちで xgfixture 由来値が優先される（fixtureDetailStatements で toStatRows の後に push されるため）。
+export function toXgStatRows(detail) {
+	const xg = Array.isArray(detail?.xgfixture)
+		? detail.xgfixture
+		: Array.isArray(detail?.xGFixture)
+			? detail.xGFixture
+			: [];
+	const fixtureId = detail?.id ?? null;
+	return xg
+		.filter((x) => x?.type_id != null && x?.participant_id != null)
+		.map((x) => ({
+			sm_fixture_id: x.fixture_id ?? fixtureId,
+			team_id: x.participant_id,
+			type_id: x.type_id,
+			// xGFixture は value がトップレベルにある（statistics の data.value とは構造が異なる）。data.value はフォールバック。
+			value: x.value ?? x?.data?.value ?? null,
+		}));
+}
+
 // lineups.player.teams から現所属クラブ（meta.active=true 優先・無ければ先頭）を返す。
 function activeClub(l) {
 	const teams = Array.isArray(l?.player?.teams) ? l.player.teams : [];
@@ -230,6 +254,53 @@ export function toTypeRows(types) {
 			code: t.code ?? null,
 			name: t.name ?? null,
 		}));
+}
+
+// 時系列(pressure/trends)を home/away の分単位系列へ畳む（sm_fixture_series.series_json 用）。
+// flow の trends type_id: 42=Shots Total / 45=Ball Possession% / 43=Attacks（累積カウント）。
+const FLOW_TYPES = Object.freeze({ shots: 42, possession: 45, attacks: 43 });
+
+function foldByMinute(rows, homeId, awayId, valueKey) {
+	const byMin = new Map();
+	for (const r of rows) {
+		const m = r?.minute;
+		if (m == null) continue;
+		if (!byMin.has(m)) byMin.set(m, { minute: m, home: null, away: null });
+		const slot = byMin.get(m);
+		if (homeId != null && r.participant_id === homeId)
+			slot.home = r[valueKey] ?? null;
+		else if (awayId != null && r.participant_id === awayId)
+			slot.away = r[valueKey] ?? null;
+	}
+	return [...byMin.values()].sort((a, b) => a.minute - b.minute);
+}
+
+export function toSeriesRow(detail) {
+	const { home, away } = participantsByLocation(detail);
+	const homeId = home?.id ?? null;
+	const awayId = away?.id ?? null;
+	const pressure = foldByMinute(
+		Array.isArray(detail?.pressure) ? detail.pressure : [],
+		homeId,
+		awayId,
+		"pressure",
+	);
+	const trends = Array.isArray(detail?.trends) ? detail.trends : [];
+	const flowFor = (typeId) =>
+		foldByMinute(
+			trends.filter((t) => t?.type_id === typeId),
+			homeId,
+			awayId,
+			"value",
+		);
+	return {
+		pressure,
+		flow: {
+			shots: flowFor(FLOW_TYPES.shots),
+			possession: flowFor(FLOW_TYPES.possession),
+			attacks: flowFor(FLOW_TYPES.attacks),
+		},
+	};
 }
 
 // season topscorers data[] → sm_topscorers 行（純変換）

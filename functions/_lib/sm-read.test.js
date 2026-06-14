@@ -20,13 +20,16 @@ function makeFakeDb({
 	playerStats = [],
 	matchAi = [],
 	highlights = [],
+	fixtureSeries = [],
 } = {}) {
 	return {
 		prepare: (sql) => ({
 			bind: (_id) => ({
 				all: async () => {
 					let results;
-					if (sql.includes("sm_highlights")) {
+					if (sql.includes("sm_fixture_series")) {
+						results = fixtureSeries;
+					} else if (sql.includes("sm_highlights")) {
 						results = highlights;
 					} else if (sql.includes("sm_match_ai")) {
 						results = matchAi;
@@ -346,4 +349,23 @@ test("getFixtureDetail: highlight 無しは null", async () => {
 	const db = makeFakeDb({ fixture: [{ sm_fixture_id: 9, state_id: 5 }] });
 	const out = await getFixtureDetail(db, 9);
 	assert.equal(out.highlight, null);
+});
+
+test("getFixtureDetail: series_json がある時パース済み series を返す", async () => {
+	const seriesData = {
+		pressure: [{ minute: 1, home: 60, away: 40 }],
+		flow: { shots: [], possession: [], attacks: [] },
+	};
+	const db = makeFakeDb({
+		fixture: [{ sm_fixture_id: 9, state_id: 5 }],
+		fixtureSeries: [{ series_json: JSON.stringify(seriesData) }],
+	});
+	const out = await getFixtureDetail(db, 9);
+	assert.deepEqual(out.series, seriesData);
+});
+
+test("getFixtureDetail: fixtureSeries が無い時 series は null", async () => {
+	const db = makeFakeDb({ fixture: [{ sm_fixture_id: 9, state_id: 5 }] });
+	const out = await getFixtureDetail(db, 9);
+	assert.equal(out.series, null);
 });

@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
 	FIXTURE_DETAIL_INCLUDE,
+	FIXTURE_SERIES_INCLUDE,
 	isFinished,
 	isInPlay,
 	selectFixturesForDetailSync,
 	shouldRunInterval,
 	syncFixtureDetail,
+	syncFixtureSeries,
 	syncLive,
 	syncSeasonFixtures,
 	syncTopscorers,
@@ -338,6 +340,51 @@ test("syncTopscorers は fetch 失敗でも例外を投げず error を返す", 
 	const r = await syncTopscorers(football, db, 26618, 1700);
 	assert.equal(r.count, 0);
 	assert.equal(r.error, "boom");
+});
+
+test("FIXTURE_SERIES_INCLUDE は pressure;trends;periods.statistics を含む", () => {
+	assert.equal(FIXTURE_SERIES_INCLUDE, "pressure;trends;periods.statistics");
+});
+
+test("syncFixtureSeries: include が正しく path が fixtures/9、書き込みが1回起きる", async () => {
+	const fakeDetail = {
+		id: 9,
+		participants: [],
+		pressure: [{ participant_id: 10, value: 50, location: "home" }],
+		trends: [],
+	};
+	let captured = null;
+	const client = {
+		get: async (path, opts) => {
+			captured = { path, opts };
+			return { data: fakeDetail };
+		},
+	};
+	const db = fakeDb();
+	const res = await syncFixtureSeries(client, db, 9, 1000);
+	assert.equal(captured.path, "fixtures/9");
+	assert.equal(captured.opts.include, "pressure;trends;periods.statistics");
+	assert.equal(res.ok, true);
+	assert.equal(res.fixtureId, 9);
+	assert.equal(db.batched.length, 1);
+});
+
+test("syncFixtureSeries: data が無ければ ok:false（例外なし）", async () => {
+	const client = { get: async () => ({}) };
+	const res = await syncFixtureSeries(client, fakeDb(), 9, 1000);
+	assert.equal(res.ok, false);
+	assert.equal(res.error, "no data");
+});
+
+test("syncFixtureSeries: fetch 失敗でも例外を投げず ok:false を返す", async () => {
+	const client = {
+		get: async () => {
+			throw new Error("network error");
+		},
+	};
+	const res = await syncFixtureSeries(client, fakeDb(), 9, 1000);
+	assert.equal(res.ok, false);
+	assert.ok(res.error);
 });
 
 test("shouldRunInterval: intervalMin 分境界でのみ true（重い同期の間引き）", () => {
