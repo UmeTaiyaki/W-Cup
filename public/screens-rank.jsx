@@ -211,7 +211,11 @@ function RankingScreen({ T, state, wide = false }) {
 	// 確定結果が1つでも入力されているか（採点が実際に意味を持つか）を判定。
 	// 未確定のあいだは順位メダル色を出さず「結果待ち」を明示する。
 	const KO_ROUNDS = ["r32", "r16", "qf", "sf"];
-	const grRes = R.groupResult || {};
+	// 暫定込みの実効グループ順位（採点ラッパと同一ロジック）で判定。
+	// これにより暫定点が入った時点でメダル色・順位番号が出る。
+	const grRes = window.WC.scoringGroupResult
+		? window.WC.scoringGroupResult()
+		: R.groupResult || {};
 	const koRes = R.knockout || {};
 	const resultsLive =
 		!!(R.champion || R.runnerUp || (R.topScorer && R.topScorer.trim())) ||

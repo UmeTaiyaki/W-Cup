@@ -87,7 +87,7 @@
     import { THIRD_ALLOCATION, thirdAllocation } from './lib/third-allocation.js';
     import { SCORING, scoreMember, normalize, canonicalKey, resolve } from './lib/scoring.js';
     import { buildAliasMap, upsertAlias, rosterCanonicalSet, autoMatchScorer } from './lib/scorer-alias.js';
-    import { generateFixtures, computeStandings } from './lib/standings.js';
+    import { generateFixtures, computeStandings, provisionalGroupResult } from './lib/standings.js';
     import { availableCards, groupTop2, parseScorer, shareFilename, shareText } from './lib/share-model.js';
     import { drawShareCard } from './lib/share-draw.js';
     import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
@@ -97,13 +97,31 @@
     window.WC = window.WC || {};
     window.WC.teamsLib = { parseFavs, toggleFav, teamFixtures, groupOf };
     window.WC.aiLib = { validateDoc, validateTeam, unknownPicks, getTeamAnalysis, hasAnalysis };
-    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings });
+    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings, provisionalGroupResult });
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
     Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday });
     Object.assign(window.WC, { normalize, canonicalKey, resolve, buildAliasMap, upsertAlias, rosterCanonicalSet, autoMatchScorer });
+    // 採点が参照する groupResult を「確定 → 暫定」の順で解決する。確定（全試合FT由来）が
+    // あるグループは確定を、無いグループは暫定順位（全チーム1試合以上消化後の top3）を使う。
+    // 採点ラッパと screens-rank の resultsLive 判定で共用する。
+    window.WC.scoringGroupResult = () => {
+      const conf = (window.WC.RESULT && window.WC.RESULT.groupResult) || {};
+      const prov = provisionalGroupResult(window.WC.GROUPS || {}, window.WC.GROUP_MATCHES || {});
+      const out = {};
+      for (const g of new Set([...Object.keys(conf), ...Object.keys(prov)])) {
+        const c = (conf[g] || []).filter(Boolean);
+        out[g] = c.length ? conf[g] : (prov[g] || []);
+      }
+      return out;
+    };
     // 採点は RESULT を結果として渡す薄いラッパに統一（既存呼び出し scoreMember(pred) を維持）。
     // 得点王照合のエイリアス解決用に ALIAS_MAP（data.js が config から構築）を第4引数で渡す。
-    window.WC.scoreMember = (pred) => scoreMember(pred, window.WC.RESULT, SCORING, window.WC.ALIAS_MAP || {});
+    window.WC.scoreMember = (pred) => scoreMember(
+      pred,
+      { ...(window.WC.RESULT || {}), groupResult: window.WC.scoringGroupResult() },
+      SCORING,
+      window.WC.ALIAS_MAP || {},
+    );
   </script>
   <script type="text/babel" src="tweaks-panel.jsx?v=3"></script>
   <script type="text/babel" src="ios-frame.jsx?v=3"></script>
@@ -111,7 +129,7 @@
   <script type="text/babel" src="app-shell.jsx?v=10"></script>
   <script type="text/babel" src="screens-core.jsx?v=17"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=8"></script>
-  <script type="text/babel" src="screens-rank.jsx?v=8"></script>
+  <script type="text/babel" src="screens-rank.jsx?v=9"></script>
   <script type="text/babel" src="screens-group.jsx?v=12"></script>
   <script type="text/babel" src="screens-grouprank.jsx?v=8"></script>
   <script type="text/babel" src="screens-thirdwild.jsx?v=9"></script>
