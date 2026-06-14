@@ -562,7 +562,9 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome, xgot }) {
 						style={{
 							height: 3,
 							marginTop: 1,
-							background: "rgba(226,240,228,0.5)",
+							background: isHome
+								? "rgba(182,255,60,0.45)"
+								: "rgba(226,240,228,0.5)",
 							borderRadius: 2,
 							width: `${Math.min(100, (xgot / maxXg) * 100)}%`,
 						}}
@@ -1483,7 +1485,7 @@ function XgMomentum({ T, series }) {
 		1,
 		...pts.map((p) => Math.abs((p.home || 0) - (p.away || 0))),
 	);
-	const maxMin = Math.max(...pts.map((p) => p.minute));
+	const maxMin = Math.max(1, ...pts.map((p) => p.minute));
 	const coords = pts.map((p) => {
 		const x = (p.minute / maxMin) * W;
 		const net = (p.home || 0) - (p.away || 0);
@@ -1530,9 +1532,10 @@ function XgFlow({ T, series }) {
 	const [active, setActive] = React.useState(tabs[0] ? tabs[0].key : null);
 	if (!active) return null;
 	const pts = flow[active];
+	if (!Array.isArray(pts) || pts.length < 2) return null;
 	const W = 300,
 		H = 60;
-	const maxMin = Math.max(...pts.map((p) => p.minute));
+	const maxMin = Math.max(1, ...pts.map((p) => p.minute));
 	const maxVal = Math.max(
 		1,
 		...pts.map((p) => Math.max(p.home || 0, p.away || 0)),
