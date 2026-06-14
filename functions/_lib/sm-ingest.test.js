@@ -616,3 +616,20 @@ test("toSeriesRow: データ無しは空構造", () => {
 		flow: { shots: [], possession: [], attacks: [] },
 	});
 });
+
+test("toSeriesRow: minute=null の行はスキップ", () => {
+	const detail = {
+		id: 5,
+		participants: [
+			{ id: 1, meta: { location: "home" } },
+			{ id: 2, meta: { location: "away" } },
+		],
+		pressure: [
+			{ participant_id: 1, minute: null, pressure: 9 },
+			{ participant_id: 1, minute: 10, pressure: 3 },
+		],
+		trends: [],
+	};
+	const s = toSeriesRow(detail);
+	assert.deepEqual(s.pressure, [{ minute: 10, home: 3, away: null }]);
+});

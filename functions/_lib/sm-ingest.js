@@ -267,8 +267,10 @@ function foldByMinute(rows, homeId, awayId, valueKey) {
 		if (m == null) continue;
 		if (!byMin.has(m)) byMin.set(m, { minute: m, home: null, away: null });
 		const slot = byMin.get(m);
-		if (r.participant_id === homeId) slot.home = r[valueKey] ?? null;
-		else if (r.participant_id === awayId) slot.away = r[valueKey] ?? null;
+		if (homeId != null && r.participant_id === homeId)
+			slot.home = r[valueKey] ?? null;
+		else if (awayId != null && r.participant_id === awayId)
+			slot.away = r[valueKey] ?? null;
 	}
 	return [...byMin.values()].sort((a, b) => a.minute - b.minute);
 }
