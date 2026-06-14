@@ -1470,6 +1470,128 @@ function AiTab({ T, detail }) {
 	);
 }
 
+// モメンタム（pressure の home-away 差分ライン）。FTのみ。
+function XgMomentum({ T, series }) {
+	const pts = (
+		series && Array.isArray(series.pressure) ? series.pressure : []
+	).filter((p) => p && p.minute != null);
+	if (pts.length < 2) return null;
+	const W = 300,
+		H = 70,
+		mid = H / 2;
+	const maxAbs = Math.max(
+		1,
+		...pts.map((p) => Math.abs((p.home || 0) - (p.away || 0))),
+	);
+	const maxMin = Math.max(...pts.map((p) => p.minute));
+	const coords = pts.map((p) => {
+		const x = (p.minute / maxMin) * W;
+		const net = (p.home || 0) - (p.away || 0);
+		const y = mid - (net / maxAbs) * (mid - 4);
+		return `${x.toFixed(1)},${y.toFixed(1)}`;
+	});
+	return (
+		<svg
+			viewBox={`0 0 ${W} ${H}`}
+			preserveAspectRatio="none"
+			style={{
+				width: "100%",
+				height: 70,
+				background: "rgba(255,255,255,0.03)",
+				borderRadius: 6,
+			}}
+		>
+			<line
+				x1="0"
+				y1={mid}
+				x2={W}
+				y2={mid}
+				stroke="rgba(255,255,255,0.14)"
+				strokeWidth="1"
+			/>
+			<polyline
+				points={coords.join(" ")}
+				fill="none"
+				stroke={T.accent}
+				strokeWidth="2"
+			/>
+		</svg>
+	);
+}
+
+// 試合の流れ（trends）。shots/possession/attacks をタブ切替。FTのみ。
+function XgFlow({ T, series }) {
+	const flow = (series && series.flow) || {};
+	const tabs = [
+		{ key: "shots", label: "累積シュート" },
+		{ key: "possession", label: "支配率" },
+		{ key: "attacks", label: "攻撃" },
+	].filter((t) => Array.isArray(flow[t.key]) && flow[t.key].length >= 2);
+	const [active, setActive] = React.useState(tabs[0] ? tabs[0].key : null);
+	if (!active) return null;
+	const pts = flow[active];
+	const W = 300,
+		H = 60;
+	const maxMin = Math.max(...pts.map((p) => p.minute));
+	const maxVal = Math.max(
+		1,
+		...pts.map((p) => Math.max(p.home || 0, p.away || 0)),
+	);
+	const line = (side, color) => {
+		const coords = pts.map((p) => {
+			const x = (p.minute / maxMin) * W;
+			const y = H - ((p[side] || 0) / maxVal) * (H - 4);
+			return `${x.toFixed(1)},${y.toFixed(1)}`;
+		});
+		return (
+			<polyline
+				points={coords.join(" ")}
+				fill="none"
+				stroke={color}
+				strokeWidth="1.8"
+			/>
+		);
+	};
+	return (
+		<div>
+			<div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+				{tabs.map((t) => (
+					<button
+						key={t.key}
+						onClick={() => setActive(t.key)}
+						style={{
+							fontSize: 9.5,
+							fontWeight: 700,
+							padding: "3px 8px",
+							borderRadius: 999,
+							border: "none",
+							cursor: "pointer",
+							background:
+								active === t.key ? T.accent : "rgba(255,255,255,0.06)",
+							color: active === t.key ? T.accentInk : T.sub,
+						}}
+					>
+						{t.label}
+					</button>
+				))}
+			</div>
+			<svg
+				viewBox={`0 0 ${W} ${H}`}
+				preserveAspectRatio="none"
+				style={{
+					width: "100%",
+					height: 60,
+					background: "rgba(255,255,255,0.03)",
+					borderRadius: 6,
+				}}
+			>
+				{line("home", T.accent)}
+				{line("away", "rgba(226,240,228,0.5)")}
+			</svg>
+		</div>
+	);
+}
+
 // ── XgTab ─────────────────────────────────────────────────────────────────
 // セクション1: チーム合計バンド(accent枠) — 未終了(非FT)or 両xGともnull時は早期return
 // セクション2: 効率判定: score>xg+0.3→効率良く / score<xg-0.5→決定機活かせず / else→ほぼ期待通り
@@ -1963,6 +2085,32 @@ function XgTab({ T, detail }) {
 						</>
 					)}
 				</div>
+			)}
+			{/* セクション8: モメンタム */}
+			{isFinished && detail.series && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="モメンタム（勢い）"
+						badge="FT"
+						desc="押してた時間帯。"
+						example={`山が上側＝その時間は${homeName}が攻勢`}
+					/>
+					<XgMomentum T={T} series={detail.series} />
+				</>
+			)}
+			{/* セクション9: 試合の流れ */}
+			{isFinished && detail.series && (
+				<>
+					<XgSectionHead
+						T={T}
+						title="試合の流れ"
+						badge="FT"
+						desc="支配/シュートの推移。"
+						example="右肩上がり＝後半に圧力を強めた"
+					/>
+					<XgFlow T={T} series={detail.series} />
+				</>
 			)}
 		</div>
 	);
