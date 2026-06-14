@@ -337,22 +337,6 @@ function LeagueTables({ T }) {
 											}}
 										>
 											{tm.ja}
-											{i === 2 && adv && (
-												<span
-													style={{
-														marginLeft: 5,
-														fontSize: 9.5,
-														fontWeight: 800,
-														color: ADV_GREEN,
-														border: `1px solid ${ADV_GREEN}`,
-														borderRadius: 5,
-														padding: "1px 4px",
-														verticalAlign: "middle",
-													}}
-												>
-													3位通過
-												</span>
-											)}
 											<span style={{ color: T.faint, marginLeft: 3 }}>›</span>
 										</span>
 										<span
@@ -479,7 +463,7 @@ function LeagueTables({ T }) {
 							display: "inline-block",
 						}}
 					/>
-					暫定で決勝トーナメント進出圏（各組1・2位＋3位通過上位8組）
+					暫定で決勝トーナメント進出圏（各組1・2位＋各組3位の上位8組）
 				</div>
 			)}
 			<div
