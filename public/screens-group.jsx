@@ -73,9 +73,10 @@ function GroupScreen({ T, wide = false }) {
 	);
 }
 
-// ---- ⓪日程（終了した試合のみ：新しい順）----
+// ---- ⓪日程（開始済み＝終了＋試合中：新しい順）----
 // 表示は既存ホームの DayTimeline（日付区切り＋MatchRow）を再利用する。
-// 未終了（これからの試合）はこのタブには出さない（結果一覧として終了分のみ表示）。
+// 「まだ終わってない試合（未開始/NS）」はこのタブに出さない。
+// ただし試合中(LIVE)はスコアのある“結果”なので残す（終了扱い＝表示）。
 function ScheduleResults({ T }) {
 	const schedule = window.WC.SCHEDULE || [];
 	if (!schedule.length) {
@@ -86,20 +87,22 @@ function ScheduleResults({ T }) {
 		);
 	}
 
-	// 終了判定: matchResult（ライブFT or グループ確定スコア）が取れた試合のみ採用。
-	const finished = [];
+	// 採用条件: 終了(matchResult=FT) もしくは 試合中(LIVE)。未開始(NS)/データ無しは除外。
+	const played = [];
 	for (const m of schedule) {
 		if (!m) continue;
-		if (window.WC.matchResult && window.WC.matchResult(m)) finished.push(m);
+		const done = window.WC.matchResult && window.WC.matchResult(m);
+		const live = window.WC.liveForMatch && window.WC.liveForMatch(m);
+		if (done || (live && live.status === "LIVE")) played.push(m);
 	}
 
 	// 日付・各日内とも新しい順（groupByDate は昇順なので反転。日付未定は除外）。
-	const finishedGroups = window.WC.groupByDate(finished)
+	const playedGroups = window.WC.groupByDate(played)
 		.filter((g) => g.date !== null)
 		.reverse()
 		.map((g) => ({ date: g.date, matches: g.matches.slice().reverse() }));
 
-	if (finishedGroups.length === 0) {
+	if (playedGroups.length === 0) {
 		return (
 			<div style={{ padding: "40px 8px", textAlign: "center", color: T.sub }}>
 				終了した試合はまだありません
@@ -107,7 +110,7 @@ function ScheduleResults({ T }) {
 		);
 	}
 
-	return <window.DayTimeline T={T} groups={finishedGroups} />;
+	return <window.DayTimeline T={T} groups={playedGroups} />;
 }
 
 // ---- ①グループリーグ（フルリーグ表）----
