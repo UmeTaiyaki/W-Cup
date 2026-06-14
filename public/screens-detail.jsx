@@ -1198,7 +1198,7 @@ function XgSectionHead({ T, n, title, desc, example, badge }) {
 					<span
 						style={{
 							background: T.accent,
-							color: "#0e1a14",
+							color: T.accentInk,
 							borderRadius: "50%",
 							width: 16,
 							height: 16,
@@ -1218,7 +1218,7 @@ function XgSectionHead({ T, n, title, desc, example, badge }) {
 						style={{
 							fontSize: 8.5,
 							background: T.accent,
-							color: "#0e1a14",
+							color: T.accentInk,
 							fontWeight: 800,
 							borderRadius: 3,
 							padding: "0 4px",
@@ -1487,7 +1487,7 @@ function XgTab({ T, detail }) {
 	const awayName = awayInfo.ja || (fx && fx.away && fx.away.name) || "アウェイ";
 
 	const isFinished = fx && fx.status === "FT";
-	const isLive = fx && (fx.status === "LIVE" || fx.status === "HT");
+	const isLive = fx && fx.status === "LIVE";
 	// xG が1つも無い時だけプレースホルダ。ライブでも xG があれば 1–7 を出す（速報）。
 	if (homeXg == null && awayXg == null) {
 		return (
