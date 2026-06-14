@@ -73,8 +73,9 @@ function GroupScreen({ T, wide = false }) {
 	);
 }
 
-// ---- ⓪日程（全試合：結果＝終了分は新しい順 / これから＝未終了分は近い順）----
+// ---- ⓪日程（終了した試合のみ：新しい順）----
 // 表示は既存ホームの DayTimeline（日付区切り＋MatchRow）を再利用する。
+// 未終了（これからの試合）はこのタブには出さない（結果一覧として終了分のみ表示）。
 function ScheduleResults({ T }) {
 	const schedule = window.WC.SCHEDULE || [];
 	if (!schedule.length) {
@@ -85,55 +86,34 @@ function ScheduleResults({ T }) {
 		);
 	}
 
-	// 終了判定: matchResult（ライブFT or グループ確定スコア）が取れたら「結果」側へ。
+	// 終了判定: matchResult（ライブFT or グループ確定スコア）が取れた試合のみ採用。
 	const finished = [];
-	const upcoming = [];
 	for (const m of schedule) {
 		if (!m) continue;
-		const done = window.WC.matchResult && window.WC.matchResult(m);
-		(done ? finished : upcoming).push(m);
+		if (window.WC.matchResult && window.WC.matchResult(m)) finished.push(m);
 	}
 
-	// 結果: 日付・各日内とも新しい順（groupByDate は昇順なので反転。日付未定は除外）。
+	// 日付・各日内とも新しい順（groupByDate は昇順なので反転。日付未定は除外）。
 	const finishedGroups = window.WC.groupByDate(finished)
 		.filter((g) => g.date !== null)
 		.reverse()
 		.map((g) => ({ date: g.date, matches: g.matches.slice().reverse() }));
-	// これから: 近い順（groupByDate の昇順そのまま。日付未定は末尾に付く）。
-	const upcomingGroups = window.WC.groupByDate(upcoming);
 
-	const SectionHead = ({ children }) => (
-		<div
-			style={{
-				fontWeight: 800,
-				fontSize: 14,
-				color: T.text,
-				margin: "8px 4px 0",
-			}}
-		>
-			{children}
-		</div>
-	);
+	if (finishedGroups.length === 0) {
+		return (
+			<div style={{ padding: "40px 8px", textAlign: "center", color: T.sub }}>
+				終了した試合はまだありません
+			</div>
+		);
+	}
 
-	return (
-		<div>
-			{finishedGroups.length > 0 && (
-				<div style={{ marginBottom: 8 }}>
-					<SectionHead>結果</SectionHead>
-					<window.DayTimeline T={T} groups={finishedGroups} />
-				</div>
-			)}
-			{upcomingGroups.length > 0 && (
-				<div>
-					<SectionHead>これからの予定</SectionHead>
-					<window.DayTimeline T={T} groups={upcomingGroups} />
-				</div>
-			)}
-		</div>
-	);
+	return <window.DayTimeline T={T} groups={finishedGroups} />;
 }
 
 // ---- ①グループリーグ（フルリーグ表）----
+// 暫定突破圏を緑の縦線で示す（1・2位＝自動 / 3位＝全12組の3位成績上位8組）。
+// 試合中のグループはカード右上に「試合中」を赤文字＋点滅で表示する。
+const ADV_GREEN = "#22C55E"; // 突破圏インジケータ（テーマ非依存の明確な緑）
 function LeagueTables({ T }) {
 	const GK = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 	const groups = window.WC.GROUPS || {};
@@ -143,13 +123,73 @@ function LeagueTables({ T }) {
 	const compute = window.WC.computeStandings;
 	const [detailCode, setDetailCode] = React.useState(null);
 
-	const Card = ({ k }) => {
+	// 各グループの暫定順位（スコアがある組のみ算出）を一括計算しておく。
+	const standingsByGroup = {};
+	let anyStandings = false;
+	for (const k of GK) {
 		const members = (groups[k] || []).filter(Boolean);
 		const ms = matches[k] || [];
 		const hasScores = ms.some(
 			(m) => typeof m.ga === "number" && typeof m.gb === "number",
 		);
 		const rows = hasScores && compute ? compute(members, ms) : null;
+		standingsByGroup[k] = rows;
+		if (rows) anyStandings = true;
+	}
+
+	// 3位通過（暫定）: 各組3位を成績順（勝点→得失差→総得点）に並べ、上位8組が突破圏。
+	const thirdAdvance = new Set();
+	const thirds = GK.map((k) => {
+		const rows = standingsByGroup[k];
+		const r = rows && rows[2];
+		return r ? { k, r } : null;
+	}).filter(Boolean);
+	thirds.sort(
+		(x, y) =>
+			y.r.pts - x.r.pts ||
+			y.r.gd - x.r.gd ||
+			y.r.gf - x.r.gf ||
+			(x.k < y.k ? -1 : 1),
+	);
+	thirds.slice(0, 8).forEach((c) => thirdAdvance.add(c.k));
+
+	// 試合中（LIVE）のグループ判定: ライブ index か GROUP_MATCHES の status を見る。
+	const isGroupLive = (k) => {
+		const ms = matches[k] || [];
+		const pairs =
+			ms.length || !window.WC.generateFixtures
+				? ms
+				: window.WC.generateFixtures((groups[k] || []).filter(Boolean));
+		return pairs.some((m) => {
+			if (m.status === "LIVE") return true;
+			const lv =
+				window.WC.liveForMatch && window.WC.liveForMatch({ a: m.a, b: m.b });
+			return lv && lv.status === "LIVE";
+		});
+	};
+
+	// 突破圏か（i: 暫定順位インデックス0始まり, k: グループ）
+	const isAdvancing = (k, i) =>
+		i === 0 || i === 1 || (i === 2 && thirdAdvance.has(k));
+
+	// 突破圏を示す左の緑縦線（非突破でも幅を確保して桁を揃える）。
+	const AdvBar = ({ on }) => (
+		<span
+			style={{
+				width: 3,
+				alignSelf: "stretch",
+				minHeight: 16,
+				borderRadius: 2,
+				flexShrink: 0,
+				background: on ? ADV_GREEN : "transparent",
+			}}
+		/>
+	);
+
+	const Card = ({ k }) => {
+		const members = (groups[k] || []).filter(Boolean);
+		const rows = standingsByGroup[k];
+		const live = isGroupLive(k);
 		// フォールバック: 最終順位の並び（数値なし）
 		const order = (gr[k] || []).filter(Boolean);
 		const fallback = order.length
@@ -169,6 +209,7 @@ function LeagueTables({ T }) {
 					style={{
 						display: "flex",
 						alignItems: "center",
+						justifyContent: "space-between",
 						gap: 8,
 						marginBottom: 10,
 					}}
@@ -183,6 +224,32 @@ function LeagueTables({ T }) {
 					>
 						GROUP {k}
 					</span>
+					{live && (
+						<span
+							style={{
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 5,
+								fontSize: 11,
+								fontWeight: 900,
+								color: T.danger,
+							}}
+						>
+							<span
+								style={{
+									width: 6,
+									height: 6,
+									borderRadius: 3,
+									background: T.danger,
+									display: "inline-block",
+									animation: "wc-blink 1s ease-in-out infinite",
+								}}
+							/>
+							<span style={{ animation: "wc-blink 1s ease-in-out infinite" }}>
+								試合中
+							</span>
+						</span>
+					)}
 				</div>
 				{rows ? (
 					<div>
@@ -198,6 +265,7 @@ function LeagueTables({ T }) {
 								padding: "0 4px 6px",
 							}}
 						>
+							<span style={{ width: 3 }} />
 							<span style={{ width: 16 }} />
 							<span style={{ flex: 1 }} />
 							<span style={{ width: 28, textAlign: "center" }}>勝点</span>
@@ -209,6 +277,7 @@ function LeagueTables({ T }) {
 							{rows.map((r, i) => {
 								const tm = TEAM[r.code];
 								if (!tm) return null;
+								const adv = isAdvancing(k, i);
 								const posColor =
 									i === 0
 										? T.gold
@@ -227,6 +296,7 @@ function LeagueTables({ T }) {
 											fontSize: 13,
 										}}
 									>
+										<AdvBar on={adv} />
 										<span
 											style={{
 												width: 16,
@@ -252,6 +322,22 @@ function LeagueTables({ T }) {
 											}}
 										>
 											{tm.ja}
+											{i === 2 && adv && (
+												<span
+													style={{
+														marginLeft: 5,
+														fontSize: 9.5,
+														fontWeight: 800,
+														color: ADV_GREEN,
+														border: `1px solid ${ADV_GREEN}`,
+														borderRadius: 5,
+														padding: "1px 4px",
+														verticalAlign: "middle",
+													}}
+												>
+													3位通過
+												</span>
+											)}
 											<span style={{ color: T.faint, marginLeft: 3 }}>›</span>
 										</span>
 										<span
@@ -357,6 +443,30 @@ function LeagueTables({ T }) {
 
 	return (
 		<>
+			{anyStandings && (
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 7,
+						margin: "0 4px 12px",
+						fontSize: 11.5,
+						fontWeight: 700,
+						color: T.sub,
+					}}
+				>
+					<span
+						style={{
+							width: 3,
+							height: 13,
+							borderRadius: 2,
+							background: ADV_GREEN,
+							display: "inline-block",
+						}}
+					/>
+					暫定で決勝トーナメント進出圏（各組1・2位＋3位通過上位8組）
+				</div>
+			)}
 			<div
 				style={{
 					display: "grid",
