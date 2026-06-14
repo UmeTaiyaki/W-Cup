@@ -4,11 +4,15 @@
 import { toTopscorerRows } from "./sm-ingest.js";
 import {
 	fixtureDetailStatements,
+	fixtureSeriesStatements,
 	runBatch,
 	seasonFixturesStatements,
 	topscorersStatements,
 	typeStatements,
 } from "./sm-store.js";
+
+// fixture 時系列データの include（pressure/trends/periods）
+export const FIXTURE_SERIES_INCLUDE = "pressure;trends;periods.statistics";
 
 // fixture 詳細の include。ラインナップ・xG を含む完全版（lineups/xGFixture を追加）。
 // periods: 進行中ピリオドの経過分(minutes/time_added)取得用。
@@ -164,6 +168,28 @@ export async function syncTopscorers(footballClient, db, seasonId, now) {
 	} catch (e) {
 		console.error("syncTopscorers: upsert failed", e?.message);
 		return { count: 0, error: e?.message };
+	}
+}
+
+// fixture 1件の時系列データを取得して sm_fixture_series へ upsert。FT試合に対し一度だけ呼ぶ想定。
+export async function syncFixtureSeries(footballClient, db, fixtureId, now) {
+	let body;
+	try {
+		body = await footballClient.get(`fixtures/${fixtureId}`, {
+			include: FIXTURE_SERIES_INCLUDE,
+		});
+	} catch (e) {
+		console.error("syncFixtureSeries: fetch failed", fixtureId, e?.message);
+		return { ok: false, error: e?.message };
+	}
+	const detail = body?.data;
+	if (!detail) return { ok: false, error: "no data" };
+	try {
+		await runBatch(db, fixtureSeriesStatements(detail, now));
+		return { ok: true, fixtureId };
+	} catch (e) {
+		console.error("syncFixtureSeries: upsert failed", fixtureId, e?.message);
+		return { ok: false, error: e?.message };
 	}
 }
 
