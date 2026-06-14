@@ -291,7 +291,7 @@ function RankingScreen({ T, state, wide = false }) {
 		</div>
 	);
 
-	// ----- 集計状況バナー（大会中のみ確定結果を表示。大会前は非表示）-----
+	// ----- 集計状況バナー（大会中のみ表示。大会前は非表示）-----
 	const Banner = () => {
 		if (!resultsLive) return null;
 		const champ = R.champion ? window.WC.TEAM[R.champion] : null;
@@ -311,7 +311,7 @@ function RankingScreen({ T, state, wide = false }) {
 			>
 				<Icon name="flame" size={17} color={T.accent} />
 				<div style={{ fontSize: 13, color: T.sub, lineHeight: 1.45 }}>
-					<b style={{ color: T.text }}>確定結果</b>で集計中 · 優勝{" "}
+					<b style={{ color: T.text }}>集計中</b> · 優勝{" "}
 					{champ ? (
 						<>
 							<Flag code={champ.code} size={15} style={{ marginRight: 3 }} />
