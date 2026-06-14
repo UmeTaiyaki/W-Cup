@@ -529,7 +529,7 @@ function MirrorBar({ T, label, unit, homeVal, awayVal }) {
 }
 
 /** 選手別xG 横バー */
-function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
+function PlayerXgBar({ T, playerName, xg, maxXg, isHome, xgot }) {
 	const pct = maxXg > 0 ? (xg / maxXg) * 100 : 0;
 	const barColor = isHome ? T.accent : "rgba(226,240,228,0.55)";
 
@@ -557,6 +557,17 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome }) {
 						width: `${pct}%`,
 					}}
 				/>
+				{xgot != null && xgot > 0 && (
+					<div
+						style={{
+							height: 3,
+							marginTop: 1,
+							background: "rgba(226,240,228,0.5)",
+							borderRadius: 2,
+							width: `${Math.min(100, (xgot / maxXg) * 100)}%`,
+						}}
+					/>
+				)}
 			</div>
 			<span
 				style={{
@@ -1570,6 +1581,12 @@ function XgTab({ T, detail }) {
 	const awayFinish = finishingNote(awayXg, awayXgot);
 
 	// ── セクション3: 選手別xG ─────────────────────────────────────────────
+	const playerStats = (detail && detail.player_stats) || [];
+	const xgotByPlayer = {};
+	playerStats.forEach((r) => {
+		if (r.type_id === 5305 && r.player_id != null)
+			xgotByPlayer[r.player_id] = r.value;
+	});
 	const withXg = lineups.filter((p) => p.xg != null && p.xg > 0);
 	// チームごとに上位5人に絞る
 	const homeTopPlayers = withXg
@@ -1879,16 +1896,23 @@ function XgTab({ T, detail }) {
 					/>
 				</>
 			)}
-			{/* セクション3: 選手別xG */}
+			{/* セクション3: 選手別xG / xGoT */}
 			{hasPlayerXg && (
 				<div>
+					<XgSectionHead
+						T={T}
+						title="選手別 xG / xGoT"
+						badge="NEW"
+						desc="誰が好機を作ったか（細バー＝枠内xGoT）。"
+						example={"0.70＝1人で“ほぼ1点級”の機会を作った"}
+					/>
 					{homeTopPlayers.length > 0 && (
 						<>
 							<div
 								style={{
 									fontSize: 11,
 									fontWeight: 800,
-									margin: "18px 0 9px",
+									margin: "10px 0 6px",
 									display: "flex",
 									alignItems: "center",
 									gap: 6,
@@ -1896,9 +1920,6 @@ function XgTab({ T, detail }) {
 								}}
 							>
 								{homeInfo.flag || "🏠"} {homeName}
-								<span style={{ color: T.sub, fontWeight: 700 }}>
-									選手別xG（誰が好機を作ったか）
-								</span>
 							</div>
 							{homeTopPlayers.map((p, i) => (
 								<PlayerXgBar
@@ -1908,6 +1929,7 @@ function XgTab({ T, detail }) {
 									xg={p.xg}
 									maxXg={maxXg}
 									isHome={true}
+									xgot={xgotByPlayer[p.player_id]}
 								/>
 							))}
 						</>
@@ -1918,7 +1940,7 @@ function XgTab({ T, detail }) {
 								style={{
 									fontSize: 11,
 									fontWeight: 800,
-									margin: "18px 0 9px",
+									margin: "10px 0 6px",
 									display: "flex",
 									alignItems: "center",
 									gap: 6,
@@ -1926,7 +1948,6 @@ function XgTab({ T, detail }) {
 								}}
 							>
 								{awayInfo.flag || "✈️"} {awayName}
-								<span style={{ color: T.sub, fontWeight: 700 }}>選手別xG</span>
 							</div>
 							{awayTopPlayers.map((p, i) => (
 								<PlayerXgBar
@@ -1936,6 +1957,7 @@ function XgTab({ T, detail }) {
 									xg={p.xg}
 									maxXg={maxXg}
 									isHome={false}
+									xgot={xgotByPlayer[p.player_id]}
 								/>
 							))}
 						</>
