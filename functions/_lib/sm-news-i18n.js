@@ -1,8 +1,7 @@
-// SportMonks 英語ニュースの日本語訳。grounding 無し・低温度。KV(env.CONFIG)で1回だけ翻訳。
-// 認証は2系統に対応(どちらもハンドラ側で組み立てて渡す):
-//   - vertex: 既存 GCP サービスアカウントで発行済みの accessToken を使う Vertex AI 経路
-//   - gemini: Gemini Developer API キー(x-goog-api-key)経路
-// vertex を優先。両方欠如/失敗時は原文(英語)を返し、ホーム本体には決して波及させない。
+// SportMonks 英語ニュースの日本語訳。Vertex AI(既存 GCP サービスアカウント認証を流用)。
+// grounding 無し・低温度。KV(env.CONFIG)で1回だけ翻訳。トークン発行はハンドラ側で実施し
+// 発行済み accessToken を vertex で受け取る。失敗・vertex 欠如時は原文(英語)を返し、
+// ホーム本体には決して波及させない。
 
 const TRANSLATE_MODEL = "gemini-2.5-flash";
 const PROMPT = (text) =>
@@ -17,11 +16,6 @@ export function vertexGenerateUrl(project, location, model) {
 	return `https://${host}/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`;
 }
 
-// Gemini Developer API generateContent の URL。
-export function geminiGenerateUrl(model) {
-	return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-}
-
 function extractText(jsonBody) {
 	const parts = jsonBody?.candidates?.[0]?.content?.parts;
 	if (!Array.isArray(parts)) return "";
@@ -31,57 +25,9 @@ function extractText(jsonBody) {
 		.trim();
 }
 
-// vertex / gemini から fetch リクエスト(url, init)を組み立てる。どちらも無ければ null。
-// grounding(tools)は付けず、温度は低めに固定する。
-function buildRequest(prompt, { vertex, gemini }) {
-	const payload = {
-		contents: [{ role: "user", parts: [{ text: prompt }] }],
-		generationConfig: { temperature: 0.2 },
-	};
-	if (vertex && vertex.accessToken && vertex.project) {
-		const model = vertex.model || TRANSLATE_MODEL;
-		const location = vertex.location || "global";
-		return {
-			url: vertexGenerateUrl(vertex.project, location, model),
-			init: {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${vertex.accessToken}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(payload),
-			},
-			fetchImpl: vertex.fetchImpl,
-		};
-	}
-	if (gemini && gemini.apiKey) {
-		const model = gemini.model || TRANSLATE_MODEL;
-		return {
-			url: geminiGenerateUrl(model),
-			init: {
-				method: "POST",
-				headers: {
-					"x-goog-api-key": gemini.apiKey,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(payload),
-			},
-			fetchImpl: gemini.fetchImpl,
-		};
-	}
-	return null;
-}
-
 // text を日本語化。
-// 引数: {
-//   kv:KVNamespace, cacheKey:string,
-//   vertex:{accessToken,project,location?,model?,fetchImpl?}|null,
-//   gemini:{apiKey,model?,fetchImpl?}|null,
-// }
-export async function translateToJa(
-	text,
-	{ kv, cacheKey, vertex, gemini } = {},
-) {
+// 引数: { kv:KVNamespace, cacheKey:string, vertex:{accessToken,project,location?,model?,fetchImpl?}|null }
+export async function translateToJa(text, { kv, cacheKey, vertex } = {}) {
 	const src = typeof text === "string" ? text : "";
 	if (!src.trim()) return src;
 	if (kv && cacheKey) {
@@ -92,13 +38,27 @@ export async function translateToJa(
 			console.error("news i18n: KV get failed", e?.message);
 		}
 	}
-	const req = buildRequest(PROMPT(src), { vertex, gemini });
-	if (!req) return src; // 翻訳手段なし → 英語フォールバック
-	const doFetch = req.fetchImpl || fetch;
+	if (!vertex || !vertex.accessToken || !vertex.project) return src;
+	const model = vertex.model || TRANSLATE_MODEL;
+	const location = vertex.location || "global";
+	const doFetch = vertex.fetchImpl || fetch;
 	try {
-		const res = await doFetch(req.url, req.init);
+		const res = await doFetch(
+			vertexGenerateUrl(vertex.project, location, model),
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${vertex.accessToken}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					contents: [{ role: "user", parts: [{ text: PROMPT(src) }] }],
+					generationConfig: { temperature: 0.2 },
+				}),
+			},
+		);
 		if (!res.ok) {
-			console.error("news i18n: translate HTTP", res.status);
+			console.error("news i18n: Vertex HTTP", res.status);
 			return src;
 		}
 		const body = await res.json();

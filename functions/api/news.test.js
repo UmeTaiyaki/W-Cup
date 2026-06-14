@@ -21,10 +21,7 @@ const mintOk = async () => ({ token: "tok", expiresAt: 9e9 });
 function makeFetch({ pre = [], post = [], fixture = null, ja = "JA" } = {}) {
 	return async (url) => {
 		const u = String(url);
-		if (
-			u.includes("aiplatform.googleapis.com") ||
-			u.includes("generativelanguage.googleapis.com")
-		)
+		if (u.includes("aiplatform.googleapis.com"))
 			return {
 				ok: true,
 				json: async () => ({
@@ -123,7 +120,7 @@ test("GET /api/news: 本文モード type=prematch は prematchnews の lines �
 	assert.equal(body.body.hero.kind, "venue");
 });
 
-test("GET /api/news: 翻訳認証なし(SA/Geminiキー無し)は 200・英語フォールバック", async () => {
+test("GET /api/news: GCP_SERVICE_ACCOUNT 無しでも 200・英語フォールバック", async () => {
 	const env = {
 		NEWS_ENABLED: "true",
 		SPORTMONKS_TOKEN: "t",
@@ -135,22 +132,6 @@ test("GET /api/news: 翻訳認証なし(SA/Geminiキー無し)は 200・英語�
 	const res = await onRequestGet({ env, request: req("https://x/api/news") });
 	const body = await res.json();
 	assert.equal(body.items[0].title_ja, "EN only");
-});
-
-test("GET /api/news: GEMINI_API_KEY だけでも翻訳する(SA 無し・Gemini経路)", async () => {
-	const env = {
-		NEWS_ENABLED: "true",
-		SPORTMONKS_TOKEN: "t",
-		GEMINI_API_KEY: "K",
-		CONFIG: fakeKv(),
-		__fetchImpl: makeFetch({
-			post: [{ id: 9, fixture_id: 30, title: "R", type: "postmatch" }],
-			ja: "ジェミニ訳",
-		}),
-	};
-	const res = await onRequestGet({ env, request: req("https://x/api/news") });
-	const body = await res.json();
-	assert.equal(body.items[0].title_ja, "ジェミニ訳");
 });
 
 test("GET /api/news: 本文モード不正id は 400", async () => {

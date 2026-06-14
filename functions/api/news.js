@@ -26,7 +26,7 @@ function newsByType(fixture, type) {
 	return Array.isArray(arr) ? arr[0] : null;
 }
 
-// GCP_SERVICE_ACCOUNT からトークンを1回発行し vertex 設定を返す。未設定/失敗は null。
+// GCP_SERVICE_ACCOUNT からトークンを1回発行し vertex 設定を返す。未設定/失敗は null(英語フォールバック)。
 async function buildVertex(env) {
 	const raw = env.GCP_SERVICE_ACCOUNT;
 	if (!raw) return null;
@@ -56,25 +56,6 @@ async function buildVertex(env) {
 		console.error("/api/news: token mint failed", e?.message);
 		return null;
 	}
-}
-
-// 翻訳手段を1回だけ組み立てる。Vertex(GCP_SERVICE_ACCOUNT)を優先し、無ければ
-// GEMINI_API_KEY(Gemini Developer API)を使う。どちらも無ければ {vertex:null, gemini:null}
-// ＝英語フォールバック。translateToJa にそのまま spread して渡す。
-async function buildTranslator(env) {
-	const vertex = await buildVertex(env);
-	if (vertex) return { vertex, gemini: null };
-	if (env.GEMINI_API_KEY) {
-		return {
-			vertex: null,
-			gemini: {
-				apiKey: env.GEMINI_API_KEY,
-				model: env.NEWS_TRANSLATE_MODEL || undefined,
-				fetchImpl: env.__fetchImpl,
-			},
-		};
-	}
-	return { vertex: null, gemini: null };
 }
 
 export async function onRequestGet(context) {
@@ -107,9 +88,9 @@ export async function onRequestGet(context) {
 			return json(400, { enabled: true, body: null, error: "invalid id" });
 		}
 		try {
-			const [res, tr] = await Promise.all([
+			const [res, vertex] = await Promise.all([
 				sm.get(`fixtures/${id}`, { include: newsBodyInclude(type) }),
-				buildTranslator(env),
+				buildVertex(env),
 			]);
 			const fx = res?.data;
 			const item = newsByType(fx, type);
@@ -119,12 +100,12 @@ export async function onRequestGet(context) {
 				translateToJa(titleEn, {
 					kv,
 					cacheKey: translationCacheKey(item?.id, "title"),
-					...tr,
+					vertex,
 				}),
 				translateToJa(bodyEn, {
 					kv,
 					cacheKey: translationCacheKey(item?.id, "body"),
-					...tr,
+					vertex,
 				}),
 			]);
 			return json(
@@ -148,10 +129,10 @@ export async function onRequestGet(context) {
 
 	// ── 一覧モード ──
 	try {
-		const [preRes, postRes, tr] = await Promise.all([
+		const [preRes, postRes, vertex] = await Promise.all([
 			sm.get(`news/pre-match/seasons/${seasonId}`),
 			sm.get(`news/post-match/seasons/${seasonId}`),
-			buildTranslator(env),
+			buildVertex(env),
 		]);
 		// カルーセル表示分だけに制限（cold-start で大量の翻訳並列呼び出しを防ぐ）。
 		const merged = mergeNewsList(preRes?.data, postRes?.data).slice(
@@ -164,7 +145,7 @@ export async function onRequestGet(context) {
 				title_ja: await translateToJa(it.title_en, {
 					kv,
 					cacheKey: translationCacheKey(it.newsitem_id, "title"),
-					...tr,
+					vertex,
 				}),
 			})),
 		);
