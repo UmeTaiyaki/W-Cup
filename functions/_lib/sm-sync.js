@@ -63,6 +63,19 @@ export function selectFixturesForDetailSync(rows, now) {
 		.sort((a, b) => detailSyncPriority(a, now) - detailSyncPriority(b, now));
 }
 
+// 毎分 cron のうち intervalMin 分に1回だけ true を返す（重い同期の間引き用・純粋）。
+// now=epoch秒。UTC分境界で判定（例 interval=3 → 0,3,6...分で実行）。
+// interval<=1 や不正値は true＝間引かない（書き込みを止めない安全側にフォールバック）。
+export function shouldRunInterval(now, intervalMin) {
+	if (
+		!Number.isFinite(now) ||
+		!Number.isFinite(intervalMin) ||
+		intervalMin <= 1
+	)
+		return true;
+	return Math.floor(now / 60) % intervalMin === 0;
+}
+
 // core/types を全ページ辿って sm_types へ。戻り値は upsert 件数。
 export async function syncTypes(coreClient, db, now, { maxPages = 60 } = {}) {
 	let count = 0;

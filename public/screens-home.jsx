@@ -711,18 +711,21 @@ function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
 				>
 					<MediaTags T={T} match={match} justify="center" />
 				</div>
-				{live && live.result_info && (
-					<div
-						style={{
-							textAlign: "center",
-							fontSize: 11,
-							color: T.faint,
-							marginTop: 12,
-						}}
-					>
-						{live.result_info}
-					</div>
-				)}
+				{/* 90分決着の冗長な"... after full time"系は出さない（PK/延長決着のみ表示） */}
+				{live &&
+					live.result_info &&
+					!/full[\s-]?time/i.test(live.result_info) && (
+						<div
+							style={{
+								textAlign: "center",
+								fontSize: 11,
+								color: T.faint,
+								marginTop: 12,
+							}}
+						>
+							{live.result_info}
+						</div>
+					)}
 				{match.note && (
 					<div
 						style={{

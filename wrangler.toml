@@ -10,6 +10,9 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
 WATCH_ENABLED = "true"
 # 試合前ご当地応援バトルのフィーチャーフラグ。true で /api/cheer が稼働（OFFなら enabled:false＝UI非表示）。
 CHEER_ENABLED = "true"
+# 試合ハイライト（YouTube）のフィーチャーフラグ。true で /api/fixture が highlight を返す
+# （OFF/未設定なら highlight:null＝タブにデータが出ない安全側）。要 sm_highlights テーブル(db/schema-watch.sql)。
+HIGHLIGHTS_ENABLED = "true"
 # ホームニュースカルーセルのフィーチャーフラグ。true で /api/news が稼働（OFF/未設定なら
 # enabled:false＝カルーセル非表示＝既存ホームと同一）。翻訳は Vertex AI を使用し、認証は
 # secret GCP_SERVICE_ACCOUNT（worker-watch と同じ SA）を流用。未設定/失敗時は英語フォールバック。

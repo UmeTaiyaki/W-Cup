@@ -195,6 +195,7 @@ export function toLineupRows(detail) {
 				l.detailed_position ?? l?.player?.detailedposition?.name ?? null,
 			club_name: activeClub(l)?.name ?? null,
 			club_image: activeClub(l)?.image_path ?? null,
+			player_image: l?.player?.image_path ?? null,
 		}));
 }
 

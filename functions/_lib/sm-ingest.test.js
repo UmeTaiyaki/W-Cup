@@ -377,6 +377,7 @@ test("toLineupRows maps player bio from lineups.player", () => {
 					height: 180,
 					weight: 75,
 					nationality_id: 32,
+					image_path: "https://cdn/player.png",
 					nationality: { name: "Japan" },
 					teams: [
 						{
@@ -398,6 +399,7 @@ test("toLineupRows maps player bio from lineups.player", () => {
 	assert.equal(r.detailed_position, "Centre Forward");
 	assert.equal(r.club_name, "Brighton");
 	assert.equal(r.club_image, "https://cdn/club.png");
+	assert.equal(r.player_image, "https://cdn/player.png");
 });
 
 test("toLineupRows tolerates missing bio (null)", () => {
@@ -408,6 +410,7 @@ test("toLineupRows tolerates missing bio (null)", () => {
 	assert.equal(r.date_of_birth, null);
 	assert.equal(r.nationality_name, null);
 	assert.equal(r.club_name, null);
+	assert.equal(r.player_image, null);
 });
 
 test("toFixtureRow は stage.name を round_name に採用（KO構造は stage 由来）", () => {

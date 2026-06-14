@@ -340,7 +340,8 @@ function DetailHeader({ T, fx, goBack }) {
 }
 
 // ── DetailTabBar ──────────────────────────────────────────────────────────
-function DetailTabBar({ T, tab, setTab }) {
+// tabs は表示するタブ配列（試合状態で増減する。例: FTのみ「ハイライト」を含む）。
+function DetailTabBar({ T, tab, setTab, tabs = DETAIL_TABS }) {
 	return (
 		<div
 			style={{
@@ -364,7 +365,7 @@ function DetailTabBar({ T, tab, setTab }) {
 					scrollbarWidth: "none",
 				}}
 			>
-				{DETAIL_TABS.map((t) => {
+				{tabs.map((t) => {
 					const active = tab === t.id;
 					return (
 						<button
@@ -406,6 +407,62 @@ function PlaceholderBody({ T, label }) {
 			}}
 		>
 			{label}（このタブは実装予定）
+		</div>
+	);
+}
+
+// ── ハイライト常設ブロック ────────────────────────────────────────────────
+// スコアヘッダーとタブバーの間に置く。highlight.video_id がある時だけ表示（無ければ何も出さない）。
+// 表示可否は API 側の HIGHLIGHTS_ENABLED ゲートにも依存（OFF時は highlight=null）。
+// プライバシー強化ドメイン youtube-nocookie を使う。
+function HighlightSection({ T, detail }) {
+	const hl = detail && detail.highlight;
+	if (!hl || !hl.video_id) return null;
+	const src = `https://www.youtube-nocookie.com/embed/${hl.video_id}`;
+	return (
+		<div style={{ padding: "12px 16px 4px" }}>
+			{/* 16:9 レスポンシブ枠 */}
+			<div
+				style={{
+					position: "relative",
+					width: "100%",
+					paddingTop: "56.25%",
+					borderRadius: 12,
+					overflow: "hidden",
+					background: "#000",
+					border: `1px solid ${T.line}`,
+				}}
+			>
+				<iframe
+					src={src}
+					title="試合ハイライト"
+					loading="lazy"
+					allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+					allowFullScreen
+					referrerPolicy="strict-origin-when-cross-origin"
+					style={{
+						position: "absolute",
+						top: 0,
+						left: 0,
+						width: "100%",
+						height: "100%",
+						border: "none",
+					}}
+				/>
+			</div>
+			{hl.title ? (
+				<div
+					style={{
+						marginTop: 10,
+						fontSize: 12.5,
+						color: T.sub,
+						fontWeight: 700,
+						lineHeight: 1.5,
+					}}
+				>
+					{hl.title}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -1695,13 +1752,6 @@ function parseField(formation_field) {
 	return { row, col };
 }
 
-/** 選手名の苗字（スペース区切り最後のトークン）*/
-function surname(player_name) {
-	if (!player_name) return "?";
-	const tokens = player_name.trim().split(/\s+/);
-	return tokens[tokens.length - 1] || player_name;
-}
-
 // "YYYY-MM-DD" → 満年齢（タイムゾーン非依存の単純年差）。不正は null。
 function ageFromDob(dob) {
 	if (!dob) return null;
@@ -1965,7 +2015,8 @@ function PlayerSheet({ T, player, onClose }) {
 							weight: player.weight,
 							date_of_birth: player.date_of_birth,
 							preferred_foot: null,
-							detailed_position: player.detailed_position || player.position,
+							detailed_position:
+								player.detailed_position || positionLabel(player.position),
 							nationality_name: player.nationality_name,
 							club_name: player.club_name,
 							club_image: player.club_image,
@@ -2205,16 +2256,90 @@ function PlayerMarks({ ev, size = 12 }) {
 	);
 }
 
+// SportMonks の一般ポジション position_id を略号へ。未知はそのまま返す（障害隔離）。
+const POSITION_LABELS = { 24: "GK", 25: "DF", 26: "MF", 27: "FW" };
+function positionLabel(position) {
+	if (position == null || position === "") return null;
+	return POSITION_LABELS[Number(position)] || String(position);
+}
+function isGoalkeeper(player) {
+	return String(player?.position) === "24";
+}
+// GK を際立たせるアクセント（参考: SofaScore 風）。
+const GK_ACCENT = "#f59e0b";
+const GK_INK = "#3a2400";
+
+// ── PlayerAvatar: 顔写真の丸（PlayerDot/BenchList 共用） ───────────────────
+// 画像が無い/読み込み失敗時は背番号の色付き丸へフォールバック（graceful degradation）。
+// overflow:hidden で写真を円形にクリップ。バッジ類は呼び出し側が外側に重ねる。
+// GK は accent/ink を差し替えて色分け（写真があれば写真が優先表示される）。
+function PlayerAvatar({ T, player, size }) {
+	const num = player.jersey_number;
+	const gk = isGoalkeeper(player);
+	return (
+		<div
+			style={{
+				width: size,
+				height: size,
+				borderRadius: "50%",
+				background: gk ? GK_ACCENT : T.accent,
+				color: gk ? GK_INK : T.accentInk,
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				fontWeight: 900,
+				fontSize: Math.round(size * 0.34),
+				// GK は枠をアクセント色に（写真があっても識別できる）。
+				border: gk
+					? `2.5px solid ${GK_ACCENT}`
+					: "2px solid rgba(255,255,255,0.85)",
+				boxShadow: gk
+					? `0 0 0 1px ${GK_ACCENT}55, 0 2px 6px rgba(0,0,0,0.35)`
+					: "0 2px 6px rgba(0,0,0,0.35)",
+				position: "relative",
+				overflow: "hidden",
+				flexShrink: 0,
+			}}
+		>
+			{num != null ? num : "?"}
+			{player.player_image && (
+				<img
+					src={player.player_image}
+					alt=""
+					loading="lazy"
+					onError={(e) => {
+						e.target.style.display = "none";
+					}}
+					style={{
+						position: "absolute",
+						inset: 0,
+						width: "100%",
+						height: "100%",
+						borderRadius: "50%",
+						objectFit: "cover",
+						objectPosition: "top center",
+						background: "#cfd8d3",
+					}}
+				/>
+			)}
+		</div>
+	);
+}
+
 // ── PlayerDot: ピッチ上の選手ドット ──────────────────────────────────────
 // マーク配置（参考画像準拠）: カード=右上 / ゴール(数分のボール)=右下 / 交代OUT=左下。
+// 外側 div は丸サイズちょうど。translate(-50%,-50%) で「丸の中心」を座標へ固定し、
+// 名前ラベルは絶対配置で下に流すため、名前の行数(1/2行)で丸の縦位置がズレない。
 function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
-	const sn = surname(player.player_name);
+	const fullName = player.player_name || "?";
+	const num = player.jersey_number;
 	const goals = (ev && ev.goals) || [];
 	const cards = (ev && ev.cards) || [];
 	const hasRed = cards.some(
 		(c) => c.type === "redcard" || c.type === "yellowredcard",
 	);
 	const hasYellow = cards.some((c) => c.type === "yellowcard");
+	const SIZE = 44;
 
 	return (
 		<div
@@ -2225,104 +2350,102 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 				position: "absolute",
 				top: topPct + "%",
 				left: leftPct + "%",
+				width: SIZE,
+				height: SIZE,
 				transform: "translate(-50%, -50%)",
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
 				cursor: "pointer",
 				zIndex: 2,
 				userSelect: "none",
 			}}
 		>
-			{/* 丸 */}
+			<PlayerAvatar T={T} player={player} size={SIZE} />
+			{/* カード（右上・赤系優先） */}
+			{(hasRed || hasYellow) && (
+				<div
+					style={{
+						position: "absolute",
+						top: -8,
+						right: -8,
+						display: "inline-flex",
+						zIndex: 3,
+					}}
+				>
+					{hasRed ? (
+						<IcoCard s={17} color="#EA3B2E" stroke="#B5241A" />
+					) : (
+						<IcoCard s={17} color="#FFCB05" stroke="#C99A00" />
+					)}
+				</div>
+			)}
+			{/* ゴール（右下・得点数分のボール） */}
+			{goals.length > 0 && (
+				<div
+					style={{
+						position: "absolute",
+						bottom: -8,
+						right: -8,
+						display: "inline-flex",
+						alignItems: "center",
+						gap: 1,
+						zIndex: 3,
+					}}
+				>
+					{goals.map((g, i) => (
+						<span key={"g" + i} style={{ display: "inline-flex" }}>
+							{g.own ? <IcoOwnGoal s={17} /> : <IcoSoccerBall s={17} />}
+						</span>
+					))}
+				</div>
+			)}
+			{/* 交代OUT（先発が退く）。コンパクトにして左下角へ寄せ、顔と名前への被りを最小化。 */}
+			{ev && ev.subOff != null && (
+				<div
+					style={{
+						position: "absolute",
+						bottom: 1,
+						left: -11,
+						background: "rgba(255,90,90,0.92)",
+						color: "#1a0c0c",
+						fontSize: 8,
+						fontWeight: 900,
+						lineHeight: 1.5,
+						padding: "0 2.5px",
+						borderRadius: 5,
+						whiteSpace: "nowrap",
+						zIndex: 3,
+					}}
+				>
+					↓{ev.subOff}'
+				</div>
+			)}
+			{/* 背番号＋フルネーム（丸の真下に絶対配置＝丸の縦位置に影響しない・2行まで） */}
 			<div
 				style={{
-					width: 30,
-					height: 30,
-					borderRadius: "50%",
-					background: T.accent,
-					color: T.accentInk,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					fontWeight: 900,
-					fontSize: 11,
-					boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
-					border: "2px solid rgba(255,255,255,0.18)",
-					position: "relative",
-				}}
-			>
-				{player.jersey_number}
-				{/* カード（右上・赤系優先） */}
-				{(hasRed || hasYellow) && (
-					<div
-						style={{
-							position: "absolute",
-							top: -8,
-							right: -8,
-							display: "inline-flex",
-						}}
-					>
-						{hasRed ? (
-							<IcoCard s={17} color="#EA3B2E" stroke="#B5241A" />
-						) : (
-							<IcoCard s={17} color="#FFCB05" stroke="#C99A00" />
-						)}
-					</div>
-				)}
-				{/* ゴール（右下・得点数分のボール） */}
-				{goals.length > 0 && (
-					<div
-						style={{
-							position: "absolute",
-							bottom: -8,
-							right: -8,
-							display: "inline-flex",
-							alignItems: "center",
-							gap: 1,
-						}}
-					>
-						{goals.map((g, i) => (
-							<span key={"g" + i} style={{ display: "inline-flex" }}>
-								{g.own ? <IcoOwnGoal s={17} /> : <IcoSoccerBall s={17} />}
-							</span>
-						))}
-					</div>
-				)}
-				{/* 交代OUT（先発が退く・左下） */}
-				{ev && ev.subOff != null && (
-					<div
-						style={{
-							position: "absolute",
-							bottom: -9,
-							left: -10,
-							background: "rgba(255,90,90,0.92)",
-							color: "#1a0c0c",
-							fontSize: 9,
-							fontWeight: 900,
-							padding: "0 4px",
-							borderRadius: 6,
-						}}
-					>
-						↓{ev.subOff}'
-					</div>
-				)}
-			</div>
-			{/* 苗字 */}
-			<div
-				style={{
-					fontSize: 10.5,
+					position: "absolute",
+					top: "calc(100% + 3px)",
+					left: "50%",
+					transform: "translateX(-50%)",
+					width: 74,
+					fontSize: 10,
 					fontWeight: 700,
 					color: T.text,
-					marginTop: 4,
-					whiteSpace: "nowrap",
-					maxWidth: 58,
+					textAlign: "center",
+					lineHeight: 1.12,
+					display: "-webkit-box",
+					WebkitLineClamp: 2,
+					WebkitBoxOrient: "vertical",
 					overflow: "hidden",
-					textOverflow: "ellipsis",
+					wordBreak: "break-word",
 					textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+					pointerEvents: "none",
 				}}
 			>
-				{sn}
+				{num != null && (
+					<span style={{ fontWeight: 900, marginRight: 3, opacity: 0.85 }}>
+						{num}
+					</span>
+				)}
+				{fullName}
 			</div>
 		</div>
 	);
@@ -2350,12 +2473,6 @@ function FormationPitch({ T, starters, onTapPlayer, events }) {
 		);
 	}
 
-	// row 範囲を求める
-	const rows = placed.map((p) => parseField(p.formation_field).row);
-	const maxRow = Math.max.apply(null, rows);
-	// maxRow が 0 の場合でも安全（1 以上保証）
-	const safeMaxRow = maxRow > 0 ? maxRow : 1;
-
 	// row → players のマップ
 	const byRow = {};
 	placed.forEach((p) => {
@@ -2372,13 +2489,20 @@ function FormationPitch({ T, starters, onTapPlayer, events }) {
 		);
 	});
 
-	// ピッチの縦横比 3:4
+	// 実在する row を昇順に（番号の歯抜けがあっても均等配置できるよう rank 化）。
+	// rank 0 = GK 側（下）、rank 最大 = FW 側（上）。
+	const sortedRows = Object.keys(byRow)
+		.map(Number)
+		.sort((a, b) => a - b);
+	const nRows = sortedRows.length;
+
+	// ピッチの縦横比（やや縦長＝行間/ラベル余白を確保）
 	return (
 		<div
 			style={{
 				position: "relative",
 				width: "100%",
-				paddingBottom: "118%",
+				paddingBottom: "132%",
 				background:
 					"linear-gradient(180deg, rgba(14,54,26,0.92) 0%, rgba(10,40,20,0.97) 100%)",
 				borderRadius: 14,
@@ -2457,15 +2581,20 @@ function FormationPitch({ T, starters, onTapPlayer, events }) {
 				const rowPlayers = byRow[row] || [];
 				const N = rowPlayers.length;
 				const colIdx = rowPlayers.indexOf(p) + 1; // 1-based
+				const rank = sortedRows.indexOf(row); // 0=GK側(下)
 
-				// 縦位置: GK(row=1)が下、最大row(FW)が上
-				// topPct = 100 - (row / (safeMaxRow + 1)) * 100
-				// → GK: row=1, maxRow=4: top = 100 - 1/5*100 = 80%
-				// → FW: row=4, maxRow=4: top = 100 - 4/5*100 = 20%
-				const topPct = 100 - (row / (safeMaxRow + 1)) * 100;
+				// 縦位置: 上下マージン[V_TOP, V_BOT]の帯に rank を均等配置（GKが下）。
+				// 行が1段だけなら中央。歯抜け row 番号でも等間隔になる。
+				const V_TOP = 13;
+				const V_BOT = 86;
+				const topPct =
+					nRows <= 1
+						? (V_TOP + V_BOT) / 2
+						: V_BOT - (rank / (nRows - 1)) * (V_BOT - V_TOP);
 
-				// 横位置: N人を均等配置
-				const leftPct = (colIdx / (N + 1)) * 100;
+				// 横位置: N人を均等配置し、左右マージン(SIDE)でラベルの見切れを防ぐ。
+				const SIDE = 9;
+				const leftPct = SIDE + (colIdx / (N + 1)) * (100 - 2 * SIDE);
 
 				return (
 					<PlayerDot
@@ -2521,20 +2650,42 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 							cursor: "pointer",
 						}}
 					>
+						{/* 顔写真（背番号があった位置・画像欠落時は背番号フォールバック） */}
+						<PlayerAvatar T={T} player={p} size={34} />
+						{/* 名前の前に背番号 */}
 						<span
 							style={{
-								fontWeight: 900,
-								fontSize: 12,
-								color: T.accent,
-								width: 24,
-								flexShrink: 0,
-								fontFamily: "monospace",
+								fontWeight: 700,
+								color: T.text,
+								fontSize: 14,
+								display: "inline-flex",
+								alignItems: "baseline",
+								gap: 6,
+								minWidth: 0,
 							}}
 						>
-							{p.jersey_number}
-						</span>
-						<span style={{ fontWeight: 700, color: T.text, fontSize: 14 }}>
-							{p.player_name}
+							{p.jersey_number != null && (
+								<span
+									style={{
+										fontWeight: 900,
+										fontSize: 12,
+										color: T.accent,
+										fontFamily: "monospace",
+										flexShrink: 0,
+									}}
+								>
+									{p.jersey_number}
+								</span>
+							)}
+							<span
+								style={{
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+								}}
+							>
+								{p.player_name}
+							</span>
 						</span>
 						{/* 右端クラスタ: マーク（ゴール/カード）→ 交代時間 → ポジション */}
 						<span
@@ -2553,9 +2704,17 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 									↑{sub}'
 								</span>
 							)}
-							{p.position && (
-								<span style={{ fontSize: 11, fontWeight: 800, color: T.faint }}>
-									{p.position}
+							{positionLabel(p.position) && (
+								<span
+									style={{
+										fontSize: 10.5,
+										fontWeight: 800,
+										color: isGoalkeeper(p) ? GK_ACCENT : T.faint,
+										minWidth: 22,
+										textAlign: "right",
+									}}
+								>
+									{positionLabel(p.position)}
 								</span>
 							)}
 						</span>
@@ -2935,6 +3094,12 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 		}
 	}, []);
 
+	// 別の試合へ遷移(fixtureId変化)したら先頭タブへ戻す。
+	// FT試合だけの「ハイライト」を選んだまま非FT試合に移ってタブが消えても残留しないように。
+	React.useEffect(() => {
+		setTab("timeline");
+	}, [fixtureId]);
+
 	React.useEffect(() => {
 		if (fixtureId == null) return;
 		let alive = true;
@@ -2998,6 +3163,9 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 			{/* 固定スコアヘッダー（戻るボタンを内包） */}
 			<DetailHeader T={T} fx={fx} goBack={goBack} />
 
+			{/* ハイライト常設ブロック（スコアヘッダーとタブバーの間。FT＋動画ありの時だけ表示） */}
+			<HighlightSection T={T} detail={detail} />
+
 			{/* タブバー */}
 			<DetailTabBar T={T} tab={tab} setTab={setTab} />
 
@@ -3016,6 +3184,7 @@ Object.assign(window, {
 	StatsTab,
 	XgTab,
 	LineupTab,
+	HighlightSection,
 	H2HPlaceholder,
 	DetailSkeleton,
 	DetailUnavailable,
