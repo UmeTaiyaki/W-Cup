@@ -1820,6 +1820,33 @@ function XgTab({ T, detail }) {
 				</>
 			)}
 
+			{(homeNpxg != null || awayNpxg != null) && (
+				<>
+					<XgSectionHead
+						T={T}
+						n={4}
+						title="npxG（PK除く）"
+						badge="NEW"
+						desc="PKを除いたxG＝地力。"
+						example="xG1.5でもPK1本(0.8)込みなら実力分は0.7"
+					/>
+					<div
+						style={{
+							background: "rgba(255,255,255,0.03)",
+							borderRadius: 10,
+							padding: "8px 10px",
+							fontSize: 11,
+							color: T.text,
+							fontWeight: 700,
+						}}
+					>
+						{fmtXg(homeNpxg)}{" "}
+						<span style={{ color: T.faint, fontWeight: 400 }}>vs</span>{" "}
+						{fmtXg(awayNpxg)}
+					</div>
+				</>
+			)}
+
 			<XgShotQuality
 				T={T}
 				homeName={homeName}
