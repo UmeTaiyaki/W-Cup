@@ -1256,7 +1256,35 @@ function XgSectionHead({ T, n, title, desc, example, badge }) {
 	);
 }
 
-// ③ シュートの質: xG per shot（= xG / シュート数）。shots か xG が欠ければ非表示。
+// ③ セクション3: xG内訳（オープン/CK/FK/PK）。値がある列だけ出す。
+function XgBreakdown({ T, homeName, awayName, parts }) {
+	const shown = parts.filter((p) => p.home != null || p.away != null);
+	if (shown.length === 0) return null;
+	const fmt = (v) => (v != null ? v.toFixed(2) : "–");
+	return (
+		<div
+			style={{
+				background: "rgba(255,255,255,0.03)",
+				borderRadius: 10,
+				padding: "8px 10px",
+			}}
+		>
+			<div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+				{shown.map((p) => (
+					<span key={p.label} style={{ fontSize: 10, color: T.sub }}>
+						{p.label} <b style={{ color: T.text }}>{fmt(p.home)}</b>
+						<span style={{ color: T.faint }}> / {fmt(p.away)}</span>
+					</span>
+				))}
+			</div>
+			<div style={{ fontSize: 9, color: T.faint, marginTop: 4 }}>
+				{homeName} / {awayName}
+			</div>
+		</div>
+	);
+}
+
+// ④ シュートの質: xG per shot（= xG / シュート数）。shots か xG が欠ければ非表示。
 function XgShotQuality({
 	T,
 	homeName,
@@ -1479,6 +1507,17 @@ function XgTab({ T, detail }) {
 	// xG差（base xG 同士）
 	const xgDiff = homeXg != null && awayXg != null ? homeXg - awayXg : null;
 	const fmtXg = (v) => (v != null ? v.toFixed(2) : "–");
+
+	// セクション3: xG内訳 type_id: 7945=オープン / 7942=CK / 7941=FK / 7940=PK
+	const breakdownParts = [
+		{ label: "オープン", home: pick(7945, "home"), away: pick(7945, "away") },
+		{ label: "CK", home: pick(7942, "home"), away: pick(7942, "away") },
+		{ label: "FK", home: pick(7941, "home"), away: pick(7941, "away") },
+		{ label: "PK", home: pick(7940, "home"), away: pick(7940, "away") },
+	];
+	const hasBreakdown = breakdownParts.some(
+		(p) => p.home != null || p.away != null,
+	);
 
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
 	const homeInfo = teamMap[fx && fx.home && fx.home.app_code] || {};
@@ -1761,6 +1800,25 @@ function XgTab({ T, detail }) {
 					</span>
 				</div>
 			</div>
+
+			{hasBreakdown && (
+				<>
+					<XgSectionHead
+						T={T}
+						n={3}
+						title="xG内訳"
+						badge="NEW"
+						desc="好機の出どころ。"
+						example="オープン0.35＝流れの中で作れた／CK0.05＝セットプレーは僅か"
+					/>
+					<XgBreakdown
+						T={T}
+						homeName={homeName}
+						awayName={awayName}
+						parts={breakdownParts}
+					/>
+				</>
+			)}
 
 			<XgShotQuality
 				T={T}
