@@ -113,6 +113,35 @@ export default {
 						}
 					}
 					console.log(`watch-cron: detail synced=${toSync.length}`);
+
+					// スコア自己修復: 終了済み(state 5/7/8)なのに home_score が NULL の試合を
+					// 再取得して埋める。最古の試合はライブ窓も ±36h 詳細窓も外れて最終スコアを
+					// 取りこぼし NULL のまま固着することがある（例: 開幕戦）。対象が無くなれば
+					// 0件＝コストほぼ0。NULL の試合だけを上限付きで拾うので書き込みも限定的。
+					try {
+						const stale = await env.DB.prepare(
+							"SELECT sm_fixture_id FROM sm_fixtures WHERE state_id IN (5,7,8) AND home_score IS NULL ORDER BY starting_at_ts DESC LIMIT 6",
+						).all();
+						const staleRows = stale?.results ?? [];
+						for (const row of staleRows) {
+							const dr = await syncFixtureDetail(
+								football,
+								env.DB,
+								row.sm_fixture_id,
+								now,
+							);
+							if (!dr.ok) {
+								console.error(
+									`watch-cron: score backfill failed fixture=${row.sm_fixture_id} err=${dr.error}`,
+								);
+							}
+						}
+						if (staleRows.length) {
+							console.log(`watch-cron: score backfill=${staleRows.length}`);
+						}
+					} catch (e) {
+						console.error("watch-cron: score backfill error", e?.message);
+					}
 				} catch (e) {
 					console.error("watch-cron: detail sync error", e?.message);
 				}
