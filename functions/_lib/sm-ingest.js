@@ -256,6 +256,51 @@ export function toTypeRows(types) {
 		}));
 }
 
+// 時系列(pressure/trends)を home/away の分単位系列へ畳む（sm_fixture_series.series_json 用）。
+// flow の trends type_id: 42=Shots Total / 45=Ball Possession% / 43=Attacks（累積カウント）。
+const FLOW_TYPES = Object.freeze({ shots: 42, possession: 45, attacks: 43 });
+
+function foldByMinute(rows, homeId, awayId, valueKey) {
+	const byMin = new Map();
+	for (const r of rows) {
+		const m = r?.minute;
+		if (m == null) continue;
+		if (!byMin.has(m)) byMin.set(m, { minute: m, home: null, away: null });
+		const slot = byMin.get(m);
+		if (r.participant_id === homeId) slot.home = r[valueKey] ?? null;
+		else if (r.participant_id === awayId) slot.away = r[valueKey] ?? null;
+	}
+	return [...byMin.values()].sort((a, b) => a.minute - b.minute);
+}
+
+export function toSeriesRow(detail) {
+	const { home, away } = participantsByLocation(detail);
+	const homeId = home?.id ?? null;
+	const awayId = away?.id ?? null;
+	const pressure = foldByMinute(
+		Array.isArray(detail?.pressure) ? detail.pressure : [],
+		homeId,
+		awayId,
+		"pressure",
+	);
+	const trends = Array.isArray(detail?.trends) ? detail.trends : [];
+	const flowFor = (typeId) =>
+		foldByMinute(
+			trends.filter((t) => t?.type_id === typeId),
+			homeId,
+			awayId,
+			"value",
+		);
+	return {
+		pressure,
+		flow: {
+			shots: flowFor(FLOW_TYPES.shots),
+			possession: flowFor(FLOW_TYPES.possession),
+			attacks: flowFor(FLOW_TYPES.attacks),
+		},
+	};
+}
+
 // season topscorers data[] → sm_topscorers 行（純変換）
 // ゴール得点王のみ抽出（GOAL_TYPE_ID）。アシスト/カード種別は除外。
 // app_code は participant→sm_teams の解決を要するため取り込み時は null、配信側 JOIN で埋める。

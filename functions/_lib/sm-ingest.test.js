@@ -6,6 +6,7 @@ import {
 	toFixtureRow,
 	toLineupRows,
 	toPlayerStatRows,
+	toSeriesRow,
 	toStatRows,
 	toTeamRows,
 	toTopscorerRows,
@@ -575,4 +576,43 @@ test("toFixtureRow: home_xg は xgfixture の type_id=5304 を拾う(先頭の�
 	const row = toFixtureRow(detail);
 	assert.equal(row.home_xg, 0.4263);
 	assert.equal(row.away_xg, 0.0407);
+});
+
+test("toSeriesRow: pressure/trends を home/away の時系列JSONへ畳む", () => {
+	const detail = {
+		id: 9,
+		participants: [
+			{ id: 100, meta: { location: "home" } },
+			{ id: 200, meta: { location: "away" } },
+		],
+		pressure: [
+			{ participant_id: 100, minute: 7, pressure: 0 },
+			{ participant_id: 200, minute: 7, pressure: 48.67 },
+			{ participant_id: 100, minute: 21, pressure: 30 },
+		],
+		trends: [
+			{ participant_id: 100, type_id: 42, minute: 64, value: 20 },
+			{ participant_id: 200, type_id: 42, minute: 64, value: 6 },
+			{ participant_id: 100, type_id: 45, minute: 64, value: 56 },
+			{ participant_id: 200, type_id: 45, minute: 64, value: 44 },
+			{ participant_id: 100, type_id: 43, minute: 64, value: 95 },
+			{ participant_id: 100, type_id: 999, minute: 64, value: 1 },
+		],
+	};
+	const s = toSeriesRow(detail);
+	assert.deepEqual(s.pressure, [
+		{ minute: 7, home: 0, away: 48.67 },
+		{ minute: 21, home: 30, away: null },
+	]);
+	assert.deepEqual(s.flow.shots, [{ minute: 64, home: 20, away: 6 }]);
+	assert.deepEqual(s.flow.possession, [{ minute: 64, home: 56, away: 44 }]);
+	assert.deepEqual(s.flow.attacks, [{ minute: 64, home: 95, away: null }]);
+});
+
+test("toSeriesRow: データ無しは空構造", () => {
+	const s = toSeriesRow({ id: 1, participants: [] });
+	assert.deepEqual(s, {
+		pressure: [],
+		flow: { shots: [], possession: [], attacks: [] },
+	});
 });
