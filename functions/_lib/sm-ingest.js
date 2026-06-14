@@ -62,15 +62,18 @@ function penaltyGoals(detail, participant) {
 	return scoreByDescription(detail, SCORE_PENALTY, participant);
 }
 
-// xG は xGFixture include（レスポンスキー xgfixture・配列）から location で取る。
-// 各要素例: { participant_id, location, type_id, value }。statistics には来ない。
+// base xG は xGFixture の type_id=5304 を location で取る。
+// xgfixture は1サイド十数 type_id を含むため type_id を必ず絞る（最初の1件依存はバグ）。
+const XG_BASE_TYPE_ID = 5304;
 function xgFor(detail, location) {
 	const xg = Array.isArray(detail?.xgfixture)
 		? detail.xgfixture
 		: Array.isArray(detail?.xGFixture)
 			? detail.xGFixture
 			: [];
-	const hit = xg.find((x) => x?.location === location);
+	const hit = xg.find(
+		(x) => x?.location === location && x?.type_id === XG_BASE_TYPE_ID,
+	);
 	if (!hit) return null;
 	return hit.value ?? hit?.data?.value ?? null;
 }

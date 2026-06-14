@@ -546,3 +546,21 @@ test("toXgStatRows: xgfixture を {fixture,team,type_id,value} 行へ畳む", ()
 test("toXgStatRows: xgfixture 無しは空配列", () => {
 	assert.deepEqual(toXgStatRows({ id: 1 }), []);
 });
+
+test("toFixtureRow: home_xg は xgfixture の type_id=5304 を拾う(先頭の別type_idに釣られない)", () => {
+	const detail = {
+		id: 1,
+		participants: [
+			{ id: 10, meta: { location: "home" } },
+			{ id: 20, meta: { location: "away" } },
+		],
+		xgfixture: [
+			{ participant_id: 10, location: "home", type_id: 7939, value: 1.65 },
+			{ participant_id: 10, location: "home", type_id: 5304, value: 0.4263 },
+			{ participant_id: 20, location: "away", type_id: 5304, value: 0.0407 },
+		],
+	};
+	const row = toFixtureRow(detail);
+	assert.equal(row.home_xg, 0.4263);
+	assert.equal(row.away_xg, 0.0407);
+});
