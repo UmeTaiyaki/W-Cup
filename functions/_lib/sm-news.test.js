@@ -13,7 +13,15 @@ test("mergeNewsList: pre/post 統合・post先頭・各群fixture_id昇順で安
 		{ id: 2, fixture_id: 20, title: "P20", type: "prematch" },
 		{ id: 1, fixture_id: 10, title: "P10", type: "prematch" },
 	];
-	const post = [{ id: 9, fixture_id: 30, title: "R30", type: "postmatch" }];
+	const post = [
+		{
+			id: 9,
+			fixture_id: 30,
+			title: "R30",
+			type: "postmatch",
+			fixture: { venue: { image_path: "stadium.png" } },
+		},
+	];
 	const out = mergeNewsList(pre, post);
 	assert.deepEqual(
 		out.map((x) => x.newsitem_id),
@@ -22,6 +30,8 @@ test("mergeNewsList: pre/post 統合・post先頭・各群fixture_id昇順で安
 	assert.equal(out[0].fixture_id, 30);
 	assert.equal(out[0].type, "postmatch");
 	assert.equal(out[0].title_en, "R30");
+	assert.equal(out[0].hero_image, "stadium.png"); // include=fixture.venue 由来
+	assert.equal(out[1].hero_image, null); // venue 無しは null
 });
 
 test("mergeNewsList: 同一 newsitem_id を重複排除", () => {

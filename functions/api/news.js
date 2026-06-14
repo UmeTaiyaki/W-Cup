@@ -129,9 +129,14 @@ export async function onRequestGet(context) {
 
 	// ── 一覧モード ──
 	try {
+		// include=fixture.venue でスタジアム画像をサムネ用に同梱（ネストは1つまで＝venueのみ）。
 		const [preRes, postRes, vertex] = await Promise.all([
-			sm.get(`news/pre-match/seasons/${seasonId}`),
-			sm.get(`news/post-match/seasons/${seasonId}`),
+			sm.get(`news/pre-match/seasons/${seasonId}`, {
+				include: "fixture.venue",
+			}),
+			sm.get(`news/post-match/seasons/${seasonId}`, {
+				include: "fixture.venue",
+			}),
 			buildVertex(env),
 		]);
 		// カルーセル表示分だけに制限（cold-start で大量の翻訳並列呼び出しを防ぐ）。

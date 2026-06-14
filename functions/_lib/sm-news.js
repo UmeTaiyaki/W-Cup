@@ -4,7 +4,8 @@
 // ゴール系 type_id(livescore メモリ: 14=Goal,16=Penalty,23=PKGoal)
 const GOAL_TYPE_IDS = new Set([14, 16, 23]);
 
-// pre/post を統合し表示順に整列。各要素: { newsitem_id, fixture_id, type, title_en }
+// pre/post を統合し表示順に整列。各要素: { newsitem_id, fixture_id, type, title_en, hero_image }
+// hero_image は include=fixture.venue 由来のスタジアム画像URL(無ければ null)。
 export function mergeNewsList(pre, post) {
 	const norm = (arr, type) =>
 		(Array.isArray(arr) ? arr : []).map((n) => ({
@@ -12,6 +13,7 @@ export function mergeNewsList(pre, post) {
 			fixture_id: n.fixture_id,
 			type: n.type || type,
 			title_en: n.title || "",
+			hero_image: n.fixture?.venue?.image_path || null,
 		}));
 	const all = [...norm(post, "postmatch"), ...norm(pre, "prematch")];
 	const seen = new Set();

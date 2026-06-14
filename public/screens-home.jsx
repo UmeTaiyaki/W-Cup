@@ -1123,6 +1123,9 @@ function NewsSheet({ T, item, onClose }) {
 	);
 }
 
+// 写真の上にタイトルを重ねる雑誌風サムネ。背景=スタジアム写真(hero_image)、
+// 無ければチームカラー風グラデにフォールバック。下部の暗いスクリムで文字を可読化し、
+// 左上に両エンブレム、右上に種別バッジ、下部にタイトル(白)を重ねる。
 function NewsCard({ T, item, onOpen }) {
 	const m = matchByFixtureId(item.fixture_id);
 	const a =
@@ -1133,54 +1136,96 @@ function NewsCard({ T, item, onOpen }) {
 		m && window.WC.formatMatchTeam
 			? window.WC.formatMatchTeam(m.b, window.WC.TEAM || {}, m.round)
 			: null;
+	const hero = item.hero_image;
+	// 背景: 写真があれば写真、無ければ落ち着いたグラデ(写真不在でも成立)。
+	const bgLayer = hero
+		? `linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.78) 100%), url("${hero}")`
+		: "linear-gradient(135deg, #1f2937 0%, #0b3a6b 60%, #061a33 100%)";
+	const crestChip = (team) =>
+		team && team.resolved ? (
+			<span
+				style={{
+					display: "inline-flex",
+					alignItems: "center",
+					justifyContent: "center",
+					width: 26,
+					height: 26,
+					borderRadius: "50%",
+					background: "rgba(255,255,255,0.92)",
+					boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+				}}
+			>
+				<Flag code={team.code} size={18} />
+			</span>
+		) : null;
 	return (
 		<button
 			type="button"
 			onClick={() => onOpen(item)}
 			style={{
 				flex: "0 0 auto",
-				width: 220,
+				width: 240,
+				height: 150,
+				position: "relative",
 				textAlign: "left",
-				background: T.card,
-				border: `1px solid ${T.border}`,
+				border: "none",
 				borderRadius: 14,
-				padding: 12,
+				padding: 0,
+				overflow: "hidden",
 				cursor: "pointer",
 				scrollSnapAlign: "start",
+				backgroundImage: bgLayer,
+				backgroundSize: "cover",
+				backgroundPosition: "center",
+				backgroundColor: "#0b3a6b",
 			}}
 		>
+			{/* 左上: 両エンブレム */}
 			<div
 				style={{
+					position: "absolute",
+					top: 8,
+					left: 8,
 					display: "flex",
 					alignItems: "center",
-					gap: 6,
-					marginBottom: 8,
-					minHeight: 28,
+					gap: 4,
 				}}
 			>
-				{a && a.resolved && <Flag code={a.code} size={22} />}
-				{a && b && <span style={{ fontSize: 12, color: T.sub }}>vs</span>}
-				{b && b.resolved && <Flag code={b.code} size={22} />}
-				<span
-					style={{
-						marginLeft: "auto",
-						fontSize: 10,
-						fontWeight: 700,
-						color: T.sub,
-						border: `1px solid ${T.border}`,
-						borderRadius: 8,
-						padding: "2px 6px",
-					}}
-				>
-					{NEWS_TYPE_LABEL[item.type] || "ニュース"}
-				</span>
+				{crestChip(a)}
+				{crestChip(b)}
 			</div>
+			{/* 右上: 種別バッジ */}
+			<span
+				style={{
+					position: "absolute",
+					top: 8,
+					right: 8,
+					fontSize: 10,
+					fontWeight: 800,
+					color: "#fff",
+					background:
+						item.type === "postmatch"
+							? "rgba(220,38,38,0.92)"
+							: "rgba(37,99,235,0.92)",
+					borderRadius: 8,
+					padding: "2px 7px",
+				}}
+			>
+				{NEWS_TYPE_LABEL[item.type] || "ニュース"}
+			</span>
+			{/* 下部: タイトル(白・スクリム上) */}
 			<div
 				style={{
+					position: "absolute",
+					left: 0,
+					right: 0,
+					bottom: 0,
+					padding: "10px 12px",
 					fontSize: 13,
-					fontWeight: 700,
-					color: T.text,
-					lineHeight: 1.4,
+					fontWeight: 800,
+					color: "#fff",
+					lineHeight: 1.35,
+					textShadow: "0 1px 3px rgba(0,0,0,0.6)",
 					display: "-webkit-box",
 					WebkitLineClamp: 3,
 					WebkitBoxOrient: "vertical",
