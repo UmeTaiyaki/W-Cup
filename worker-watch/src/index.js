@@ -14,6 +14,7 @@ import {
 } from "../../functions/_lib/ai-match.js";
 import {
 	selectFixturesForDetailSync,
+	shouldRunInterval,
 	syncFixtureDetail,
 	syncLive,
 	syncSeasonFixtures,
@@ -23,6 +24,12 @@ import {
 import { createSportmonks } from "../../functions/_lib/sportmonks.js";
 
 const MATCH_AI_MODEL = "gemini-2.5-pro";
+
+// D1 rows-written 節約: 重い詳細同期(lineups/player_stats/stats)とtopscorersは
+// 毎分は過剰なので N 分に1回へ間引く。スコア/イベント速報は syncLive(毎分)で維持。
+// xG/スタメン/選手スタッツのリアルタイム性は最大この分数だけ遅延する。
+const DETAIL_INTERVAL_MIN = 5;
+const TOPSCORER_INTERVAL_MIN = 5;
 
 const FOOTBALL_BASE = "https://api.sportmonks.com/v3/football";
 const CORE_BASE = "https://api.sportmonks.com/v3/core";
@@ -68,48 +75,55 @@ export default {
 				`watch-cron: live synced=${r.count}${r.error ? " err=" + r.error : ""}`,
 			);
 
-			// 詳細同期: ライブ中＋直近終了の fixture に lineup/xGFixture を取り込む
-			try {
-				// ±36h 窓で候補 fixture を取得（W杯は重複なし前提で上限は十分）
-				const windowSec = 36 * 60 * 60;
-				const dbRows = await env.DB.prepare(
-					// starting_at_ts は未開始試合の先行取得判定に必須（selectFixturesForDetailSync が参照）
-					"SELECT sm_fixture_id, state_id, starting_at_ts FROM sm_fixtures WHERE starting_at_ts BETWEEN ? AND ?",
-				)
-					.bind(now - windowSec, now + windowSec)
-					.all();
-				const candidates = selectFixturesForDetailSync(
-					dbRows?.results ?? [],
-					now,
-				);
-				const DETAIL_CAP = 12;
-				if (candidates.length > DETAIL_CAP) {
-					console.log(
-						`watch-cron: detail candidates capped ${candidates.length} → ${DETAIL_CAP}`,
-					);
-				}
-				const toSync = candidates.slice(0, DETAIL_CAP);
-				for (const row of toSync) {
-					const dr = await syncFixtureDetail(
-						football,
-						env.DB,
-						row.sm_fixture_id,
+			// 詳細同期: ライブ中＋直近終了の fixture に lineup/xGFixture を取り込む。
+			// rows-written 節約のため DETAIL_INTERVAL_MIN 分に1回だけ実行（毎分は過剰）。
+			// スコア/イベントは上の syncLive(毎分)が担保するので速報性は落ちない。
+			if (shouldRunInterval(now, DETAIL_INTERVAL_MIN)) {
+				try {
+					// ±36h 窓で候補 fixture を取得（W杯は重複なし前提で上限は十分）
+					const windowSec = 36 * 60 * 60;
+					const dbRows = await env.DB.prepare(
+						// starting_at_ts は未開始試合の先行取得判定に必須（selectFixturesForDetailSync が参照）
+						"SELECT sm_fixture_id, state_id, starting_at_ts FROM sm_fixtures WHERE starting_at_ts BETWEEN ? AND ?",
+					)
+						.bind(now - windowSec, now + windowSec)
+						.all();
+					const candidates = selectFixturesForDetailSync(
+						dbRows?.results ?? [],
 						now,
 					);
-					if (!dr.ok) {
-						console.error(
-							`watch-cron: detail sync failed fixture=${row.sm_fixture_id} err=${dr.error}`,
+					const DETAIL_CAP = 12;
+					if (candidates.length > DETAIL_CAP) {
+						console.log(
+							`watch-cron: detail candidates capped ${candidates.length} → ${DETAIL_CAP}`,
 						);
 					}
+					const toSync = candidates.slice(0, DETAIL_CAP);
+					for (const row of toSync) {
+						const dr = await syncFixtureDetail(
+							football,
+							env.DB,
+							row.sm_fixture_id,
+							now,
+						);
+						if (!dr.ok) {
+							console.error(
+								`watch-cron: detail sync failed fixture=${row.sm_fixture_id} err=${dr.error}`,
+							);
+						}
+					}
+					console.log(`watch-cron: detail synced=${toSync.length}`);
+				} catch (e) {
+					console.error("watch-cron: detail sync error", e?.message);
 				}
-				console.log(`watch-cron: detail synced=${toSync.length}`);
-			} catch (e) {
-				console.error("watch-cron: detail sync error", e?.message);
 			}
 
-			const tsLive = await syncTopscorers(football, env.DB, SEASON_2026, now);
-			if (tsLive.error)
-				console.error("watch-cron: topscorers err=" + tsLive.error);
+			// 得点王も毎分は過剰。TOPSCORER_INTERVAL_MIN 分に1回へ間引く。
+			if (shouldRunInterval(now, TOPSCORER_INTERVAL_MIN)) {
+				const tsLive = await syncTopscorers(football, env.DB, SEASON_2026, now);
+				if (tsLive.error)
+					console.error("watch-cron: topscorers err=" + tsLive.error);
+			}
 
 			// AI分析: スタメン/HT/FT の検知駆動生成（Vertex AI / サービスアカウント認証）。
 			// 詳細同期とは別の障害隔離。GCP_SERVICE_ACCOUNT(secret) と AI_MATCH_ENABLED=true で発火。
