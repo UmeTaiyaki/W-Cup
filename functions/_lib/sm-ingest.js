@@ -164,6 +164,25 @@ export function toStatRows(detail) {
 		}));
 }
 
+// xGFixture include（配列キー xgfixture）を sm_stats 縦持ち行へ畳む。
+// 各要素: { participant_id, location, type_id, value | data.value }。statistics には来ないため別経路。
+export function toXgStatRows(detail) {
+	const xg = Array.isArray(detail?.xgfixture)
+		? detail.xgfixture
+		: Array.isArray(detail?.xGFixture)
+			? detail.xGFixture
+			: [];
+	const fixtureId = detail?.id ?? null;
+	return xg
+		.filter((x) => x?.type_id != null && x?.participant_id != null)
+		.map((x) => ({
+			sm_fixture_id: x.fixture_id ?? fixtureId,
+			team_id: x.participant_id,
+			type_id: x.type_id,
+			value: x.value ?? x?.data?.value ?? null,
+		}));
+}
+
 // lineups.player.teams から現所属クラブ（meta.active=true 優先・無ければ先頭）を返す。
 function activeClub(l) {
 	const teams = Array.isArray(l?.player?.teams) ? l.player.teams : [];

@@ -9,6 +9,7 @@ import {
 	toStatRows,
 	toTeamRows,
 	toTypeRows,
+	toXgStatRows,
 } from "./sm-ingest.js";
 
 function teamStatement(row, updatedAt) {
@@ -248,6 +249,7 @@ export function fixtureDetailStatements(detail, updatedAt) {
 	stmts.push(
 		...eventRows.map((r) => eventStatement(r, updatedAt)),
 		...toStatRows(detail).map((r) => statStatement(r, updatedAt)),
+		...toXgStatRows(detail).map((r) => statStatement(r, updatedAt)),
 		...toLineupRows(detail).map((r) => lineupStatement(r, updatedAt)),
 		...toPlayerStatRows(detail).map((r) => playerStatStatement(r, updatedAt)),
 	);
