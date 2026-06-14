@@ -1180,6 +1180,82 @@ function StatsTab({ T, detail }) {
 	);
 }
 
+// セクション共通の解説ヘッダ。desc=端的1行、example=改行して緑字「例：」、badge=NEW/FT等(任意)。
+function XgSectionHead({ T, n, title, desc, example, badge }) {
+	return (
+		<div style={{ margin: "16px 0 6px" }}>
+			<div
+				style={{
+					fontSize: 11,
+					fontWeight: 800,
+					color: T.text,
+					display: "flex",
+					alignItems: "center",
+					gap: 6,
+				}}
+			>
+				{n != null && (
+					<span
+						style={{
+							background: T.accent,
+							color: "#0e1a14",
+							borderRadius: "50%",
+							width: 16,
+							height: 16,
+							display: "inline-flex",
+							alignItems: "center",
+							justifyContent: "center",
+							fontSize: 9,
+							fontWeight: 800,
+						}}
+					>
+						{n}
+					</span>
+				)}
+				{title}
+				{badge && (
+					<span
+						style={{
+							fontSize: 8.5,
+							background: T.accent,
+							color: "#0e1a14",
+							fontWeight: 800,
+							borderRadius: 3,
+							padding: "0 4px",
+						}}
+					>
+						{badge}
+					</span>
+				)}
+			</div>
+			{desc && (
+				<div
+					style={{
+						fontSize: 10.5,
+						color: T.sub,
+						lineHeight: 1.45,
+						marginTop: 2,
+					}}
+				>
+					{desc}
+					{example && (
+						<span
+							style={{
+								display: "block",
+								color: T.accent,
+								fontWeight: 700,
+								marginTop: 1,
+							}}
+						>
+							例：{example}
+						</span>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 // ③ シュートの質: xG per shot（= xG / シュート数）。shots か xG が欠ければ非表示。
 function XgShotQuality({
 	T,
