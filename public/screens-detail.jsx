@@ -1847,6 +1847,13 @@ function XgTab({ T, detail }) {
 				</>
 			)}
 
+			<XgSectionHead
+				T={T}
+				n={5}
+				title="シュートの質（1本あたり）"
+				desc="1本がどれだけ良い形か。"
+				example="0.06＝遠めの薄い形／0.30＝決定機級"
+			/>
 			<XgShotQuality
 				T={T}
 				homeName={homeName}
@@ -1855,6 +1862,13 @@ function XgTab({ T, detail }) {
 				awayXg={awayXg}
 				homeShots={homeShots}
 				awayShots={awayShots}
+			/>
+			<XgSectionHead
+				T={T}
+				n={6}
+				title="GK評価"
+				desc="防いだ失点の量。"
+				example="+0.58＝0.58点ぶん好セーブ／マイナスは取りこぼし"
 			/>
 			<XgGkValue
 				T={T}
