@@ -1,8 +1,8 @@
-// 結果スクリーン（読み取り専用）: 日程 / グループリーグ / ノックアウト / 得点王 の4サブタブ。
+// 結果スクリーン（読み取り専用）: グループリーグ / ノックアウト / 得点王 の3サブタブ。
+// 終了済みの試合は各グループ表の下にカルーセルで表示する（旧「日程」サブタブは廃止）。
 function GroupScreen({ T, wide = false }) {
-	const [sub, setSub] = React.useState("schedule"); // 'schedule' | 'league' | 'ko' | 'scorer'
+	const [sub, setSub] = React.useState("league"); // 'league' | 'ko' | 'scorer'
 	const SUBS = [
-		{ id: "schedule", label: "日程" },
 		{ id: "league", label: "グループリーグ" },
 		{ id: "ko", label: "ノックアウト" },
 		{ id: "scorer", label: "得点王" },
@@ -65,7 +65,6 @@ function GroupScreen({ T, wide = false }) {
 				</div>
 			</div>
 			<SubTabs />
-			{sub === "schedule" && <ScheduleResults T={T} />}
 			{sub === "league" && <LeagueTables T={T} />}
 			{sub === "ko" && <KnockoutResults T={T} />}
 			{sub === "scorer" && <ScorerRanking T={T} />}
@@ -73,56 +72,142 @@ function GroupScreen({ T, wide = false }) {
 	);
 }
 
-// ---- ⓪日程（開始済みの試合のみ：新しい順）----
-// 表示は既存ホームの DayTimeline（日付区切り＋MatchRow）を再利用する。
-// 「まだ始まっていない試合（未開始）」だけを除外する。終了・試合中はもちろん、
-// スコア未同期でも予定時刻(JST)を過ぎた試合は“開始済み”として残す
-// （ライブフィードから古い試合が落ちると matchResult が null を返すため、時刻でも判定）。
-function ScheduleResults({ T }) {
+// ---- グループ試合カルーセル（各グループ表の下：終了済みのみ・新しい順）----
+// 当該グループ（round = 'A'〜'L'）の SCHEDULE から終了試合だけを抜き出し、
+// 横スクロールのコンパクトな試合カードで並べる。タップで試合詳細を開く。
+const GROUP_DOW = ["日", "月", "火", "水", "木", "金", "土"];
+function fmtGroupMatchDate(dateStr) {
+	if (!dateStr) return "";
+	const [y, m, d] = dateStr.split("-").map(Number);
+	const wd = GROUP_DOW[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+	return `${m}/${d}(${wd})`;
+}
+
+function GroupMatchCarousel({ T, k }) {
 	const schedule = window.WC.SCHEDULE || [];
-	if (!schedule.length) {
-		return (
-			<div style={{ padding: "40px 8px", textAlign: "center", color: T.sub }}>
-				日程は準備中です
-			</div>
-		);
-	}
+	const TEAM = window.WC.TEAM || {};
+	const mr = window.WC.matchResult;
+	if (!mr) return null;
 
-	// 現在の JST 日付・時刻（"YYYY-MM-DD" / "HH:MM"）。lib と同じ +9h 換算。
-	const nowMs = Date.now();
-	const todayStr = window.WC.jstToday
-		? window.WC.jstToday(nowMs)
-		: new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(0, 10);
-	const nowHM = new Date(nowMs + 9 * 3600 * 1000).toISOString().slice(11, 16);
+	// 当該グループの終了試合（FT）を新しい順に。
+	const finished = schedule
+		.filter((m) => m && m.round === k)
+		.map((m) => ({ m, r: mr(m) }))
+		.filter((x) => x.r) // 終了スコアがあるもののみ
+		.sort((x, y) => {
+			const xk = `${x.m.date || ""} ${x.m.time || ""}`;
+			const yk = `${y.m.date || ""} ${y.m.time || ""}`;
+			return xk < yk ? 1 : xk > yk ? -1 : 0;
+		});
 
-	// 開始済み判定: 終了(FT) or 試合中(LIVE) or 予定キックオフ(JST)が現在以前。
-	const hasStarted = (m) => {
-		if (window.WC.matchResult && window.WC.matchResult(m)) return true;
-		const lv = window.WC.liveForMatch && window.WC.liveForMatch(m);
-		if (lv && lv.status === "LIVE") return true;
-		if (!m.date) return false; // 日付未定は対象外
-		if (m.date < todayStr) return true;
-		if (m.date > todayStr) return false;
-		return (m.time || "00:00") <= nowHM;
+	if (finished.length === 0) return null;
+
+	const openDetail = (m) => {
+		const id = window.WC.fixtureIdForMatch && window.WC.fixtureIdForMatch(m);
+		if (id != null) window.WC.openDetail && window.WC.openDetail(id);
 	};
 
-	const played = schedule.filter((m) => m && hasStarted(m));
-
-	// 日付・各日内とも新しい順（groupByDate は昇順なので反転。日付未定は除外）。
-	const playedGroups = window.WC.groupByDate(played)
-		.filter((g) => g.date !== null)
-		.reverse()
-		.map((g) => ({ date: g.date, matches: g.matches.slice().reverse() }));
-
-	if (playedGroups.length === 0) {
+	const Side = ({ code, alignEnd }) => {
+		const tm = TEAM[code];
 		return (
-			<div style={{ padding: "40px 8px", textAlign: "center", color: T.sub }}>
-				開始した試合はまだありません
+			<div
+				style={{
+					flex: 1,
+					minWidth: 0,
+					display: "flex",
+					flexDirection: "column",
+					alignItems: "center",
+					gap: 4,
+				}}
+			>
+				<Flag code={code} size={26} />
+				<span
+					style={{
+						fontFamily: "Archivo",
+						fontWeight: 800,
+						fontSize: 11,
+						color: T.sub,
+						whiteSpace: "nowrap",
+					}}
+				>
+					{tm ? code : "未定"}
+				</span>
 			</div>
 		);
-	}
+	};
 
-	return <window.DayTimeline T={T} groups={playedGroups} />;
+	return (
+		<div style={{ marginTop: 12 }}>
+			<div
+				style={{
+					display: "flex",
+					gap: 8,
+					overflowX: "auto",
+					paddingBottom: 4,
+					scrollSnapType: "x proximity",
+					WebkitOverflowScrolling: "touch",
+				}}
+			>
+				{finished.map(({ m, r }, i) => (
+					<button
+						key={`${m.date || "x"}-${m.a}-${m.b}-${i}`}
+						onClick={() => openDetail(m)}
+						style={{
+							flex: "0 0 auto",
+							width: 148,
+							scrollSnapAlign: "start",
+							border: "none",
+							cursor: "pointer",
+							fontFamily: "inherit",
+							textAlign: "left",
+							background: T.bg,
+							borderRadius: 12,
+							padding: "10px 10px 11px",
+							boxShadow: `inset 0 0 0 1px ${T.line}`,
+						}}
+					>
+						<div
+							style={{
+								fontSize: 10,
+								fontWeight: 700,
+								color: T.faint,
+								marginBottom: 8,
+								textAlign: "center",
+							}}
+						>
+							{fmtGroupMatchDate(m.date) || "日付未定"}
+						</div>
+						<div
+							style={{
+								display: "flex",
+								alignItems: "flex-start",
+								gap: 4,
+							}}
+						>
+							<Side code={m.a} />
+							<div
+								style={{
+									flexShrink: 0,
+									paddingTop: 4,
+									fontFamily: "Archivo",
+									fontWeight: 900,
+									fontSize: 17,
+									color: T.text,
+									letterSpacing: 0.5,
+									whiteSpace: "nowrap",
+								}}
+							>
+								{r.a ?? 0}
+								<span style={{ color: T.faint, margin: "0 4px" }}>-</span>
+								{r.b ?? 0}
+							</div>
+							<Side code={m.b} />
+						</div>
+					</button>
+				))}
+			</div>
+		</div>
+	);
 }
 
 // ---- ①グループリーグ（フルリーグ表）----
@@ -436,6 +521,7 @@ function LeagueTables({ T }) {
 						)}
 					</div>
 				)}
+				<GroupMatchCarousel T={T} k={k} />
 			</div>
 		);
 	};
