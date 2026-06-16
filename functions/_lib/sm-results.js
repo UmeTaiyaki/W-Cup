@@ -2,6 +2,8 @@
 // 不変条件: 副作用なし。壊れた/欠損入力でも例外を投げず空・null で返す（障害隔離）。
 // FT確定ルール: 採点に効く確定値は status==="FT" の試合からのみ。順位表表示はライブ込み。
 
+import { computeStandings } from "../../public/lib/standings.js";
+
 // 突合用に round 名を正規化（小文字化・英数のみ）
 function normRound(s) {
 	return String(s == null ? "" : s)
@@ -49,43 +51,24 @@ export function deriveGroupMatches(fixtures, groups) {
 	return out;
 }
 
-// 勝点→得失点差→総得点→登録順。FT試合のみ集計（採点用）。
-function standingsFT(members, fixtures) {
-	const order = (members || []).filter(Boolean);
-	const row = {};
-	order.forEach((c, i) => {
-		row[c] = { c, pts: 0, gf: 0, ga: 0, _i: i };
-	});
+// 当該グループの FT 試合を computeStandings 入力 {a,b,ga,gb} に変換する。
+function ftGroupMatches(members, fixtures) {
+	const set = new Set(members);
+	const out = [];
 	for (const fx of fixtures || []) {
 		if (fx?.status !== "FT") continue;
 		const a = fx?.home?.app_code,
 			b = fx?.away?.app_code;
 		const ga = fx?.home?.score,
 			gb = fx?.away?.score;
-		if (!row[a] || !row[b] || !isNum(ga) || !isNum(gb)) continue;
-		row[a].gf += ga;
-		row[a].ga += gb;
-		row[b].gf += gb;
-		row[b].ga += ga;
-		if (ga > gb) row[a].pts += 3;
-		else if (ga < gb) row[b].pts += 3;
-		else {
-			row[a].pts += 1;
-			row[b].pts += 1;
-		}
+		if (!set.has(a) || !set.has(b) || !isNum(ga) || !isNum(gb)) continue;
+		out.push({ a, b, ga, gb });
 	}
-	return order
-		.map((c) => row[c])
-		.sort(
-			(x, y) =>
-				y.pts - x.pts ||
-				y.gf - y.ga - (x.gf - x.ga) ||
-				y.gf - x.gf ||
-				x._i - y._i,
-		);
+	return out;
 }
 
 // 全試合（4チーム総当たり=6試合）がFTのグループのみ、上位3コードを返す。未完は空配列。
+// 順位は computeStandings（FIFA 2026 タイブレーカー: head-to-head 優先）で確定する。
 export function deriveGroupResult(fixtures, groups) {
 	const list = Array.isArray(fixtures) ? fixtures : [];
 	const out = {};
@@ -100,9 +83,9 @@ export function deriveGroupResult(fixtures, groups) {
 		const expected = (members.length * (members.length - 1)) / 2;
 		out[g] =
 			ftCount >= expected && expected > 0
-				? standingsFT(members, list)
+				? computeStandings(members, ftGroupMatches(members, list))
 						.slice(0, 3)
-						.map((r) => r.c)
+						.map((r) => r.code)
 				: [];
 	}
 	return out;
