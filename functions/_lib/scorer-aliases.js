@@ -6293,5 +6293,773 @@ export const SCORER_ALIASES = [
 		"variants": [
 			"ADU (GHA)"
 		]
+	},
+	{
+		"canonical": "MEX::GUILLERMO MARTINEZ AYALA",
+		"variants": [
+			"G. MARTÍNEZ (MEX)"
+		]
+	},
+	{
+		"canonical": "KOR::SEUNG-GYU KIM",
+		"variants": [
+			"SEUNGGYU (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::HAN-BEOM LEE",
+		"variants": [
+			"HANBEOM (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::GI-HYUK LEE",
+		"variants": [
+			"GIHYUK (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::MIN-JAE KIM",
+		"variants": [
+			"MINJAE (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::KIM TAE-HYEON",
+		"variants": [
+			"TAEHYEON (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::IN-BEOM HWANG",
+		"variants": [
+			"INBEOM (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::SEUNG-HO PAIK",
+		"variants": [
+			"SEUNGHO (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::JAE-SUNG LEE",
+		"variants": [
+			"JAESUNG (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::HEE-CHAN HWANG",
+		"variants": [
+			"HEECHAN (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::BUM-KEUN SONG",
+		"variants": [
+			"BUMKEUN (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::TAE-SEOK LEE",
+		"variants": [
+			"TAESEOK (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::WI-JE CHO",
+		"variants": [
+			"WIJE (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::MOON-HWAN KIM",
+		"variants": [
+			"MOONHWAN (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::JIN-SEOB PARK",
+		"variants": [
+			"JINSEOB (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::JUN-HO BAE",
+		"variants": [
+			"JUNHO (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::KANG-IN LEE",
+		"variants": [
+			"KANGIN (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::HYUN-JUN YANG",
+		"variants": [
+			"HYUNJUN (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::HYEON-WOO JO",
+		"variants": [
+			"HYEONWOO (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::YOUNG-WOO SEOL",
+		"variants": [
+			"YOUNGWOO (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::JIN-GYU KIM",
+		"variants": [
+			"JINGYU (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::JI-SUNG EOM",
+		"variants": [
+			"JISUNG (KOR)"
+		]
+	},
+	{
+		"canonical": "KOR::DONG-GYEONG LEE",
+		"variants": [
+			"DONGGYEONG (KOR)"
+		]
+	},
+	{
+		"canonical": "RSA::EVIDENCE MAKGOPA",
+		"variants": [
+			"MAKGPA (RSA)"
+		]
+	},
+	{
+		"canonical": "SUI::DAN NDOYE",
+		"variants": [
+			"NODYE (SUI)"
+		]
+	},
+	{
+		"canonical": "SUI::YVON MVOGO",
+		"variants": [
+			"MV OGO (SUI)"
+		]
+	},
+	{
+		"canonical": "QAT::LUCAS MENDES",
+		"variants": [
+			"L.MENDES (QAT)"
+		]
+	},
+	{
+		"canonical": "QAT::EDMILSON JUNIOR",
+		"variants": [
+			"EDMILSON JR. (QAT)"
+		]
+	},
+	{
+		"canonical": "QAT::HASAN AL-HAYDOS",
+		"variants": [
+			"ALHAYDOS (QAT)"
+		]
+	},
+	{
+		"canonical": "QAT::AHMED AL-GANEHI",
+		"variants": [
+			"A. ALGANEHI (QAT)"
+		]
+	},
+	{
+		"canonical": "QAT::AHMED FATHI",
+		"variants": [
+			"A. FATHY (QAT)"
+		]
+	},
+	{
+		"canonical": "QAT::AL-HASHMI AL-HUSSAIN",
+		"variants": [
+			"ALHASHMI (QAT)"
+		]
+	},
+	{
+		"canonical": "BRA::ALISSON",
+		"variants": [
+			"A. BECKER (BRA)"
+		]
+	},
+	{
+		"canonical": "BRA::BRUNO GUIMARAES",
+		"variants": [
+			"BRUNO G. (BRA)"
+		]
+	},
+	{
+		"canonical": "MAR::YASSINE BOUNOU",
+		"variants": [
+			"BONO (MAR)"
+		]
+	},
+	{
+		"canonical": "MAR::GESSIME YASSINE",
+		"variants": [
+			"YASSINE (MAR)"
+		]
+	},
+	{
+		"canonical": "MAR::YOUSSEF BELAMMARI",
+		"variants": [
+			"BELAMM ARI (MAR)"
+		]
+	},
+	{
+		"canonical": "HAI::WILGUENS PAUGAIN",
+		"variants": [
+			"PAUGIN (HAI)"
+		]
+	},
+	{
+		"canonical": "TUR::MERT GUNOK",
+		"variants": [
+			"MERT (TUR)"
+		]
+	},
+	{
+		"canonical": "GER::LENNART KARL",
+		"variants": [
+			"KARL (GER)"
+		]
+	},
+	{
+		"canonical": "ECU::JOHN YEBOAH",
+		"variants": [
+			"YEBOAH ZAMORA (ECU)"
+		]
+	},
+	{
+		"canonical": "CIV::SEKO FOFANA",
+		"variants": [
+			"FOFANA (CIV)"
+		]
+	},
+	{
+		"canonical": "NED::JURRIEN TIMBER",
+		"variants": [
+			"J. TIMBER (NED)"
+		]
+	},
+	{
+		"canonical": "JPN::ZION SUZUKI",
+		"variants": [
+			"SUZUKI (JPN)"
+		]
+	},
+	{
+		"canonical": "TUN::HANNIBAL",
+		"variants": [
+			"MEJBRI (TUN)"
+		]
+	},
+	{
+		"canonical": "TUN::MOHAMED AMINE BEN HAMIDA",
+		"variants": [
+			"BEN HMIDA (TUN)"
+		]
+	},
+	{
+		"canonical": "TUN::SABRI BEN HESSEN",
+		"variants": [
+			"BEN HSAN (TUN)"
+		]
+	},
+	{
+		"canonical": "IRN::EHSAN HAJSAFI",
+		"variants": [
+			"E. HAJISAFI (IRN)"
+		]
+	},
+	{
+		"canonical": "IRN::MILAD MOHAMMADI",
+		"variants": [
+			"M. MOHAMM ADI (IRN)"
+		]
+	},
+	{
+		"canonical": "IRN::MOHAMMAD MOHEBI",
+		"variants": [
+			"M. MOHEBBI (IRN)"
+		]
+	},
+	{
+		"canonical": "IRN::HOSSEIN KANAANI",
+		"variants": [
+			"KANANI (IRN)"
+		]
+	},
+	{
+		"canonical": "IRN::SHAHRIAR MOGHANLOU",
+		"variants": [
+			"SHAHRIYAR (IRN)"
+		]
+	},
+	{
+		"canonical": "IRN::AMIRMOHAMMAD RAZZAGHINIA",
+		"variants": [
+			"RAZAGH (IRN)"
+		]
+	},
+	{
+		"canonical": "EGY::MOHAMED EL SHENAWY",
+		"variants": [
+			"M. ELSHENAWY (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::RAMY RABIA",
+		"variants": [
+			"R. RABIAA (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::MOHAMED ABDELMONEM",
+		"variants": [
+			"M. ABDELMONIEM (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::KARIM HAFEZ RAMADAN SEIF EL DIN",
+		"variants": [
+			"K. HAFEZ (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::MOHANAD LASHEEN",
+		"variants": [
+			"M. LASHIN (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::NABIL DUNGA",
+		"variants": [
+			"DONGA (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::MARWAN ATEYA",
+		"variants": [
+			"M. ATTIA (EGY)"
+		]
+	},
+	{
+		"canonical": "EGY::OUFA SHOBEIR",
+		"variants": [
+			"SHOUBIR (EGY)"
+		]
+	},
+	{
+		"canonical": "ESP::ALEX BAENA",
+		"variants": [
+			"ALEX B. (ESP)"
+		]
+	},
+	{
+		"canonical": "ESP::RODRI",
+		"variants": [
+			"RODRIGO (ESP)"
+		]
+	},
+	{
+		"canonical": "ESP::VICTOR MUNOZ",
+		"variants": [
+			"VICTOR M.V. (ESP)"
+		]
+	},
+	{
+		"canonical": "KSA::NAWAF AL-AQIDI",
+		"variants": [
+			"ALAQIDI (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::ABDULELAH AL-AMRI",
+		"variants": [
+			"ALAMRI (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::HASSAN TAMBAKTI",
+		"variants": [
+			"ALTAMBAKTI (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::AYMAN YAHYA",
+		"variants": [
+			"AIMAN (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::FIRAS AL-BURAIKAN",
+		"variants": [
+			"FERAS (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::SALEH AL-SHEHRI",
+		"variants": [
+			"ALSHEHRI (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::NAWAF BOUSHAL",
+		"variants": [
+			"NAWAF (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::HASSAN KADESH",
+		"variants": [
+			"KADISH (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::ABDULLAH AL-KHAIBARI",
+		"variants": [
+			"ALKHAIBARI (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::ABDULLAH AL-HAMDAN",
+		"variants": [
+			"ALHAMDDAN (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::MOHAMMED AL-OWAIS",
+		"variants": [
+			"ALOWAIS (KSA)"
+		]
+	},
+	{
+		"canonical": "KSA::AHMED AL-KASSAR",
+		"variants": [
+			"ALKASSAR (KSA)"
+		]
+	},
+	{
+		"canonical": "CPV::ROBERTO LOPES",
+		"variants": [
+			"LOPES (CPV)"
+		]
+	},
+	{
+		"canonical": "CPV::KEVIN LENINI",
+		"variants": [
+			"KEVIN L. (CPV)"
+		]
+	},
+	{
+		"canonical": "CPV::SIDNY LOPES CABRAL",
+		"variants": [
+			"LOPES CABRAL (CPV)"
+		]
+	},
+	{
+		"canonical": "CPV::WILLY SEMEDO",
+		"variants": [
+			"SEMEDO (CPV)"
+		]
+	},
+	{
+		"canonical": "CPV::NUNO DA COSTA",
+		"variants": [
+			"DA COSTA (CPV)"
+		]
+	},
+	{
+		"canonical": "CPV::WAGNER PINA",
+		"variants": [
+			"WAGNER P. (CPV)"
+		]
+	},
+	{
+		"canonical": "SEN::IDRISSA GUEYE",
+		"variants": [
+			"GANA (SEN)"
+		]
+	},
+	{
+		"canonical": "SEN::EDOUARD MENDY",
+		"variants": [
+			"MENDY (SEN)"
+		]
+	},
+	{
+		"canonical": "SEN::EL HADJI MALICK DIOUF",
+		"variants": [
+			"DIOUF (SEN)"
+		]
+	},
+	{
+		"canonical": "SEN::PAPE GUEYE",
+		"variants": [
+			"GUEYE (SEN)"
+		]
+	},
+	{
+		"canonical": "IRQ::HUSSEIN ALI",
+		"variants": [
+			"HUSSEIN (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::ZAID TAHSEEN",
+		"variants": [
+			"ZAID T. (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::MANAF YOUNIS",
+		"variants": [
+			"MUNAF (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::AHMED QASEM",
+		"variants": [
+			"AHMED Q. (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::ALI YOUSIF",
+		"variants": [
+			"ALI Y. (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::ZIDANE IQBAL",
+		"variants": [
+			"Z.IQBAL (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::AHMED HASAN",
+		"variants": [
+			"AHMED (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::ALI JASIM",
+		"variants": [
+			"ALI J. (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::AHMED BASIL FADHIL",
+		"variants": [
+			"AHMED B. (IRQ)"
+		]
+	},
+	{
+		"canonical": "IRQ::ZAID ISMAIL",
+		"variants": [
+			"ZAID I. (IRQ)"
+		]
+	},
+	{
+		"canonical": "ARG::LEONARDO BALERDI",
+		"variants": [
+			"BALERDI (ARG)"
+		]
+	},
+	{
+		"canonical": "ARG::LISANDRO MARTINEZ",
+		"variants": [
+			"MARTÍNEZ (ARG)"
+		]
+	},
+	{
+		"canonical": "AUT::ALEXANDER SCHLAGER",
+		"variants": [
+			"SCHLAGER (AUT)"
+		]
+	},
+	{
+		"canonical": "AUT::PHILLIPP MWENE",
+		"variants": [
+			"MWENE (AUT)"
+		]
+	},
+	{
+		"canonical": "AUT::CHRISTOPH BAUMGARTNER",
+		"variants": [
+			"BAUMGARTNER (AUT)"
+		]
+	},
+	{
+		"canonical": "ALG::OUSSAMA BENBOUT",
+		"variants": [
+			"BENBOT (ALG)"
+		]
+	},
+	{
+		"canonical": "ALG::SAMIR CHERGUI",
+		"variants": [
+			"CHRGUI (ALG)"
+		]
+	},
+	{
+		"canonical": "JOR::NOOR AL-RAWABDEH",
+		"variants": [
+			"ALRAWABDEH (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::MOUSA TAMARI",
+		"variants": [
+			"ALTAMARI (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::NOUREDDIN BANI ATTIAH",
+		"variants": [
+			"BANI ATEYAH (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::MAHMOUD AL-MARDI",
+		"variants": [
+			"ALMARDI (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::RAJAEI AYED",
+		"variants": [
+			"RAJA'EI (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::IBRAHIM SAADEH",
+		"variants": [
+			"SA'DEH (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::MOHAMMAD ABUALNADI",
+		"variants": [
+			"ABU ALNADI (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::SAED AL-ROSAN",
+		"variants": [
+			"SA'ED (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::MOHANNAD ABU TAHA",
+		"variants": [
+			"ABU TAHA (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::ABDALLAH AL-FAKHOURI",
+		"variants": [
+			"ALFAKHORI (JOR)"
+		]
+	},
+	{
+		"canonical": "JOR::MOHAMMAD AL DAOUD",
+		"variants": [
+			"ALDAOUD (JOR)"
+		]
+	},
+	{
+		"canonical": "POR::TOMAS ARAUJO",
+		"variants": [
+			"TOMÁS A. (POR)"
+		]
+	},
+	{
+		"canonical": "POR::MATHEUS NUNES",
+		"variants": [
+			"MATHEUS N. (POR)"
+		]
+	},
+	{
+		"canonical": "COL::SANTIAGO ARIAS",
+		"variants": [
+			"ARIAS (COL)"
+		]
+	},
+	{
+		"canonical": "UZB::KHOZHIAKBAR ALIZHONOV",
+		"variants": [
+			"ALIJONOV (UZB)"
+		]
+	},
+	{
+		"canonical": "UZB::ODILDZHON KHAMROBEKOV",
+		"variants": [
+			"XAMROBEKOV (UZB)"
+		]
+	},
+	{
+		"canonical": "UZB::AZIZBEK AMANOV",
+		"variants": [
+			"AMONOV (UZB)"
+		]
+	},
+	{
+		"canonical": "UZB::AVAZBEK ULMASALIEV",
+		"variants": [
+			"ULMASALIYEV (UZB)"
+		]
+	},
+	{
+		"canonical": "COD::LIONEL MPASI-NZAU",
+		"variants": [
+			"MP ASI (COD)"
+		]
+	},
+	{
+		"canonical": "COD::EDO KAYEMBE",
+		"variants": [
+			"KAYEMBE (COD)"
+		]
+	},
+	{
+		"canonical": "ENG::REECE JAMES",
+		"variants": [
+			"JAMES (ENG)"
+		]
+	},
+	{
+		"canonical": "CRO::MARCO PASALIC",
+		"variants": [
+			"PAŠALIĆ (CRO)"
+		]
+	},
+	{
+		"canonical": "CRO::LUKA SUCIC",
+		"variants": [
+			"SUČIĆ (CRO)"
+		]
+	},
+	{
+		"canonical": "GHA::THOMAS PARTEY",
+		"variants": [
+			"THOMAS (GHA)"
+		]
+	},
+	{
+		"canonical": "GHA::MARVIN SENAYA",
+		"variants": [
+			"SENEYA (GHA)"
+		]
 	}
 ];
