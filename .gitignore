@@ -4,3 +4,9 @@ node_modules/
 .dev.vars
 *.log
 .DS_Store
+
+# PMSR インジェストの作業/生成物（R2/D1へpublishするため版管理しない）
+scripts/pmsr/.work/
+scripts/pmsr/dist/
+# PoC スクラッチ
+scripts/pmsr-poc/

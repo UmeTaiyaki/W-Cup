@@ -6,5 +6,8 @@
     "test": "node --test 'functions/**/*.test.js'",
     "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public --project-name=wcup2026-yosou --commit-dirty=true"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "^6.0.227"
   }
 }

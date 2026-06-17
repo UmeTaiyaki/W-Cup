@@ -211,6 +211,31 @@ export async function getFixtureDetail(db, id) {
 	} catch (e) {
 		console.error("getFixtureDetail: series read failed", id, e?.message);
 	}
+	// PMSR（FIFA公式マッチレポート）の数値スタッツ＋図表マニフェスト（FT試合のみ存在）。
+	// テーブル未作成や読み失敗でも例外を投げず null（障害隔離）。図表URLはここで組み立てる。
+	let pmsr = null;
+	try {
+		const rows = await all(
+			"SELECT data_json, figures_json, pdf_url FROM sm_pmsr WHERE sm_fixture_id = ?",
+		);
+		if (rows.length > 0 && rows[0]?.data_json) {
+			const data = JSON.parse(rows[0].data_json);
+			let figures = [];
+			try {
+				figures = JSON.parse(rows[0].figures_json || "[]");
+			} catch {}
+			pmsr = {
+				...data,
+				figures: figures.map((f) => ({
+					...f,
+					url: `/api/pmsr-figure?m=${id}&k=${encodeURIComponent(f.key)}`,
+				})),
+				pdf_url: rows[0].pdf_url ?? null,
+			};
+		}
+	} catch (e) {
+		console.error("getFixtureDetail: pmsr read failed", id, e?.message);
+	}
 	return {
 		fixture,
 		events,
@@ -220,6 +245,7 @@ export async function getFixtureDetail(db, id) {
 		ai,
 		highlight,
 		series,
+		pmsr,
 	};
 }
 
