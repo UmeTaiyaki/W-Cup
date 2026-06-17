@@ -529,9 +529,15 @@ function MirrorBar({ T, label, unit, homeVal, awayVal }) {
 }
 
 /** 選手別xG 横バー */
+// xGタブのチーム配色。home=テーマaccent(ライム)、away=明確な第2色(青系)。
+// 従来の半透明・薄白緑は背景に溶けて識別しづらかったため、はっきりした青に統一する。
+const XG_AWAY = "#5CC8FF";
+const XG_AWAY_SOFT = "rgba(92,200,255,0.45)";
+const XG_HOME_SOFT = "rgba(182,255,60,0.45)";
+
 function PlayerXgBar({ T, playerName, xg, maxXg, isHome, xgot }) {
 	const pct = maxXg > 0 ? (xg / maxXg) * 100 : 0;
-	const barColor = isHome ? T.accent : "rgba(226,240,228,0.55)";
+	const barColor = isHome ? T.accent : XG_AWAY;
 
 	return (
 		<div
@@ -562,9 +568,7 @@ function PlayerXgBar({ T, playerName, xg, maxXg, isHome, xgot }) {
 						style={{
 							height: 3,
 							marginTop: 1,
-							background: isHome
-								? "rgba(182,255,60,0.45)"
-								: "rgba(226,240,228,0.5)",
+							background: isHome ? XG_HOME_SOFT : XG_AWAY_SOFT,
 							borderRadius: 2,
 							width: `${Math.min(100, (xgot / maxXg) * 100)}%`,
 						}}
@@ -1595,7 +1599,7 @@ function XgFlow({ T, series }) {
 				}}
 			>
 				{line("home", T.accent)}
-				{line("away", "rgba(226,240,228,0.5)")}
+				{line("away", XG_AWAY)}
 			</svg>
 		</div>
 	);
@@ -1751,6 +1755,58 @@ function XgTab({ T, detail }) {
 
 	return (
 		<div style={{ padding: "14px" }}>
+			{/* チーム色の凡例。全セクションで home=accent / away=青系 を統一。 */}
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "center",
+					gap: 16,
+					marginBottom: 10,
+					fontSize: 11.5,
+					fontWeight: 800,
+				}}
+			>
+				<span
+					style={{
+						display: "inline-flex",
+						alignItems: "center",
+						gap: 5,
+						color: T.text,
+					}}
+				>
+					<span
+						style={{
+							display: "inline-block",
+							width: 11,
+							height: 11,
+							borderRadius: 3,
+							background: T.accent,
+						}}
+					/>
+					{homeInfo.flag ? homeInfo.flag + " " : ""}
+					{homeName}
+				</span>
+				<span
+					style={{
+						display: "inline-flex",
+						alignItems: "center",
+						gap: 5,
+						color: T.text,
+					}}
+				>
+					<span
+						style={{
+							display: "inline-block",
+							width: 11,
+							height: 11,
+							borderRadius: 3,
+							background: XG_AWAY,
+						}}
+					/>
+					{awayInfo.flag ? awayInfo.flag + " " : ""}
+					{awayName}
+				</span>
+			</div>
 			{isLive && (
 				<div
 					style={{
@@ -1814,7 +1870,7 @@ function XgTab({ T, detail }) {
 						style={{
 							fontSize: 30,
 							fontWeight: 800,
-							color: awayXg != null ? "rgba(226,240,228,0.7)" : T.faint,
+							color: awayXg != null ? XG_AWAY : T.faint,
 						}}
 					>
 						{awayXg != null ? awayXg.toFixed(2) : "–"}
@@ -1841,7 +1897,7 @@ function XgTab({ T, detail }) {
 					<div
 						style={{
 							width: `${awayPct}%`,
-							background: "rgba(226,240,228,0.42)",
+							background: XG_AWAY,
 							marginLeft: "auto",
 							borderRadius: "0 4px 4px 0",
 						}}
