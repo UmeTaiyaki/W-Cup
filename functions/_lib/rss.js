@@ -13,6 +13,20 @@ const DEFAULT_FEEDS = [
 ];
 const MERGED_LIMIT = 12; // カルーセル表示上限。
 
+// W杯2026の記事だけを残す判定語(title/description/category のいずれかに含む)。
+const WC_RE = /ワールドカップ|W杯|北中米/i;
+// 速報スタブ(中身が無く逐次更新される枠)を弾く。タイトルで判定。
+const STUB_RE = /試合記録|試合経過|スタメン発表|スタメン|試合結果速報/;
+
+// W杯2026以外(Jリーグ等)とスタブ記事を除外する。
+export function filterWorldCup(items) {
+	return items.filter((it) => {
+		if (STUB_RE.test(it.title)) return false;
+		const hay = `${it.title} ${it.description} ${(it.categories || []).join(" ")}`;
+		return WC_RE.test(hay);
+	});
+}
+
 export async function fetchRssNews(env) {
 	const feeds = parseFeeds(env.NEWS_RSS_FEEDS) || DEFAULT_FEEDS;
 	const fetchImpl = env.__fetchImpl || fetch;
@@ -20,10 +34,13 @@ export async function fetchRssNews(env) {
 	const results = await Promise.all(
 		feeds.map((f) => fetchOneFeed(fetchImpl, f)),
 	);
-	const all = results.flat();
+	const all = filterWorldCup(results.flat());
 	// 新着順(ISO文字列は辞書順=時系列順)。publishedAt 空は末尾へ。
 	all.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
-	return dedupe(all).slice(0, MERGED_LIMIT);
+	// categories は判定用の内部フィールドなので出力から落とす。
+	return dedupe(all)
+		.slice(0, MERGED_LIMIT)
+		.map(({ categories, ...rest }) => rest);
 }
 
 async function fetchOneFeed(fetchImpl, feed) {
@@ -50,6 +67,9 @@ export function parseRssItems(xml, source) {
 		const descRaw = tag(block, "description");
 		const image =
 			firstImg(contentHtml) || firstImg(descRaw) || mediaUrl(block) || "";
+		const categories = (
+			block.match(/<category[^>]*>([\s\S]*?)<\/category>/gi) || []
+		).map((c) => decode(clean(c.replace(/<\/?category[^>]*>/gi, ""))));
 		items.push({
 			id: link,
 			title: decode(clean(tag(block, "title"))),
@@ -58,6 +78,7 @@ export function parseRssItems(xml, source) {
 			image,
 			source,
 			publishedAt: toIso(clean(tag(block, "pubDate"))),
+			categories,
 		});
 	}
 	return items;
