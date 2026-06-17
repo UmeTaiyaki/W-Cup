@@ -8,5 +8,6 @@ node_modules/
 # PMSR インジェストの作業/生成物（R2/D1へpublishするため版管理しない）
 scripts/pmsr/.work/
 scripts/pmsr/dist/
-# PoC スクラッチ
+# PoC / 検証スクラッチ
 scripts/pmsr-poc/
+scripts/pmsr/_*
