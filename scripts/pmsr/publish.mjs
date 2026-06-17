@@ -10,6 +10,7 @@
 
 import { readdir, readFile, writeFile, mkdtemp } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -32,8 +33,23 @@ function parseArgs(argv) {
 
 const sq = (s) => `'${String(s).replace(/'/g, "''")}'`; // SQL単一引用符エスケープ
 
-function wrangler(args) {
-	return execFileSync("wrangler", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+// クラウドAPI起因の一時エラー（認可7403やネットワーク揺らぎ）に備え、指数バックオフで再試行。
+// R2 put / D1 upsert はいずれも冪等なのでリトライ安全。
+async function wrangler(args, { attempts = 4 } = {}) {
+	let lastErr;
+	for (let i = 1; i <= attempts; i++) {
+		try {
+			return execFileSync("wrangler", args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+		} catch (e) {
+			lastErr = e;
+			if (i < attempts) {
+				const wait = 1000 * 2 ** (i - 1);
+				console.warn(`wrangler ${args[0]} ${args[1]} 失敗(${i}/${attempts}) → ${wait}ms後に再試行`);
+				await sleep(wait);
+			}
+		}
+	}
+	throw lastErr;
 }
 
 async function publishFixture(fixtureId, scope) {
@@ -43,7 +59,7 @@ async function publishFixture(fixtureId, scope) {
 	// 図表PNGをR2へ
 	for (const f of report.figures) {
 		const key = `${fixtureId}/${f.key}.png`;
-		wrangler(["r2", "object", "put", `${BUCKET}/${key}`, "--file", join(dir, "figures", f.file), "--content-type", "image/png", scope]);
+		await wrangler(["r2", "object", "put", `${BUCKET}/${key}`, "--file", join(dir, "figures", f.file), "--content-type", "image/png", scope]);
 	}
 
 	// sm_pmsr を upsert（data_json は API が展開する形に整形）
@@ -66,7 +82,7 @@ ON CONFLICT(sm_fixture_id) DO UPDATE SET
 	const tmp = await mkdtemp(join(tmpdir(), "pmsr-"));
 	const sqlFile = join(tmp, `upsert-${fixtureId}.sql`);
 	await writeFile(sqlFile, sql);
-	wrangler(["d1", "execute", DB, scope, "--file", sqlFile]);
+	await wrangler(["d1", "execute", DB, scope, "--file", sqlFile]);
 
 	return { fixtureId, figures: report.figures.length };
 }

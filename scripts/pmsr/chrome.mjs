@@ -11,22 +11,42 @@ const CHROME_CANDIDATES = [
 	"/usr/bin/chromium",
 ].filter(Boolean);
 
-export async function launchChrome({ port = 9333, userDataDir = "/tmp/pmsr-chrome" } = {}) {
+export async function launchChrome({ port = 9333, userDataDir = "/tmp/pmsr-chrome", attempts = 2 } = {}) {
 	const bin = CHROME_CANDIDATES[0];
-	const proc = spawn(bin, [
-		"--headless", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
-		"--remote-debugging-port=" + port,
-		"--user-data-dir=" + userDataDir,
-		"about:blank",
-	], { stdio: "ignore", detached: true });
+	let lastErr = "起動理由不明";
 
-	let ver = null;
-	for (let i = 0; i < 60; i++) {
-		try { ver = await (await fetch(`http://localhost:${port}/json/version`)).json(); break; }
-		catch { await sleep(250); }
+	for (let attempt = 1; attempt <= attempts; attempt++) {
+		const proc = spawn(bin, [
+			"--headless", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+			// CI(GitHub Actions)の小さい /dev/shm と権限制約で即クラッシュするのを防ぐ。
+			"--no-sandbox", "--disable-dev-shm-usage",
+			"--remote-debugging-port=" + port,
+			"--user-data-dir=" + userDataDir,
+			"about:blank",
+		], { stdio: ["ignore", "ignore", "pipe"], detached: true });
+
+		// 失敗診断のため stderr を保持しつつ、Chrome の早期終了を検知する。
+		let stderr = "";
+		proc.stderr?.on("data", (d) => { stderr += d; if (stderr.length > 4000) stderr = stderr.slice(-4000); });
+		let exited = false, exitInfo = "";
+		proc.on("exit", (code, sig) => { exited = true; exitInfo = `code=${code} signal=${sig}`; });
+		proc.on("error", (e) => { exited = true; exitInfo = `spawn失敗: ${e.message}`; });
+
+		let ver = null;
+		for (let i = 0; i < 120; i++) { // 最大30秒待つ（CIのコールドスタート対策）
+			if (exited) break;
+			try { ver = await (await fetch(`http://localhost:${port}/json/version`)).json(); break; }
+			catch { await sleep(250); }
+		}
+		if (ver) return { proc, port };
+
+		try { process.kill(-proc.pid); } catch {}
+		lastErr = exited
+			? `Chromeが起動直後に終了 (${exitInfo}) ${stderr.trim()}`
+			: `CDPポート ${port} が30秒以内に応答せず ${stderr.trim()}`;
+		if (attempt < attempts) await sleep(1000);
 	}
-	if (!ver) { try { process.kill(-proc.pid); } catch {} throw new Error("Chrome CDP起動失敗"); }
-	return { proc, port };
+	throw new Error("Chrome CDP起動失敗: " + lastErr.trim());
 }
 
 // 1つのターゲット(タブ)を開いて CDP セッションを張る。
