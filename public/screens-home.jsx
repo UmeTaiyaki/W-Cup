@@ -207,8 +207,12 @@ function formatDateJa(dateStr) {
 // GNews(外部API)由来のURLを http/https のみに制限し、CSS/JSスキーム注入を防ぐ。
 // 不正・非http(s)・パース不能は null。url("…") への埋め込み時は引用符/制御文字もエンコード。
 function safeHttpUrl(raw) {
+	const s = String(raw || "");
+	// 絶対 http(s) のみ許可。相対URLは自オリジンに解決されてしまうため、
+	// new URL に base を渡さず「外部の絶対URLのみ」を厳格に通す。
+	if (!/^https?:\/\//i.test(s)) return null;
 	try {
-		const u = new URL(String(raw || ""), window.location.href);
+		const u = new URL(s);
 		if (u.protocol !== "http:" && u.protocol !== "https:") return null;
 		return u.href;
 	} catch (e) {
