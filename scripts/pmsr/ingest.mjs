@@ -16,6 +16,7 @@ import { createServer } from "node:http";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { fetchHub } from "./hub.mjs";
@@ -64,8 +65,27 @@ function startServer() {
 	return new Promise((resolve) => server.listen(PORT, () => resolve(server)));
 }
 
+// wrangler はクラウドAPI起因の一時エラー（認可7403やネットワーク揺らぎ）を返すことがある。
+// PMSRは冪等なので、指数バックオフで数回リトライしてから諦める。
+async function runWrangler(argv, { attempts = 4 } = {}) {
+	let lastErr;
+	for (let i = 1; i <= attempts; i++) {
+		try {
+			return execFileSync("wrangler", argv, { encoding: "utf8", cwd: ROOT });
+		} catch (e) {
+			lastErr = e;
+			if (i < attempts) {
+				const wait = 1000 * 2 ** (i - 1);
+				console.warn(`wrangler ${argv[0]} ${argv[1]} 失敗(${i}/${attempts}) → ${wait}ms後に再試行`);
+				await sleep(wait);
+			}
+		}
+	}
+	throw lastErr;
+}
+
 // ── fixture_id 解決 ──
-function buildResolver(args) {
+async function buildResolver(args) {
 	if (args.fixtureMap) {
 		const map = JSON.parse(readFileSync(args.fixtureMap, "utf8"));
 		return (m, header) => {
@@ -81,7 +101,7 @@ function buildResolver(args) {
 		const sql = "SELECT f.sm_fixture_id AS id, h.short_code AS home, a.short_code AS away " +
 			"FROM sm_fixtures f LEFT JOIN sm_teams h ON h.sm_team_id=f.home_team_id " +
 			"LEFT JOIN sm_teams a ON a.sm_team_id=f.away_team_id";
-		const out = execFileSync("wrangler", ["d1", "execute", "wcup2026-db", "--remote", "--json", "--command", sql], { encoding: "utf8", cwd: ROOT });
+		const out = await runWrangler(["d1", "execute", "wcup2026-db", "--remote", "--json", "--command", sql]);
 		const rows = JSON.parse(out)?.[0]?.results || [];
 		return (m) => {
 			const hit = rows.find((r) => String(r.home).toUpperCase() === m.homeCode && String(r.away).toUpperCase() === m.awayCode);
@@ -149,7 +169,7 @@ async function main() {
 	console.log(`対象 ${matches.length} 試合`);
 	if (!matches.length) { console.log("対象なし"); return; }
 
-	const resolve = buildResolver(args);
+	const resolve = await buildResolver(args);
 	const server = await startServer();
 	const chrome = await launchChrome({ port: 9333 });
 	const session = await openTarget(9333, "about:blank");
