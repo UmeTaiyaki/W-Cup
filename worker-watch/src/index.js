@@ -12,6 +12,7 @@ import {
 	makeVertexCaller,
 	maybeGenerateMatchAi,
 } from "../../functions/_lib/ai-match.js";
+import { refreshNewsPool } from "../../functions/_lib/rss.js";
 import {
 	selectFixturesForDetailSync,
 	shouldRunInterval,
@@ -210,6 +211,21 @@ export default {
 				} catch (e) {
 					console.error("watch-cron: ai gen error", e?.message);
 				}
+			}
+		}
+
+		// ニュース(RSS)プールを15分ごとに更新。毎分cronのうち minute%15===0 の時だけ実行。
+		// 失敗してもwatch本体に波及させない(障害隔離)。
+		if (
+			env.NEWS_ENABLED === "true" &&
+			env.CONFIG &&
+			Math.floor(now / 60) % 15 === 0
+		) {
+			try {
+				const pool = await refreshNewsPool(env, now * 1000);
+				console.log(`watch-cron: news pool=${pool.length}`);
+			} catch (e) {
+				console.error("watch-cron: news refresh error", e?.message);
 			}
 		}
 	},

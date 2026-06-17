@@ -1,14 +1,12 @@
-// GET /api/news — サッカー専門メディアのRSS(複数)をマージして配信。
-// NEWS_ENABLED ゲート＋KVキャッシュ30分＋障害隔離。OFF/失敗/空は items:[]（カルーセル非表示）。
+// GET /api/news — サッカー専門メディアのRSS記事を配信。
+// KVのローリングプール(worker-watch のCronが15分ごとに更新)を読み、新着12件を返すだけ。
+// NEWS_ENABLED ゲート＋障害隔離。OFF/失敗/空は items:[]（カルーセル非表示）。
+// KVが空(Cron未稼働/初回)のときだけ直接RSS取得でフォールバック(書き込みはCron専任)。
 
 import { json } from "../_lib/http.js";
-import { fetchRssNews } from "../_lib/rss.js";
+import { fetchRssNews, NEWS_KV_KEY } from "../_lib/rss.js";
 
-// rss-v2: スタブ/非W杯フィルタ追加に伴いキャッシュキーをバンプ(旧キャッシュを無効化)。
-const CACHE_KEY = "news:rss:ja:v2";
-const CACHE_TTL_SEC = 1800; // 30分。RSSの外部取得回数とKV書込を抑える。
-// 空結果(全フィード失敗等)は短TTLでキャッシュし、毎リクエストの再取得連打を防ぐ。
-const EMPTY_TTL_SEC = 300; // 5分。
+const DISPLAY_LIMIT = 12;
 
 export async function onRequestGet(context) {
 	const { env } = context;
@@ -18,25 +16,24 @@ export async function onRequestGet(context) {
 	try {
 		const kv = env.CONFIG;
 		if (kv) {
-			const cached = await kv.get(CACHE_KEY);
-			if (cached) {
-				// 壊れたキャッシュ(部分書き込み等)は無視してGNewsから再取得する。
+			const raw = await kv.get(NEWS_KV_KEY);
+			if (raw) {
+				// 壊れたプール(部分書き込み等)は無視してフォールバック取得する。
 				try {
-					const parsed = JSON.parse(cached);
+					const parsed = JSON.parse(raw);
 					if (parsed && Array.isArray(parsed.items)) {
-						return json(200, { enabled: true, items: parsed.items });
+						return json(200, {
+							enabled: true,
+							items: parsed.items.slice(0, DISPLAY_LIMIT),
+						});
 					}
 				} catch (e) {
-					console.warn("news cache parse failed, refetching:", e?.message);
+					console.warn("news pool parse failed, falling back:", e?.message);
 				}
 			}
 		}
+		// KV未充填(Cron未稼働/初回)時のみ直接取得。KVへは書かない(Cronが唯一の書き手)。
 		const items = await fetchRssNews(env);
-		if (kv) {
-			await kv.put(CACHE_KEY, JSON.stringify({ items }), {
-				expirationTtl: items.length > 0 ? CACHE_TTL_SEC : EMPTY_TTL_SEC,
-			});
-		}
 		return json(200, { enabled: true, items });
 	} catch (err) {
 		console.error("GET /api/news failed:", err?.message);

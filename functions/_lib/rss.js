@@ -11,7 +11,13 @@ const DEFAULT_FEEDS = [
 	},
 	{ name: "ゲキサカ", url: "https://web.gekisaka.jp/feed" },
 ];
-const MERGED_LIMIT = 12; // カルーセル表示上限。
+const DISPLAY_LIMIT = 12; // カルーセル表示件数。
+const MAX_POOL = 30; // KVに保持するプールの最大件数。
+const RETAIN_HOURS = 72; // これより古い(またはpublishedAt無効な)記事はプールから破棄。
+const POOL_TTL_SEC = 86400; // KVのセーフティTTL(24h)。Cronが止まれば1日で自然消滅。
+
+// Cron(worker-watch)とPages(/api/news)が共有するKVキー。
+export const NEWS_KV_KEY = "news:rss:ja:v2";
 
 // W杯2026の記事だけを残す判定語(title/description/category のいずれかに含む)。
 const WC_RE = /ワールドカップ|W杯|北中米/i;
@@ -27,7 +33,8 @@ export function filterWorldCup(items) {
 	});
 }
 
-export async function fetchRssNews(env) {
+// 全フィードを取得→W杯フィルタ→新着順→重複排除し、正規化記事の配列を返す(件数無制限)。
+async function collectItems(env) {
 	const feeds = parseFeeds(env.NEWS_RSS_FEEDS) || DEFAULT_FEEDS;
 	const fetchImpl = env.__fetchImpl || fetch;
 	// 各フィードは別ドメイン(共有レート制限なし)なので並列取得でよい。
@@ -35,12 +42,67 @@ export async function fetchRssNews(env) {
 		feeds.map((f) => fetchOneFeed(fetchImpl, f)),
 	);
 	const all = filterWorldCup(results.flat());
-	// 新着順(ISO文字列は辞書順=時系列順)。publishedAt 空は末尾へ。
 	all.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
 	// categories は判定用の内部フィールドなので出力から落とす。
-	return dedupe(all)
-		.slice(0, MERGED_LIMIT)
-		.map(({ categories, ...rest }) => rest);
+	return dedupe(all).map(({ categories, ...rest }) => rest);
+}
+
+// オンデマンド取得(API のフォールバック用)。最新 DISPLAY_LIMIT 件。
+export async function fetchRssNews(env) {
+	return (await collectItems(env)).slice(0, DISPLAY_LIMIT);
+}
+
+// ローリングプールの追加/破棄ロジック(純関数)。
+//  - 追加: fresh の新着を既存プールに統合(URL/タイトルで重複排除・新しい方を優先)。
+//  - 破棄: publishedAt が now-retainHours より古い/無効な記事を捨て、新着順で maxPool 件にキャップ。
+export function mergePool(existing, fresh, opts = {}) {
+	const {
+		now = Date.now(),
+		maxPool = MAX_POOL,
+		retainHours = RETAIN_HOURS,
+	} = opts;
+	const cutoff = now - retainHours * 3600 * 1000;
+	const seenUrl = new Set();
+	const seenTitle = new Set();
+	const out = [];
+	// fresh を先に見て、同一記事は新しい取得データを優先。
+	for (const it of [...(fresh || []), ...(existing || [])]) {
+		if (!it || !it.url) continue;
+		const t = Date.parse(it.publishedAt || "");
+		if (Number.isNaN(t) || t < cutoff) continue; // 期限切れ/日付無効は破棄
+		if (seenUrl.has(it.url)) continue;
+		const key = (it.title || "").trim().toLowerCase();
+		if (key && seenTitle.has(key)) continue;
+		seenUrl.add(it.url);
+		if (key) seenTitle.add(key);
+		out.push(it);
+	}
+	out.sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+	return out.slice(0, maxPool);
+}
+
+// Cron が呼ぶ: フィード取得→既存プール読込→merge→KV書込。更新後のプールを返す。
+export async function refreshNewsPool(env, now = Date.now()) {
+	const fresh = await collectItems(env);
+	let existing = [];
+	try {
+		const raw = await env.CONFIG?.get(NEWS_KV_KEY);
+		if (raw) {
+			const parsed = JSON.parse(raw);
+			if (parsed && Array.isArray(parsed.items)) existing = parsed.items;
+		}
+	} catch (e) {
+		console.warn("news pool read failed, rebuilding:", e?.message);
+	}
+	const pool = mergePool(existing, fresh, { now });
+	if (env.CONFIG) {
+		await env.CONFIG.put(
+			NEWS_KV_KEY,
+			JSON.stringify({ items: pool, updatedAt: new Date(now).toISOString() }),
+			{ expirationTtl: POOL_TTL_SEC },
+		);
+	}
+	return pool;
 }
 
 async function fetchOneFeed(fetchImpl, feed) {

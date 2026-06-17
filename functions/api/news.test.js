@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { onRequestGet } from "./news.js";
 
+const NEWS_KV_KEY = "news:rss:ja:v2";
+
 function memKV(initial = {}) {
 	const store = new Map(Object.entries(initial));
 	const opts = new Map();
@@ -22,10 +24,23 @@ function ctx(env) {
 	return { env, request: new Request("https://x/api/news") };
 }
 
+function poolItems(n) {
+	return Array.from({ length: n }, (_, i) => ({
+		id: `https://x/${i}`,
+		url: `https://x/${i}`,
+		title: `記事${i}`,
+		description: "",
+		image: "",
+		source: "サッカーキング",
+		publishedAt: "2026-06-17T10:00:00Z",
+	}));
+}
+
 const RSS_XML = `<rss><channel><item>
 <title>W杯記事</title>
 <link>https://soccer-king.jp/news/1.html</link>
 <pubDate>Wed, 17 Jun 2026 10:00:00 +0000</pubDate>
+<category>W杯</category>
 <description><![CDATA[要約]]></description>
 <content:encoded><![CDATA[<img src="https://img/1.jpg" />本文]]></content:encoded>
 </item></channel></rss>`;
@@ -37,7 +52,25 @@ test("NEWS_ENABLED 未設定 → enabled:false", async () => {
 	assert.equal(b.enabled, false);
 });
 
-test("KVミス → RSS取得→正規化→KV保存(30分TTL)→items返却", async () => {
+test("KVプールあり → 新着12件にスライスして返す(RSSは取得しない)", async () => {
+	let fetched = false;
+	const kv = memKV({ [NEWS_KV_KEY]: JSON.stringify({ items: poolItems(30) }) });
+	const env = {
+		NEWS_ENABLED: "true",
+		CONFIG: kv,
+		__fetchImpl: async () => {
+			fetched = true;
+			return new Response("");
+		},
+	};
+	const res = await onRequestGet(ctx(env));
+	const b = await res.json();
+	assert.equal(b.enabled, true);
+	assert.equal(b.items.length, 12, "30件プールを12件に絞る");
+	assert.equal(fetched, false, "プールがあればRSSを叩かない");
+});
+
+test("KV空(Cron未稼働) → 直接RSS取得でフォールバック・KVには書かない", async () => {
 	const kv = memKV();
 	const env = {
 		NEWS_ENABLED: "true",
@@ -47,43 +80,9 @@ test("KVミス → RSS取得→正規化→KV保存(30分TTL)→items返却", as
 	const res = await onRequestGet(ctx(env));
 	const b = await res.json();
 	assert.equal(b.enabled, true);
-	assert.equal(b.items.length, 1); // 既定3フィードが同一XML→同一URLで重複排除され1件
+	assert.equal(b.items.length, 1);
 	assert.equal(b.items[0].url, "https://soccer-king.jp/news/1.html");
-	assert.ok(kv._store.has("news:rss:ja:v2"), "KVに保存されている");
-	assert.equal(
-		kv._opts.get("news:rss:ja:v2").expirationTtl,
-		1800,
-		"成功時は30分TTLで保存",
-	);
-});
-
-test("KVヒット → RSSを取得せず即返却", async () => {
-	let fetched = false;
-	const cached = JSON.stringify({
-		items: [
-			{
-				id: "https://c.com/1",
-				url: "https://c.com/1",
-				title: "cached",
-				description: "",
-				image: "",
-				source: "サッカーキング",
-				publishedAt: "",
-			},
-		],
-	});
-	const env = {
-		NEWS_ENABLED: "true",
-		CONFIG: memKV({ "news:rss:ja:v2": cached }),
-		__fetchImpl: async () => {
-			fetched = true;
-			return new Response("");
-		},
-	};
-	const res = await onRequestGet(ctx(env));
-	const b = await res.json();
-	assert.equal(b.items[0].title, "cached");
-	assert.equal(fetched, false, "KVヒット時はRSSを取得しない");
+	assert.equal(kv._store.size, 0, "フォールバックはKVに書き込まない(Cron専任)");
 });
 
 test("RSS取得失敗 → enabled:true, items:[]（障害隔離）", async () => {
@@ -101,23 +100,10 @@ test("RSS取得失敗 → enabled:true, items:[]（障害隔離）", async () =>
 	assert.deepEqual(b.items, []);
 });
 
-test("記事0件 → items:[] かつ短TTL(300s)でキャッシュ（再取得連打を防ぐ）", async () => {
-	const kv = memKV();
+test("KVの不正JSON → 例外を吸収しフォールバック取得", async () => {
 	const env = {
 		NEWS_ENABLED: "true",
-		CONFIG: kv,
-		__fetchImpl: fakeFetch("<rss><channel></channel></rss>"),
-	};
-	const b = await (await onRequestGet(ctx(env))).json();
-	assert.deepEqual(b.items, []);
-	assert.ok(kv._store.has("news:rss:ja:v2"), "空でもKVに保存される");
-	assert.equal(kv._opts.get("news:rss:ja:v2").expirationTtl, 300);
-});
-
-test("KVの不正JSON → 例外を吸収しRSSから再取得", async () => {
-	const env = {
-		NEWS_ENABLED: "true",
-		CONFIG: memKV({ "news:rss:ja:v2": "not json{" }),
+		CONFIG: memKV({ [NEWS_KV_KEY]: "not json{" }),
 		__fetchImpl: fakeFetch(RSS_XML),
 	};
 	const res = await onRequestGet(ctx(env));

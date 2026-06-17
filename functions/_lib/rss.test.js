@@ -1,6 +1,30 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fetchRssNews, filterWorldCup, parseRssItems } from "./rss.js";
+import {
+	fetchRssNews,
+	filterWorldCup,
+	mergePool,
+	NEWS_KV_KEY,
+	parseRssItems,
+	refreshNewsPool,
+} from "./rss.js";
+
+// 固定の基準時刻(2026-06-17T12:00:00Z)。テストを Date.now() 非依存にする。
+const NOW = Date.parse("2026-06-17T12:00:00Z");
+const hoursAgo = (h) => new Date(NOW - h * 3600 * 1000).toISOString();
+function memKV(initial = {}) {
+	const store = new Map(Object.entries(initial));
+	const opts = new Map();
+	return {
+		get: async (k) => (store.has(k) ? store.get(k) : null),
+		put: async (k, v, o) => {
+			store.set(k, v);
+			opts.set(k, o);
+		},
+		_store: store,
+		_opts: opts,
+	};
+}
 
 // 実フィード構造を模した最小XML（W杯カテゴリ付き）。
 const SOCCER_KING = `<?xml version="1.0"?><rss><channel>
@@ -174,4 +198,71 @@ test("fetchRssNews: 同一URLの重複は排除", async () => {
 	};
 	const items = await fetchRssNews(env);
 	assert.equal(items.length, 1);
+});
+
+// ---- ローリングプール(追加/破棄ロジック) ----
+
+const A = (id, h) => ({
+	id: `https://x/${id}`,
+	url: `https://x/${id}`,
+	title: `記事${id}`,
+	description: "",
+	image: "",
+	source: "S",
+	publishedAt: hoursAgo(h),
+});
+
+test("mergePool: 新着を既存に追加(重複URLは1つ)・新着順", () => {
+	const existing = [A("1", 2), A("2", 5)];
+	const fresh = [A("3", 0), A("1", 2)]; // 3が新規・1は重複
+	const pool = mergePool(existing, fresh, { now: NOW });
+	assert.deepEqual(
+		pool.map((p) => p.id),
+		["https://x/3", "https://x/1", "https://x/2"],
+	);
+});
+
+test("mergePool: retainHours(72h)より古い記事は破棄", () => {
+	const pool = mergePool([A("old", 100)], [A("new", 1)], { now: NOW });
+	assert.deepEqual(
+		pool.map((p) => p.id),
+		["https://x/new"],
+	);
+});
+
+test("mergePool: publishedAt 無効な記事は破棄", () => {
+	const bad = { ...A("bad", 1), publishedAt: "" };
+	const pool = mergePool([], [bad, A("ok", 1)], { now: NOW });
+	assert.deepEqual(
+		pool.map((p) => p.id),
+		["https://x/ok"],
+	);
+});
+
+test("mergePool: maxPool 件にキャップ(新着優先)", () => {
+	const many = Array.from({ length: 40 }, (_, i) => A(`n${i}`, i * 0.1));
+	const pool = mergePool([], many, { now: NOW, maxPool: 30 });
+	assert.equal(pool.length, 30);
+	assert.equal(pool[0].id, "https://x/n0"); // 最新が先頭
+});
+
+test("refreshNewsPool: フィード取得→既存プールにmerge→KV書込(セーフティTTL付)", async () => {
+	const xml = `<rss><channel><item><title>新W杯記事</title>
+		<link>https://feed/new</link><pubDate>${new Date(NOW - 3600000).toUTCString()}</pubDate>
+		<category>W杯</category></item></channel></rss>`;
+	const existing = JSON.stringify({ items: [A("keep", 2)] });
+	const kv = memKV({ [NEWS_KV_KEY]: existing });
+	const env = {
+		CONFIG: kv,
+		NEWS_RSS_FEEDS: "A|https://a/feed",
+		__fetchImpl: async () => new Response(xml, { status: 200 }),
+	};
+	const pool = await refreshNewsPool(env, NOW);
+	assert.deepEqual(
+		pool.map((p) => p.url),
+		["https://feed/new", "https://x/keep"], // 新着(1h)が既存(2h)より前
+	);
+	const stored = JSON.parse(kv._store.get(NEWS_KV_KEY));
+	assert.equal(stored.items.length, 2);
+	assert.equal(kv._opts.get(NEWS_KV_KEY).expirationTtl, 86400);
 });
