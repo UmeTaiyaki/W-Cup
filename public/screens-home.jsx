@@ -711,7 +711,9 @@ function CheerBar({ T, match, a, b }) {
 
 // 得点・退場サマリ（試合詳細タイムライン由来）。
 // live.events（code=app_code / type / player_name / minute）を陣営別の2カラムに割る。
-// ⚽=得点（オウンゴールは「(OG)」付与）/ 🟥=退場（直接レッド・2枚目イエロー）。
+// ⚽=得点 / 🟥=退場（直接レッド・2枚目イエロー）。
+// 得点は同一プレイヤーで1行にまとめ、時間を ", " で連結（例: 23', 45+2'）。
+// 色: 通常得点=白 / 退場・オウンゴール(OG)=赤。
 // イベント無し（未開始や取得前）は何も描かない。
 function fmtEventMinute(ev) {
 	if (ev.minute == null) return "";
@@ -720,20 +722,63 @@ function fmtEventMinute(ev) {
 	}
 	return `${ev.minute}'`;
 }
-function MatchEvents({ T, events, aCode, bCode }) {
+
+// 1陣営のイベント → 表示行配列。退場は各1行、得点は「同一プレイヤー×OG区分」で
+// まとめて時間を ", " 連結。各行 { sym, red, name, mins, sort(時系列キー) }。
+function buildEventRows(sideEvents) {
+	const rows = [];
+	for (const e of sideEvents) {
+		if (e.type === "redcard" || e.type === "yellowredcard") {
+			rows.push({
+				sym: "🟥",
+				red: true,
+				name: e.player_name || "",
+				mins: fmtEventMinute(e),
+				sort: e.minute ?? 0,
+			});
+		}
+	}
+	const goals = sideEvents.filter(
+		(e) => e.type === "goal" || e.type === "penalty" || e.type === "own_goal",
+	);
+	const groups = new Map();
+	for (const e of goals) {
+		const og = e.type === "own_goal";
+		const key = `${e.player_name || ""}|${og ? "og" : "g"}`;
+		let g = groups.get(key);
+		if (!g) {
+			g = { name: e.player_name || "", og, items: [] };
+			groups.set(key, g);
+		}
+		g.items.push(e);
+	}
+	for (const g of groups.values()) {
+		g.items.sort(
+			(a, b) =>
+				(a.minute ?? 0) - (b.minute ?? 0) ||
+				(a.extra_minute ?? 0) - (b.extra_minute ?? 0),
+		);
+		rows.push({
+			sym: "⚽",
+			red: g.og, // OG は赤
+			name: g.name + (g.og ? " (OG)" : ""),
+			mins: g.items.map(fmtEventMinute).filter(Boolean).join(", "),
+			sort: g.items[0].minute ?? 0,
+		});
+	}
+	rows.sort((a, b) => a.sort - b.sort);
+	return rows;
+}
+
+function MatchEvents({ events, aCode, bCode }) {
 	const list = Array.isArray(events) ? events : [];
 	if (list.length === 0) return null;
-	const left = list.filter((e) => e.code === aCode);
-	const right = list.filter((e) => e.code === bCode);
-	if (left.length === 0 && right.length === 0) return null;
+	const leftRows = buildEventRows(list.filter((e) => e.code === aCode));
+	const rightRows = buildEventRows(list.filter((e) => e.code === bCode));
+	if (leftRows.length === 0 && rightRows.length === 0) return null;
 
-	const line = (ev, i, align) => {
-		const isRed = ev.type === "redcard" || ev.type === "yellowredcard";
-		const sym = isRed ? "🟥" : "⚽";
-		const name = ev.player_name || "";
-		const og = ev.type === "own_goal" ? " (OG)" : "";
-		const min = fmtEventMinute(ev);
-		const text = `${name}${og}${min ? ` ${min}` : ""}`.trim();
+	const line = (row, i, align) => {
+		const text = `${row.name}${row.mins ? ` ${row.mins}` : ""}`.trim();
 		return (
 			<div
 				key={i}
@@ -744,17 +789,17 @@ function MatchEvents({ T, events, aCode, bCode }) {
 					justifyContent: align === "right" ? "flex-end" : "flex-start",
 					fontSize: 11,
 					lineHeight: 1.7,
-					color: isRed ? "#ff5a5a" : T.sub,
+					color: row.red ? "#ff5a5a" : "#fff",
 				}}
 			>
 				{align === "right" ? (
 					<>
 						<span style={{ minWidth: 0, textAlign: "right" }}>{text}</span>
-						<span aria-hidden="true">{sym}</span>
+						<span aria-hidden="true">{row.sym}</span>
 					</>
 				) : (
 					<>
-						<span aria-hidden="true">{sym}</span>
+						<span aria-hidden="true">{row.sym}</span>
 						<span style={{ minWidth: 0 }}>{text}</span>
 					</>
 				)}
@@ -771,10 +816,10 @@ function MatchEvents({ T, events, aCode, bCode }) {
 			}}
 		>
 			<div style={{ flex: 1, minWidth: 0 }}>
-				{left.map((ev, i) => line(ev, i, "left"))}
+				{leftRows.map((row, i) => line(row, i, "left"))}
 			</div>
 			<div style={{ flex: 1, minWidth: 0 }}>
-				{right.map((ev, i) => line(ev, i, "right"))}
+				{rightRows.map((row, i) => line(row, i, "right"))}
 			</div>
 		</div>
 	);
@@ -925,7 +970,6 @@ function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
 				)}
 				{/* 得点・退場サマリ（タイムライン由来）。得点/国旗の下・配信メディアの上に表示。 */}
 				<MatchEvents
-					T={T}
 					events={live && live.events}
 					aCode={match.a}
 					bCode={match.b}
