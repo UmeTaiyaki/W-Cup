@@ -4165,7 +4165,7 @@ export const SQUADS = {
 			"club": "PFC Ludogorets Razgrad (BUL)"
 		},
 		{
-			"name": "DUARTE",
+			"name": "Laros Duarte",
 			"pos": "MF",
 			"club": "Puskás Akadémia FC (HUN)"
 		},
@@ -4364,7 +4364,7 @@ export const SQUADS = {
 			"club": "OGC Nice (FRA)"
 		},
 		{
-			"name": "Ismaïla Sarr",
+			"name": "Mamadou Sarr",
 			"pos": "DF",
 			"club": "Chelsea FC (ENG)"
 		},
