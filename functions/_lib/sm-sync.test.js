@@ -492,7 +492,7 @@ test("shouldRunInterval: 不正な now/interval は true（書き込みを止め
 	assert.equal(shouldRunInterval(undefined, 5), true);
 });
 
-// syncH2H 用フェイク: sm_fixtures（対象抽出）、sm_teams（app_code解決）、sm_h2h（upsert記録）
+// sm_fixtures(対象抽出: LEFT JOIN sm_h2h で未キャッシュのみ), sm_teams(app_code), sm_h2h(upsert記録)
 function fakeH2HDB({ fixtures = [], teams = {} } = {}) {
 	const h2hUpserts = [];
 	const make = (sql) => ({
@@ -506,10 +506,11 @@ function fakeH2HDB({ fixtures = [], teams = {} } = {}) {
 			if (/FROM sm_fixtures/i.test(this.sql)) return { results: fixtures };
 			if (/FROM sm_teams/i.test(this.sql)) {
 				const ids = this.args.map(Number);
-				const results = ids
-					.filter((id) => id in teams)
-					.map((id) => ({ sm_team_id: id, app_code: teams[id] }));
-				return { results };
+				return {
+					results: ids
+						.filter((id) => id in teams)
+						.map((id) => ({ sm_team_id: id, app_code: teams[id] })),
+				};
 			}
 			return { results: [] };
 		},
@@ -528,31 +529,32 @@ function fakeH2HDB({ fixtures = [], teams = {} } = {}) {
 	};
 }
 
-// participants;scores 形の fixture を返す SportMonks クライアントのモック。
-function fakeH2HClient(byPair) {
+// API-Football クライアントのモック。h2h=A-B をキーに response を返す。status も差し替え可能。
+// statusが関数の場合は呼び出す度に評価（呼び出し回数に応じた動的ステータス対応）。
+function fakeAfClient(byPair, { status = 200 } = {}) {
+	let callCount = 0;
 	return {
+		calls: [],
 		async get(path) {
-			const m = path.match(/head-to-head\/(\d+)\/(\d+)/);
+			this.calls.push(path);
+			const m = path.match(/h2h=(\d+)-(\d+)/);
 			const key = m ? `${m[1]}-${m[2]}` : "";
-			return { data: byPair[key] || [] };
+			const actualStatus =
+				typeof status === "function" ? status(++callCount) : status;
+			return { status: actualStatus, json: { response: byPair[key] || [] } };
 		},
 	};
 }
 
-function fxScore(homeId, awayId, hg, ag) {
+// API-Football fixture（teams/goals 形）
+function afFx(homeId, awayId, hg, ag) {
 	return {
-		participants: [
-			{ id: homeId, meta: { location: "home" } },
-			{ id: awayId, meta: { location: "away" } },
-		],
-		scores: [
-			{ description: "CURRENT", score: { participant: "home", goals: hg } },
-			{ description: "CURRENT", score: { participant: "away", goals: ag } },
-		],
+		teams: { home: { id: homeId }, away: { id: awayId } },
+		goals: { home: hg, away: ag },
 	};
 }
 
-test("syncH2H: 未開始かつ窓内のfixtureをH2H集計してupsert", async () => {
+test("syncH2H: 未キャッシュ窓内fixtureをAPI-FootballでH2H集計しupsert", async () => {
 	const now = 1_000_000;
 	const db = fakeH2HDB({
 		fixtures: [
@@ -560,46 +562,47 @@ test("syncH2H: 未開始かつ窓内のfixtureをH2H集計してupsert", async (
 				sm_fixture_id: 7,
 				home_team_id: 18,
 				away_team_id: 83,
-				state_id: 1,
 				starting_at_ts: now + 3600,
 			},
 		],
-		teams: { 18: "JPN", 83: "BRA" },
+		teams: { 18: "GER", 83: "NED" }, // afIdForCode で 25 / 1118 に解決される想定
 	});
-	const client = fakeH2HClient({
-		"18-83": [fxScore(18, 83, 1, 0), fxScore(83, 18, 2, 2)],
+	const af = fakeAfClient({
+		"25-1118": [afFx(25, 1118, 2, 1), afFx(1118, 25, 0, 0)],
 	});
-	const res = await syncH2H(client, db, now);
+	const res = await syncH2H(af, db, now);
 	assert.equal(res.count, 1);
-	// upsert 引数: [fixture_id, home_code, away_code, home_wins, draws, away_wins, total, updated_at]
 	const up = db._h2hUpserts[0];
-	assert.equal(up[0], 7);
-	assert.equal(up[1], "JPN");
-	assert.equal(up[2], "BRA");
-	assert.deepEqual(up.slice(3, 7), [1, 1, 0, 2]); // 18視点: 1勝1分0敗 total2
+	assert.equal(up[0], 7); // fixture_id
+	assert.equal(up[1], "GER"); // home_code
+	assert.equal(up[2], "NED"); // away_code
+	// GER(25) 視点: 1勝(2-1) + 1分(0-0) = 1-1-0, total 2
+	assert.equal(up[3], 1); // home_wins
+	assert.equal(up[4], 1); // draws
+	assert.equal(up[5], 0); // away_wins
+	assert.equal(up[6], 2); // total
 });
 
-test("syncH2H: app_code 解決不能の fixture はスキップ", async () => {
+test("syncH2H: 未マッピングのチームはスキップ（行を作らない）", async () => {
 	const now = 1_000_000;
 	const db = fakeH2HDB({
 		fixtures: [
 			{
 				sm_fixture_id: 9,
-				home_team_id: 18,
-				away_team_id: 999,
-				state_id: 1,
+				home_team_id: 1,
+				away_team_id: 2,
 				starting_at_ts: now + 3600,
 			},
 		],
-		teams: { 18: "JPN" }, // 999 未解決
+		teams: { 1: "ZZZ", 2: "GER" }, // ZZZ は AF_TEAM_ID に無い
 	});
-	const client = fakeH2HClient({ "18-999": [fxScore(18, 999, 1, 0)] });
-	const res = await syncH2H(client, db, now);
+	const af = fakeAfClient({});
+	const res = await syncH2H(af, db, now);
 	assert.equal(res.count, 0);
-	assert.equal(db._h2hUpserts.length, 0);
+	assert.equal(af.calls.length, 0); // API を叩かない
 });
 
-test("syncH2H: 取得失敗でも例外を投げず error を返す", async () => {
+test("syncH2H: 429 を受けたら即停止（部分コミット）", async () => {
 	const now = 1_000_000;
 	const db = fakeH2HDB({
 		fixtures: [
@@ -607,19 +610,70 @@ test("syncH2H: 取得失敗でも例外を投げず error を返す", async () =
 				sm_fixture_id: 7,
 				home_team_id: 18,
 				away_team_id: 83,
-				state_id: 1,
-				starting_at_ts: now + 3600,
+				starting_at_ts: now + 100,
+			},
+			{
+				sm_fixture_id: 8,
+				home_team_id: 18,
+				away_team_id: 83,
+				starting_at_ts: now + 200,
 			},
 		],
-		teams: { 18: "JPN", 83: "BRA" },
+		teams: { 18: "GER", 83: "NED" },
 	});
-	const client = {
-		async get() {
-			throw new Error("boom");
-		},
-	};
-	const res = await syncH2H(client, db, now);
-	// 1件取得失敗 → スキップして count 0、全体は例外にしない
-	assert.equal(res.count, 0);
-	assert.ok(db._h2hUpserts.length === 0);
+	const af = fakeAfClient(
+		{ "25-1118": [afFx(25, 1118, 1, 0)] },
+		{ status: 429 },
+	);
+	const res = await syncH2H(af, db, now);
+	assert.equal(res.count, 0); // 1件目で 429 → upsert せず break
+	assert.equal(af.calls.length, 1); // 2件目は叩かない
+});
+
+test("syncH2H: 429 が来る前の成功分は部分コミット（count > 0）", async () => {
+	const now = 1_000_000;
+	const db = fakeH2HDB({
+		fixtures: [
+			{
+				sm_fixture_id: 7,
+				home_team_id: 18,
+				away_team_id: 83,
+				starting_at_ts: now + 100,
+			},
+			{
+				sm_fixture_id: 8,
+				home_team_id: 18,
+				away_team_id: 83,
+				starting_at_ts: now + 200,
+			},
+		],
+		teams: { 18: "GER", 83: "NED" },
+	});
+	const af = fakeAfClient(
+		{ "25-1118": [afFx(25, 1118, 1, 0)] },
+		{ status: (callCount) => (callCount === 1 ? 200 : 429) },
+	);
+	const res = await syncH2H(af, db, now);
+	assert.equal(res.count, 1); // 1件目がコミット済み
+	assert.equal(af.calls.length, 2); // 2回叩いて2回目の429で停止
+});
+
+test("syncH2H: max で per-run 件数を制限", async () => {
+	const now = 1_000_000;
+	const fixtures = [];
+	const teams = { 18: "GER", 83: "NED" };
+	for (let i = 0; i < 5; i++)
+		fixtures.push({
+			sm_fixture_id: i,
+			home_team_id: 18,
+			away_team_id: 83,
+			starting_at_ts: now + i,
+		});
+	// LIMIT は SQL 側だが、フェイクは全件返すので syncH2H 内の slice/limit を検証する目的で
+	// max=2 を渡し、API 呼び出しが 2 回で止まることを見る。
+	const db = fakeH2HDB({ fixtures, teams });
+	const af = fakeAfClient({ "25-1118": [afFx(25, 1118, 1, 0)] });
+	const res = await syncH2H(af, db, now, { max: 2 });
+	assert.equal(af.calls.length, 2);
+	assert.equal(res.count, 2);
 });
