@@ -2,7 +2,9 @@
 // client(SportMonks) と db(D1) を注入し、fixture/types/live を sm_* へ同期する。
 // 副作用は runBatch に集約。各関数は障害隔離のため例外を投げず結果オブジェクトを返す。
 
-import { aggregateH2H, H2H_WINDOW_DAYS } from "./sm-h2h.js";
+import { afIdForCode } from "./af-team-map.js";
+import { extractAfH2HResult } from "./apifootball-h2h.js";
+import { aggregateResults, H2H_WINDOW_DAYS } from "./sm-h2h.js";
 import { toTopscorerRows } from "./sm-ingest.js";
 import {
 	fixtureDetailStatements,
@@ -224,27 +226,32 @@ export async function syncLive(footballClient, db, now) {
 	}
 }
 
-// 試合前カード用 H2H 同期。未開始かつ窓内の sm_fixtures について SportMonks H2H を取得し、
+// 試合前カード用 H2H 同期。未キャッシュかつ窓内の sm_fixtures について API-Football H2H を取得し、
 // home_team_id 視点の通算 W-D-L を sm_h2h へ upsert。障害は隔離（例外を投げない）。
 export async function syncH2H(
-	footballClient,
+	afClient,
 	db,
 	now,
-	{ windowDays = H2H_WINDOW_DAYS } = {},
+	{ windowDays = H2H_WINDOW_DAYS, max = 8 } = {},
 ) {
+	if (!afClient) return { count: 0 };
 	let targets;
 	try {
 		const until = now + windowDays * 86400;
 		const r = await db
 			.prepare(
-				`SELECT sm_fixture_id, home_team_id, away_team_id
-         FROM sm_fixtures
-         WHERE state_id = 1 AND starting_at_ts IS NOT NULL
-           AND starting_at_ts BETWEEN ? AND ?`,
+				`SELECT f.sm_fixture_id, f.home_team_id, f.away_team_id
+         FROM sm_fixtures f
+         LEFT JOIN sm_h2h h ON h.fixture_id = f.sm_fixture_id
+         WHERE f.state_id = 1 AND f.starting_at_ts IS NOT NULL
+           AND f.starting_at_ts BETWEEN ? AND ?
+           AND h.fixture_id IS NULL
+         ORDER BY f.starting_at_ts
+         LIMIT ?`,
 			)
-			.bind(now, until)
+			.bind(now, until, max)
 			.all();
-		targets = r?.results || [];
+		targets = (r?.results || []).slice(0, max); // フェイク/二重防御
 	} catch (e) {
 		console.error("syncH2H: select targets failed", e?.message);
 		return { count: 0, error: e?.message };
@@ -279,21 +286,19 @@ export async function syncH2H(
 		const homeCode = codeById[t.home_team_id];
 		const awayCode = codeById[t.away_team_id];
 		if (!homeCode || !awayCode) continue; // 向き判定不能はスキップ
-		let body;
-		try {
-			body = await footballClient.get(
-				`fixtures/head-to-head/${t.home_team_id}/${t.away_team_id}`,
-				{ include: "participants;scores" },
-			);
-		} catch (e) {
-			console.error(
-				`syncH2H: fetch failed fixture=${t.sm_fixture_id}`,
-				e?.message,
-			);
-			continue; // 1件の失敗で全体を止めない
-		}
-		const data = Array.isArray(body?.data) ? body.data : [];
-		const agg = aggregateH2H(t.home_team_id, data);
+		const afHome = afIdForCode(homeCode);
+		const afAway = afIdForCode(awayCode);
+		if (afHome == null || afAway == null) continue; // 未マッピングはスキップ→初対戦
+
+		const { status, json } = await afClient.get(
+			`/fixtures/headtohead?h2h=${afHome}-${afAway}`,
+		);
+		if (status === 429) break; // レート上限 → 部分コミットして次回継続
+		if (status !== 200 || !json) continue; // その他失敗はスキップ
+
+		const data = Array.isArray(json.response) ? json.response : [];
+		const results = data.map(extractAfH2HResult).filter(Boolean);
+		const agg = aggregateResults(afHome, results);
 		specs.push(
 			h2hStatement(
 				{
