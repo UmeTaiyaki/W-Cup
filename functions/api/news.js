@@ -4,8 +4,8 @@
 import { json } from "../_lib/http.js";
 import { fetchRssNews } from "../_lib/rss.js";
 
-// rss-v1: GNews(専門メディア未インデックス)からRSS直接取得に切替。
-const CACHE_KEY = "news:rss:ja:v1";
+// rss-v2: スタブ/非W杯フィルタ追加に伴いキャッシュキーをバンプ(旧キャッシュを無効化)。
+const CACHE_KEY = "news:rss:ja:v2";
 const CACHE_TTL_SEC = 1800; // 30分。RSSの外部取得回数とKV書込を抑える。
 // 空結果(全フィード失敗等)は短TTLでキャッシュし、毎リクエストの再取得連打を防ぐ。
 const EMPTY_TTL_SEC = 300; // 5分。
