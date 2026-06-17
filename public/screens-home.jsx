@@ -475,20 +475,31 @@ function CheerBar({ T, match, a, b }) {
 	const [userSide, setUserSide] = React.useState(null);
 
 	React.useEffect(() => {
-		if (fixtureId == null || !window.WC.cheer) return;
-		window.WC.cheer.fetch([fixtureId]);
-		return window.WC.cheer.subscribe(() => force((x) => x + 1));
+		if (fixtureId == null || !window.WC.h2h) return;
+		window.WC.h2h.fetch([fixtureId]);
+		return window.WC.h2h.subscribe(() => force((x) => x + 1));
 	}, [fixtureId]);
 
-	if (fixtureId == null || !window.WC.cheer) return null;
+	if (fixtureId == null || !window.WC.h2h) return null;
 
-	const counts = window.WC.cheer.get(fixtureId);
-	const total = Math.max(1, counts.home + counts.away);
-	const homeR = counts.home / total;
+	// 過去対戦（通算W-D-L）。null=初対戦/未取得。
+	const h2h = window.WC.h2h.get(fixtureId);
 	const aColor = "#ff7a96";
 	const bColor = "#7aa0ff";
-	// 共有する側＝最後に押した側。未選択なら優勢な側を既定にする。
-	const shareSide = userSide || (homeR >= 0.5 ? "home" : "away");
+	// 向き解決: home_code が a.code なら home視点=a視点。違えば反転して a 基準に揃える。
+	let aWins = 0;
+	let draws = 0;
+	let bWins = 0;
+	let total = 0;
+	if (h2h && h2h.total > 0) {
+		const aIsHome = h2h.home_code === a.code;
+		aWins = aIsHome ? h2h.home_wins : h2h.away_wins;
+		bWins = aIsHome ? h2h.away_wins : h2h.home_wins;
+		draws = h2h.draws;
+		total = h2h.total;
+	}
+	// シェアする側＝最後に押した側。未選択なら対戦成績で優勢な側を既定にする。
+	const shareSide = userSide || (aWins >= bWins ? "home" : "away");
 	const shareTeam = shareSide === "home" ? a : b;
 
 	function celebrate(side) {
@@ -571,7 +582,6 @@ function CheerBar({ T, match, a, b }) {
 
 	function onCheer(side) {
 		setUserSide(side);
-		window.WC.cheer.tap(fixtureId, side);
 		celebrate(side);
 	}
 	function onShare() {
@@ -580,7 +590,7 @@ function CheerBar({ T, match, a, b }) {
 			a,
 			b,
 			side: shareSide,
-			counts: window.WC.cheer.get(fixtureId),
+			h2h: { aWins, draws, bWins, total },
 			roundLabel: window.WC.roundLabel ? window.WC.roundLabel(match.round) : "",
 		});
 	}
@@ -609,47 +619,84 @@ function CheerBar({ T, match, a, b }) {
 			/>
 			<div
 				style={{
-					height: 8,
-					borderRadius: 999,
-					background: "#23262d",
-					overflow: "hidden",
-					display: "flex",
-					position: "relative",
-					zIndex: 1,
-				}}
-			>
-				<div
-					style={{
-						width: `${homeR * 100}%`,
-						background: "linear-gradient(90deg,#ff3b6b,#ff7a96)",
-						transition: "width .4s",
-					}}
-				/>
-				<div
-					style={{
-						flex: 1,
-						background: "linear-gradient(90deg,#5b82e6,#a9c4ff)",
-					}}
-				/>
-			</div>
-			<div
-				style={{
-					display: "flex",
-					justifyContent: "space-between",
-					fontSize: 11,
+					fontSize: 10,
 					fontWeight: 700,
-					marginTop: 4,
+					color: T.sub,
+					letterSpacing: 0.4,
+					marginBottom: 6,
 					position: "relative",
 					zIndex: 1,
 				}}
 			>
-				<span style={{ color: aColor }}>
-					{a.resolved ? a.code : a.label} {counts.home}
-				</span>
-				<span style={{ color: bColor }}>
-					{counts.away} {b.resolved ? b.code : b.label}
-				</span>
+				通算対戦成績
 			</div>
+			{total > 0 ? (
+				<>
+					<div
+						style={{
+							height: 8,
+							borderRadius: 999,
+							background: "#23262d",
+							overflow: "hidden",
+							display: "flex",
+							position: "relative",
+							zIndex: 1,
+						}}
+					>
+						<div
+							style={{
+								width: `${(aWins / total) * 100}%`,
+								background: "linear-gradient(90deg,#ff3b6b,#ff7a96)",
+								transition: "width .4s",
+							}}
+						/>
+						<div
+							style={{
+								width: `${(draws / total) * 100}%`,
+								background: "#5b606b",
+							}}
+						/>
+						<div
+							style={{
+								width: `${(bWins / total) * 100}%`,
+								background: "linear-gradient(90deg,#5b82e6,#a9c4ff)",
+							}}
+						/>
+					</div>
+					<div
+						style={{
+							display: "flex",
+							justifyContent: "space-between",
+							fontSize: 11,
+							fontWeight: 700,
+							marginTop: 4,
+							position: "relative",
+							zIndex: 1,
+						}}
+					>
+						<span style={{ color: aColor }}>
+							{a.resolved ? a.code : a.label} {aWins}勝
+						</span>
+						<span style={{ color: T.sub }}>{draws}分</span>
+						<span style={{ color: bColor }}>
+							{bWins}勝 {b.resolved ? b.code : b.label}
+						</span>
+					</div>
+				</>
+			) : (
+				<div
+					style={{
+						fontSize: 12,
+						color: T.sub,
+						textAlign: "center",
+						padding: "6px 0",
+						position: "relative",
+						zIndex: 1,
+					}}
+				>
+					初対戦（過去対戦データなし）
+				</div>
+			)}
 			<div
 				style={{
 					display: "flex",
