@@ -1,10 +1,16 @@
 // GET /api/results — 大会結果の純導出配信（大会結果自動反映）
 // フィーチャーフラグ WATCH_ENABLED が 'true' のときのみ sm_* から導出して返す。
 // OFF時/未マイグレーション時/クエリ失敗時は enabled:false or null で返し、既存挙動に一切影響しない。
+import { FIFA_RANKS } from "../../public/lib/fifa-ranks.js";
 import { DEFAULT_CONFIG } from "../_lib/defaults.js";
 import { json } from "../_lib/http.js";
-import { listFixtures, listTopscorers } from "../_lib/sm-read.js";
 import {
+	listCardEvents,
+	listFixtures,
+	listTopscorers,
+} from "../_lib/sm-read.js";
+import {
+	deriveFairPlay,
 	deriveGroupMatches,
 	deriveResult,
 	deriveScorers,
@@ -47,7 +53,15 @@ export async function onRequestGet(context) {
 		const groups = DEFAULT_CONFIG.groups;
 		const fixtures = await listFixtures(env.DB, { limit: 200 });
 		const topscorers = await listTopscorers(env.DB, SEASON_2026);
-		const result = deriveResult(fixtures, topscorers, groups);
+		// フェアプレーポイント(⑦): カードイベントをチーム別に集計。FIFAランク(⑧)は静的定数。
+		// どちらもタイブレーカー専用。欠損時は computeStandings 側で登録順フォールバック。
+		const cardEvents = await listCardEvents(env.DB);
+		const fairPlay = deriveFairPlay(cardEvents, fixtures, groups);
+		const fifaRank = FIFA_RANKS;
+		const result = deriveResult(fixtures, topscorers, groups, {
+			fairPlay,
+			fifaRank,
+		});
 		const groupMatches = deriveGroupMatches(fixtures, groups);
 		// 得点王ランキング表示用（フロントはライブ取得時に手動 SCORERS より優先）。
 		const scorers = deriveScorers(topscorers);
@@ -57,6 +71,9 @@ export async function onRequestGet(context) {
 				result,
 				groupMatches,
 				scorers,
+				// 順位表のタイブレーカー⑦⑧をフロント表示でも反映するため配信する。
+				fairPlay,
+				fifaRank,
 				updatedAt: null,
 			}),
 			{

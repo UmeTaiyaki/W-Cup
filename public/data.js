@@ -214,6 +214,9 @@
 		GROUP_MATCHES: {},
 		SCORERS: [],
 		SQUADS: {},
+		// 順位表タイブレーカー⑦⑧（{CODE:数値}）。/api/results 取得で更新。
+		FAIR_PLAY: {},
+		FIFA_RANK: {},
 		emptyPred,
 	};
 
@@ -406,6 +409,12 @@
 			if (Array.isArray(data.scorers) && data.scorers.length) {
 				window.WC.SCORERS = data.scorers;
 			}
+			// 順位表タイブレーカー⑦⑧: フェアプレーポイント / FIFAランク（{CODE:数値}）。
+			// 順位表(computeStandings)の opts として渡す。欠損は登録順フォールバック。
+			if (data.fairPlay && typeof data.fairPlay === "object")
+				window.WC.FAIR_PLAY = data.fairPlay;
+			if (data.fifaRank && typeof data.fifaRank === "object")
+				window.WC.FIFA_RANK = data.fifaRank;
 			return true;
 		} catch (e) {
 			return false;

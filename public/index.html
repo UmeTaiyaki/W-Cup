@@ -59,7 +59,7 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="data.js?v=20"></script>
+  <script src="data.js?v=21"></script>
   <script src="identity.js?v=8"></script>
   <script src="cheer-theme.js?v=4"></script>
   <script src="cheer-core.js?v=1"></script>
@@ -106,7 +106,7 @@
     // 採点ラッパと screens-rank の resultsLive 判定で共用する。
     window.WC.scoringGroupResult = () => {
       const conf = (window.WC.RESULT && window.WC.RESULT.groupResult) || {};
-      const prov = provisionalGroupResult(window.WC.GROUPS || {}, window.WC.GROUP_MATCHES || {});
+      const prov = provisionalGroupResult(window.WC.GROUPS || {}, window.WC.GROUP_MATCHES || {}, { fairPlay: window.WC.FAIR_PLAY || {}, fifaRank: window.WC.FIFA_RANK || {} });
       const out = {};
       for (const g of new Set([...Object.keys(conf), ...Object.keys(prov)])) {
         const c = (conf[g] || []).filter(Boolean);
@@ -130,7 +130,7 @@
   <script type="text/babel" src="screens-core.jsx?v=17"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=8"></script>
   <script type="text/babel" src="screens-rank.jsx?v=10"></script>
-  <script type="text/babel" src="screens-group.jsx?v=14"></script>
+  <script type="text/babel" src="screens-group.jsx?v=15"></script>
   <script type="text/babel" src="screens-grouprank.jsx?v=8"></script>
   <script type="text/babel" src="screens-thirdwild.jsx?v=9"></script>
   <script type="text/babel" src="screens-share.jsx?v=5"></script>

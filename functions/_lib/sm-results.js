@@ -67,9 +67,64 @@ function ftGroupMatches(members, fixtures) {
 	return out;
 }
 
+// FIFA フェアプレーポイント（タイブレーカー⑦）。各選手・各試合のカードから減点する:
+//   イエロー1枚 -1 / 2枚目イエロー(間接退場) -3 / 直接レッド -4 / イエロー+直接レッド -5
+// cardEvents: listCardEvents の行 [{ sm_fixture_id, team_id, type_id, player_id }]。
+// fixtures: listFixtures 結果（team_id→app_code 解決用）。groups: { G: [codes] }。
+// 返り値: { app_code: points(<=0) }。各グループ所属チームの試合のみ集計（大きいほど上位）。
+export function deriveFairPlay(cardEvents, fixtures, groups) {
+	const out = {};
+	const events = Array.isArray(cardEvents) ? cardEvents : [];
+	if (!events.length) return out;
+
+	// team_id → app_code（fixtures の home/away から）。
+	const codeByTeam = new Map();
+	for (const fx of fixtures || []) {
+		if (fx?.home?.team_id != null && fx?.home?.app_code)
+			codeByTeam.set(fx.home.team_id, fx.home.app_code);
+		if (fx?.away?.team_id != null && fx?.away?.app_code)
+			codeByTeam.set(fx.away.team_id, fx.away.app_code);
+	}
+	// app_code → グループ所属判定（どのグループにも属さないコードは集計対象外）。
+	const inAnyGroup = new Set();
+	for (const g of Object.keys(groups || {}))
+		for (const c of groups[g] || []) if (c) inAnyGroup.add(c);
+
+	// (試合, 選手) 単位でカードを束ね、選手ごとに FIFA 減点を確定する。
+	const tally = new Map(); // key: fixture|player → { code, y, yr, dr }
+	for (const e of events) {
+		const code = codeByTeam.get(e?.team_id);
+		if (!code || !inAnyGroup.has(code)) continue;
+		const key = `${e?.sm_fixture_id}|${e?.player_id ?? "x"}`;
+		if (!tally.has(key)) tally.set(key, { code, y: 0, yr: false, dr: false });
+		const t = tally.get(key);
+		if (e.type_id === 19)
+			t.y += 1; // イエロー
+		else if (e.type_id === 21)
+			t.yr = true; // 2枚目イエロー(間接退場)
+		else if (e.type_id === 20) t.dr = true; // 直接レッド
+	}
+	for (const t of tally.values()) {
+		let pts;
+		if (t.dr && t.y >= 1) pts = -5;
+		else if (t.dr) pts = -4;
+		else if (t.yr || t.y >= 2) pts = -3;
+		else if (t.y === 1) pts = -1;
+		else pts = 0;
+		out[t.code] = (out[t.code] || 0) + pts;
+	}
+	return out;
+}
+
 // 全試合（4チーム総当たり=6試合）がFTのグループのみ、上位3コードを返す。未完は空配列。
 // 順位は computeStandings（FIFA 2026 タイブレーカー: head-to-head 優先）で確定する。
-export function deriveGroupResult(fixtures, groups) {
+// fairPlay/fifaRank は { app_code: number } マップ（⑦⑧用 / 省略時は登録順フォールバック）。
+export function deriveGroupResult(
+	fixtures,
+	groups,
+	fairPlay = {},
+	fifaRank = {},
+) {
 	const list = Array.isArray(fixtures) ? fixtures : [];
 	const out = {};
 	for (const g of Object.keys(groups || {})) {
@@ -83,7 +138,10 @@ export function deriveGroupResult(fixtures, groups) {
 		const expected = (members.length * (members.length - 1)) / 2;
 		out[g] =
 			ftCount >= expected && expected > 0
-				? computeStandings(members, ftGroupMatches(members, list))
+				? computeStandings(members, ftGroupMatches(members, list), {
+						fairPlay,
+						fifaRank,
+					})
 						.slice(0, 3)
 						.map((r) => r.code)
 				: [];
@@ -198,13 +256,19 @@ export function deriveScorers(rows) {
 }
 
 // 全導出を採点が読む result 型に束ねる。groupMatches は順位表表示用に別関数で返す。
-export function deriveResult(fixtures, topscorers, groups) {
+// opts.fairPlay/opts.fifaRank は { app_code: number }（タイブレーカー⑦⑧用 / 省略可）。
+export function deriveResult(fixtures, topscorers, groups, opts = {}) {
 	const { champion, runnerUp } = deriveChampion(fixtures);
 	return {
 		champion,
 		runnerUp,
 		topScorer: deriveTopScorer(topscorers),
-		groupResult: deriveGroupResult(fixtures, groups),
+		groupResult: deriveGroupResult(
+			fixtures,
+			groups,
+			opts?.fairPlay || {},
+			opts?.fifaRank || {},
+		),
 		knockout: deriveKnockout(fixtures),
 		bracket: deriveBracket(fixtures),
 	};

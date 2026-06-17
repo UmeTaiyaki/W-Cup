@@ -222,6 +222,11 @@ function LeagueTables({ T }) {
 	const TEAM = window.WC.TEAM || {};
 	const compute = window.WC.computeStandings;
 	const [detailCode, setDetailCode] = React.useState(null);
+	// タイブレーカー⑦⑧（フェアプレーポイント / FIFAランク）。/api/results 由来。
+	const tieOpts = {
+		fairPlay: window.WC.FAIR_PLAY || {},
+		fifaRank: window.WC.FIFA_RANK || {},
+	};
 
 	// 各グループの暫定順位（スコアがある組のみ算出）を一括計算しておく。
 	const standingsByGroup = {};
@@ -232,7 +237,7 @@ function LeagueTables({ T }) {
 		const hasScores = ms.some(
 			(m) => typeof m.ga === "number" && typeof m.gb === "number",
 		);
-		const rows = hasScores && compute ? compute(members, ms) : null;
+		const rows = hasScores && compute ? compute(members, ms, tieOpts) : null;
 		standingsByGroup[k] = rows;
 		if (rows) anyStandings = true;
 	}

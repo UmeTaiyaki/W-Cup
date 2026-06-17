@@ -101,3 +101,31 @@ test("computeStandings 試合ゼロでも全メンバーを返す", () => {
 	assert.equal(rows.length, 4);
 	assert.ok(rows.every((r) => r.played === 0));
 });
+
+test("computeStandings 全試合・head-to-head完全同値はフェアプレーで決着(カード少が上位)", () => {
+	// A,B は直接対決0-0、ともに他チームへ同成績 → 勝点/得失差/総得点/head-to-head 完全同値。
+	// フェアプレー: A=-2(イエロー2枚), B=-5 → A の方が上位。
+	const members = ["A", "B"];
+	const matches = [{ a: "A", b: "B", ga: 0, gb: 0 }];
+	const rows = computeStandings(members, matches, {
+		fairPlay: { A: -2, B: -5 },
+	});
+	assert.equal(rows[0].code, "A");
+	assert.equal(rows[1].code, "B");
+});
+
+test("computeStandings フェアプレーも同値ならFIFAランキングで決着(上位ランクが上)", () => {
+	const members = ["A", "B"];
+	const matches = [{ a: "A", b: "B", ga: 0, gb: 0 }];
+	const rows = computeStandings(members, matches, {
+		fairPlay: { A: -3, B: -3 },
+		fifaRank: { A: 25, B: 7 }, // B の方が上位ランク
+	});
+	assert.equal(rows[0].code, "B");
+	assert.equal(rows[1].code, "A");
+});
+
+test("computeStandings opts 未指定でも従来通り動作(後方互換)", () => {
+	const rows = computeStandings(["A", "B"], [{ a: "A", b: "B", ga: 1, gb: 0 }]);
+	assert.equal(rows[0].code, "A");
+});
