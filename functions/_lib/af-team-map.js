@@ -1,0 +1,58 @@
+// app_code -> API-Football team id（W杯48代表）。
+// build-af-map.mjs + resolve-extra.mjs の出力を人手検証して確定（2026-06-18）。
+// BIH/CIV/CZE/TUR(アクセント名), KOR(South Korea), USA(senior men 2384) は手動修正。
+export const AF_TEAM_ID = {
+	ALG: 1532,
+	ARG: 26,
+	AUS: 20,
+	AUT: 775,
+	BEL: 1,
+	BIH: 1113,
+	BRA: 6,
+	CAN: 5529,
+	CIV: 1501,
+	COD: 1508,
+	COL: 8,
+	CPV: 1533,
+	CRO: 3,
+	CUW: 5530,
+	CZE: 770,
+	ECU: 2382,
+	EGY: 32,
+	ENG: 10,
+	ESP: 9,
+	FRA: 2,
+	GER: 25,
+	GHA: 1504,
+	HAI: 2386,
+	IRN: 22,
+	IRQ: 1567,
+	JOR: 1548,
+	JPN: 12,
+	KOR: 17,
+	KSA: 23,
+	MAR: 31,
+	MEX: 16,
+	NED: 1118,
+	NOR: 1090,
+	NZL: 4673,
+	PAN: 11,
+	PAR: 2380,
+	POR: 27,
+	QAT: 1569,
+	RSA: 1531,
+	SCO: 1108,
+	SEN: 13,
+	SUI: 15,
+	SWE: 5,
+	TUN: 28,
+	TUR: 777,
+	URU: 7,
+	USA: 2384,
+	UZB: 1568,
+};
+
+export function afIdForCode(code) {
+	const id = AF_TEAM_ID[code];
+	return Number.isFinite(id) ? id : null;
+}
