@@ -3650,8 +3650,10 @@ function ReportSectionHead({ T, title }) {
 // 保存 ja に依存せず JP 統一。group は表示セクションの振り分けに使う。
 const PMSR_FIG_META = {
 	"shot-map": { ja: "シュートマップ", group: "attack" },
+	"shot-list": { ja: "シュート一覧", group: "attack" },
 	"attack-shape": { ja: "攻撃時のライン高 & チーム長", group: "attack" },
-	"line-breaks": { ja: "ライン突破", group: "attack" },
+	"line-breaks": { ja: "ライン突破（概要）", group: "attack" },
+	"line-breaks-detail": { ja: "ライン突破（詳細）", group: "attack" },
 	"passing-network": { ja: "パスネットワーク", group: "attack" },
 	crosses: { ja: "クロス分布", group: "attack" },
 	"offering-to-receive": { ja: "受けの動き出し（提供）", group: "attack" },
