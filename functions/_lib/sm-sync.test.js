@@ -630,6 +630,37 @@ test("syncH2H: 429 を受けたら即停止（部分コミット）", async () =
 	assert.equal(af.calls.length, 1); // 2件目は叩かない
 });
 
+test("syncH2H: 200+errors(クォータ上限)は誤キャッシュせず即停止", async () => {
+	// 無料枠は上限超過時に 429 ではなく 200 + errors(非空) + 空 response を返す。
+	// これを「0戦」として upsert すると false な初対戦をキャッシュしてしまう（回帰防止）。
+	const now = 1_000_000;
+	const db = fakeH2HDB({
+		fixtures: [
+			{
+				sm_fixture_id: 7,
+				home_team_id: 18,
+				away_team_id: 83,
+				starting_at_ts: now + 100,
+			},
+		],
+		teams: { 18: "GER", 83: "NED" },
+	});
+	const af = {
+		calls: [],
+		async get(path) {
+			this.calls.push(path);
+			return {
+				status: 200,
+				json: { errors: { requests: "day limit reached" }, response: [] },
+			};
+		},
+	};
+	const res = await syncH2H(af, db, now);
+	assert.equal(res.count, 0); // 誤って total=0 を upsert しない
+	assert.equal(db._h2hUpserts.length, 0); // sm_h2h に行を作らない
+	assert.equal(af.calls.length, 1);
+});
+
 test("syncH2H: 429 が来る前の成功分は部分コミット（count > 0）", async () => {
 	const now = 1_000_000;
 	const db = fakeH2HDB({

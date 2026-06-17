@@ -25,3 +25,14 @@ export function extractAfH2HResult(fixture) {
 		away_score: ag,
 	};
 }
+
+// API-Football の応答がレート/クォータ上限などのエラーを含むか。
+// 無料枠は上限超過時に HTTP 200 + `errors`(非空) + 空 response を返すため、
+// これを「0戦(初対戦)」として誤キャッシュしないよう検知する。成功時は errors は空配列 []。
+export function afResponseHasError(json) {
+	const e = json && json.errors;
+	if (!e) return false;
+	if (Array.isArray(e)) return e.length > 0;
+	if (typeof e === "object") return Object.keys(e).length > 0;
+	return Boolean(e);
+}
