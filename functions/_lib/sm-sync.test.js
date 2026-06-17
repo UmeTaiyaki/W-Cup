@@ -10,6 +10,7 @@ import {
 	shouldRunInterval,
 	syncFixtureDetail,
 	syncFixtureSeries,
+	syncH2H,
 	syncLive,
 	syncSeasonFixtures,
 	syncTopscorers,
@@ -432,4 +433,136 @@ test("shouldRunInterval: 不正な now/interval は true（書き込みを止め
 	assert.equal(shouldRunInterval(Number.NaN, 3), true);
 	assert.equal(shouldRunInterval(180, Number.NaN), true);
 	assert.equal(shouldRunInterval(undefined, 5), true);
+});
+
+// syncH2H 用フェイク: sm_fixtures（対象抽出）、sm_teams（app_code解決）、sm_h2h（upsert記録）
+function fakeH2HDB({ fixtures = [], teams = {} } = {}) {
+	const h2hUpserts = [];
+	const make = (sql) => ({
+		sql,
+		args: [],
+		bind(...a) {
+			this.args = a;
+			return this;
+		},
+		async all() {
+			if (/FROM sm_fixtures/i.test(this.sql)) return { results: fixtures };
+			if (/FROM sm_teams/i.test(this.sql)) {
+				const ids = this.args.map(Number);
+				const results = ids
+					.filter((id) => id in teams)
+					.map((id) => ({ sm_team_id: id, app_code: teams[id] }));
+				return { results };
+			}
+			return { results: [] };
+		},
+		async run() {
+			if (/INSERT INTO sm_h2h/i.test(this.sql)) h2hUpserts.push(this.args);
+			return { success: true, meta: { changes: 1 } };
+		},
+	});
+	return {
+		prepare: (sql) => make(sql),
+		async batch(stmts) {
+			for (const s of stmts) await s.run();
+			return [];
+		},
+		_h2hUpserts: h2hUpserts,
+	};
+}
+
+// participants;scores 形の fixture を返す SportMonks クライアントのモック。
+function fakeH2HClient(byPair) {
+	return {
+		async get(path) {
+			const m = path.match(/head-to-head\/(\d+)\/(\d+)/);
+			const key = m ? `${m[1]}-${m[2]}` : "";
+			return { data: byPair[key] || [] };
+		},
+	};
+}
+
+function fxScore(homeId, awayId, hg, ag) {
+	return {
+		participants: [
+			{ id: homeId, meta: { location: "home" } },
+			{ id: awayId, meta: { location: "away" } },
+		],
+		scores: [
+			{ description: "CURRENT", score: { participant: "home", goals: hg } },
+			{ description: "CURRENT", score: { participant: "away", goals: ag } },
+		],
+	};
+}
+
+test("syncH2H: 未開始かつ窓内のfixtureをH2H集計してupsert", async () => {
+	const now = 1_000_000;
+	const db = fakeH2HDB({
+		fixtures: [
+			{
+				sm_fixture_id: 7,
+				home_team_id: 18,
+				away_team_id: 83,
+				state_id: 1,
+				starting_at_ts: now + 3600,
+			},
+		],
+		teams: { 18: "JPN", 83: "BRA" },
+	});
+	const client = fakeH2HClient({
+		"18-83": [fxScore(18, 83, 1, 0), fxScore(83, 18, 2, 2)],
+	});
+	const res = await syncH2H(client, db, now);
+	assert.equal(res.count, 1);
+	// upsert 引数: [fixture_id, home_code, away_code, home_wins, draws, away_wins, total, updated_at]
+	const up = db._h2hUpserts[0];
+	assert.equal(up[0], 7);
+	assert.equal(up[1], "JPN");
+	assert.equal(up[2], "BRA");
+	assert.deepEqual(up.slice(3, 7), [1, 1, 0, 2]); // 18視点: 1勝1分0敗 total2
+});
+
+test("syncH2H: app_code 解決不能の fixture はスキップ", async () => {
+	const now = 1_000_000;
+	const db = fakeH2HDB({
+		fixtures: [
+			{
+				sm_fixture_id: 9,
+				home_team_id: 18,
+				away_team_id: 999,
+				state_id: 1,
+				starting_at_ts: now + 3600,
+			},
+		],
+		teams: { 18: "JPN" }, // 999 未解決
+	});
+	const client = fakeH2HClient({ "18-999": [fxScore(18, 999, 1, 0)] });
+	const res = await syncH2H(client, db, now);
+	assert.equal(res.count, 0);
+	assert.equal(db._h2hUpserts.length, 0);
+});
+
+test("syncH2H: 取得失敗でも例外を投げず error を返す", async () => {
+	const now = 1_000_000;
+	const db = fakeH2HDB({
+		fixtures: [
+			{
+				sm_fixture_id: 7,
+				home_team_id: 18,
+				away_team_id: 83,
+				state_id: 1,
+				starting_at_ts: now + 3600,
+			},
+		],
+		teams: { 18: "JPN", 83: "BRA" },
+	});
+	const client = {
+		async get() {
+			throw new Error("boom");
+		},
+	};
+	const res = await syncH2H(client, db, now);
+	// 1件取得失敗 → スキップして count 0、全体は例外にしない
+	assert.equal(res.count, 0);
+	assert.ok(db._h2hUpserts.length === 0);
 });

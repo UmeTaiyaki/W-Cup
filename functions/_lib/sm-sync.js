@@ -1,10 +1,13 @@
 // 取り込みオーケストレーション（観戦プラットフォーム P0 ④）
 // client(SportMonks) と db(D1) を注入し、fixture/types/live を sm_* へ同期する。
 // 副作用は runBatch に集約。各関数は障害隔離のため例外を投げず結果オブジェクトを返す。
+
+import { aggregateH2H, H2H_WINDOW_DAYS } from "./sm-h2h.js";
 import { toTopscorerRows } from "./sm-ingest.js";
 import {
 	fixtureDetailStatements,
 	fixtureSeriesStatements,
+	h2hStatement,
 	runBatch,
 	seasonFixturesStatements,
 	topscorersStatements,
@@ -217,6 +220,101 @@ export async function syncLive(footballClient, db, now) {
 		return { count: fixtures.length };
 	} catch (e) {
 		console.error("syncLive: upsert failed", e?.message);
+		return { count: 0, error: e?.message };
+	}
+}
+
+// 試合前カード用 H2H 同期。未開始かつ窓内の sm_fixtures について SportMonks H2H を取得し、
+// home_team_id 視点の通算 W-D-L を sm_h2h へ upsert。障害は隔離（例外を投げない）。
+export async function syncH2H(
+	footballClient,
+	db,
+	now,
+	{ windowDays = H2H_WINDOW_DAYS } = {},
+) {
+	let targets;
+	try {
+		const until = now + windowDays * 86400;
+		const r = await db
+			.prepare(
+				`SELECT sm_fixture_id, home_team_id, away_team_id
+         FROM sm_fixtures
+         WHERE state_id = 1 AND starting_at_ts IS NOT NULL
+           AND starting_at_ts BETWEEN ? AND ?`,
+			)
+			.bind(now, until)
+			.all();
+		targets = r?.results || [];
+	} catch (e) {
+		console.error("syncH2H: select targets failed", e?.message);
+		return { count: 0, error: e?.message };
+	}
+	if (!targets.length) return { count: 0 };
+
+	// app_code 解決テーブルを 1 クエリで用意。
+	const ids = [
+		...new Set(
+			targets.flatMap((t) => [t.home_team_id, t.away_team_id]).filter(Boolean),
+		),
+	];
+	const codeById = {};
+	try {
+		const ph = ids.map(() => "?").join(",");
+		const tr = await db
+			.prepare(
+				`SELECT sm_team_id, app_code FROM sm_teams WHERE sm_team_id IN (${ph})`,
+			)
+			.bind(...ids)
+			.all();
+		for (const row of tr?.results || [])
+			codeById[row.sm_team_id] = row.app_code;
+	} catch (e) {
+		console.error("syncH2H: team code resolve failed", e?.message);
+		return { count: 0, error: e?.message };
+	}
+
+	const updatedAt = new Date(now * 1000).toISOString();
+	const specs = [];
+	for (const t of targets) {
+		const homeCode = codeById[t.home_team_id];
+		const awayCode = codeById[t.away_team_id];
+		if (!homeCode || !awayCode) continue; // 向き判定不能はスキップ
+		let body;
+		try {
+			body = await footballClient.get(
+				`fixtures/head-to-head/${t.home_team_id}/${t.away_team_id}`,
+				{ include: "participants;scores" },
+			);
+		} catch (e) {
+			console.error(
+				`syncH2H: fetch failed fixture=${t.sm_fixture_id}`,
+				e?.message,
+			);
+			continue; // 1件の失敗で全体を止めない
+		}
+		const data = Array.isArray(body?.data) ? body.data : [];
+		const agg = aggregateH2H(t.home_team_id, data);
+		specs.push(
+			h2hStatement(
+				{
+					fixture_id: t.sm_fixture_id,
+					home_code: homeCode,
+					away_code: awayCode,
+					home_wins: agg.home_wins,
+					draws: agg.draws,
+					away_wins: agg.away_wins,
+					total: agg.total,
+				},
+				updatedAt,
+			),
+		);
+	}
+	if (!specs.length) return { count: 0 };
+	try {
+		await runBatch(db, specs);
+		return { count: specs.length };
+	} catch (e) {
+		console.error("syncH2H: upsert failed", e?.message);
 		return { count: 0, error: e?.message };
 	}
 }
