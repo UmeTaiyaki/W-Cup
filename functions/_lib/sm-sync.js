@@ -157,17 +157,32 @@ export async function syncFixtureDetail(footballClient, db, fixtureId, now) {
 }
 
 // season topscorers を取得し sm_topscorers へ upsert。得点王導出の元データ。
-export async function syncTopscorers(footballClient, db, seasonId, now) {
-	let body;
-	try {
-		body = await footballClient.get(`seasons/${seasonId}/topscorers`, {
-			include: "player;participant",
-		});
-	} catch (e) {
-		console.error("syncTopscorers: fetch failed", seasonId, e?.message);
-		return { count: 0, error: e?.message };
+// 正しいエンドポイントは topscorers/seasons/{id}（seasons/{id}/topscorers は404）。
+// SportMonks は type_id 昇順（カード→ゴール208→アシスト209…）で返し1ページ25件のため、
+// 全ページを辿らないと得点王(208)を取りこぼす。toTopscorerRows が 208 のみ採用。
+export async function syncTopscorers(
+	footballClient,
+	db,
+	seasonId,
+	now,
+	{ maxPages = 20 } = {},
+) {
+	const rows = [];
+	for (let page = 1; page <= maxPages; page++) {
+		let body;
+		try {
+			body = await footballClient.get(`topscorers/seasons/${seasonId}`, {
+				include: "player;participant",
+				params: { page },
+			});
+		} catch (e) {
+			console.error("syncTopscorers: fetch failed", seasonId, page, e?.message);
+			if (page === 1) return { count: 0, error: e?.message };
+			break; // 後続ページの失敗は取得済み分で続行
+		}
+		rows.push(...toTopscorerRows(body, seasonId));
+		if (!body?.pagination?.has_more) break;
 	}
-	const rows = toTopscorerRows(body, seasonId);
 	if (!rows.length) return { count: 0 };
 	try {
 		await runChunked(db, topscorersStatements(rows, now));
