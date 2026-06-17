@@ -19,6 +19,7 @@ const DETAIL_ANIM_CSS = `
 @keyframes wcEventIn { from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:translateY(0)} }
 @keyframes wcEventFlash { from{background:rgba(182,255,60,0.14)} to{background:transparent} }
 @keyframes wcLivePulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.35; transform:scale(.62)} }
+@keyframes wcFadeIn { from{opacity:0} to{opacity:1} }
 `;
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────
@@ -3653,7 +3654,117 @@ const PMSR_FIG_LABEL = {
 	crosses: "クロス分布",
 };
 
+// 図表の全画面ライトボックス。タップで fit↔拡大 を切替、はみ出しはスクロールでパン。
+// 背景タップ / ✕ / ESC で閉じる。表示中は背面スクロールをロック。
+function FigureLightbox({ fig, label, onClose }) {
+	const [zoomed, setZoomed] = React.useState(false);
+	React.useEffect(() => {
+		const onKey = (e) => {
+			if (e.key === "Escape") onClose();
+		};
+		document.addEventListener("keydown", onKey);
+		const prevOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			document.removeEventListener("keydown", onKey);
+			document.body.style.overflow = prevOverflow;
+		};
+	}, [onClose]);
+	if (!fig) return null;
+	return (
+		<div
+			onClick={onClose}
+			style={{
+				position: "fixed",
+				inset: 0,
+				zIndex: 9999,
+				background: "rgba(8,12,10,0.95)",
+				display: "flex",
+				flexDirection: "column",
+				animation: "wcFadeIn 0.15s ease",
+			}}
+		>
+			{/* ヘッダ（ラベル＋閉じる） */}
+			<div
+				onClick={(e) => e.stopPropagation()}
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 10,
+					padding: "14px 16px",
+					color: "#fff",
+				}}
+			>
+				<div style={{ flex: 1, fontSize: 13, fontWeight: 800, minWidth: 0 }}>
+					{label}
+				</div>
+				<button
+					type="button"
+					onClick={onClose}
+					aria-label="閉じる"
+					style={{
+						width: 34,
+						height: 34,
+						borderRadius: "50%",
+						border: "none",
+						background: "rgba(255,255,255,0.14)",
+						color: "#fff",
+						fontSize: 17,
+						fontWeight: 700,
+						cursor: "pointer",
+						flex: "0 0 auto",
+					}}
+				>
+					✕
+				</button>
+			</div>
+
+			{/* 画像領域（タップで fit↔拡大、拡大時はスクロールでパン） */}
+			<div
+				onClick={(e) => e.stopPropagation()}
+				style={{
+					flex: 1,
+					overflow: "auto",
+					WebkitOverflowScrolling: "touch",
+					display: "flex",
+					alignItems: zoomed ? "flex-start" : "center",
+					justifyContent: zoomed ? "flex-start" : "center",
+				}}
+			>
+				<img
+					src={fig.url}
+					alt={label}
+					onClick={() => setZoomed((z) => !z)}
+					style={{
+						width: zoomed ? "230%" : "100%",
+						maxWidth: zoomed ? "none" : "100%",
+						height: "auto",
+						display: "block",
+						background: "#f4f6f5",
+						cursor: zoomed ? "zoom-out" : "zoom-in",
+					}}
+				/>
+			</div>
+
+			<div
+				style={{
+					padding: "10px 16px calc(10px + env(safe-area-inset-bottom))",
+					textAlign: "center",
+					color: "rgba(255,255,255,0.6)",
+					fontSize: 11,
+				}}
+			>
+				{zoomed
+					? "タップで全体表示／スワイプで移動"
+					: "タップでさらに拡大・背景タップで閉じる"}
+			</div>
+		</div>
+	);
+}
+
 function ReportTab({ T, detail }) {
+	// タップで開く図表ライトボックス（拡大表示）の対象。hook は早期return より前。
+	const [zoomFig, setZoomFig] = React.useState(null);
 	const pmsr = detail && detail.pmsr;
 	if (!pmsr) {
 		return (
@@ -3809,28 +3920,45 @@ function ReportTab({ T, detail }) {
 						>
 							<div
 								style={{
+									display: "flex",
+									alignItems: "center",
+									gap: 6,
 									fontSize: 11,
 									fontWeight: 800,
 									color: T.text,
 									padding: "8px 11px",
 								}}
 							>
-								{figLabel(f)}
+								<span style={{ flex: 1 }}>{figLabel(f)}</span>
+								<span style={{ fontSize: 9.5, color: T.sub, fontWeight: 700 }}>
+									🔍 タップで拡大
+								</span>
 							</div>
 							<img
 								src={f.url}
 								alt={figLabel(f)}
 								loading="lazy"
+								onClick={() => setZoomFig(f)}
 								style={{
 									display: "block",
 									width: "100%",
 									height: "auto",
 									background: "#f4f6f5",
+									cursor: "zoom-in",
 								}}
 							/>
 						</div>
 					))}
 				</>
+			)}
+
+			{/* 図表ライトボックス（タップで拡大・パン可） */}
+			{zoomFig && (
+				<FigureLightbox
+					fig={zoomFig}
+					label={figLabel(zoomFig)}
+					onClose={() => setZoomFig(null)}
+				/>
 			)}
 
 			<div
