@@ -34,15 +34,18 @@ FIFA Training Centre が試合ごとに公開する **Post-Match Summary Report 
 
 ## 本番化手順（要 Cloudflare アカウント操作）
 
+0. **R2 を有効化**（アカウントで一度だけ。要 課金カード登録）: Cloudflare ダッシュボード → R2 → 有効化。
+   ※ 未有効だと `wrangler r2 ...` が `code: 10042` で失敗する。
 1. **R2 バケット作成**
    ```sh
    wrangler r2 bucket create wcup2026-pmsr
    ```
-2. **D1 マイグレーション適用**（本番）
+2. **D1 マイグレーション適用**（本番）— ※済んでいれば不要（IF NOT EXISTS で冪等）
    ```sh
    wrangler d1 execute wcup2026-db --remote --file db/0014_sm_pmsr.sql
    ```
-3. **フラグ確認**: `wrangler.toml` の `PMSR_ENABLED = "true"`、`[[r2_buckets]] binding = "PMSR_FIGS"` がある状態で Pages をデプロイ。
+3. **R2 バインディングを有効化**: `wrangler.toml` の `[[r2_buckets]] ... PMSR_FIGS` の3行のコメントを外す
+   （バケット作成後に行うこと）。`PMSR_ENABLED = "true"` を確認して Pages をデプロイ。
 4. **初回インジェスト**（ローカルから本番へ。`wrangler login` 済みであること）
    ```sh
    npm ci

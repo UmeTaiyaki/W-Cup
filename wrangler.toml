@@ -42,7 +42,12 @@ database_name = "wcup2026-db"
 database_id = "a149694b-686c-45a4-9130-01969cccd82a"
 
 # PMSR の図表PNG置き場（R2）。binding=PMSR_FIGS を /api/pmsr-figure が参照しstream配信。
-# バケット作成: wrangler r2 bucket create wcup2026-pmsr（未作成時は配信Functionが404＝安全側）。
-[[r2_buckets]]
-binding = "PMSR_FIGS"
-bucket_name = "wcup2026-pmsr"
+# ⚠️ 有効化手順（この順序を守る。バケット未作成のままバインディングを有効化するとデプロイが失敗する）:
+#   1) Cloudflareダッシュボードで R2 を有効化（課金カード登録が必要）
+#   2) wrangler r2 bucket create wcup2026-pmsr
+#   3) 下の3行のコメントを外して main へデプロイ
+# （バインディング未設定の間は /api/pmsr-figure が 404＝安全側。レポートタブは数値のみ表示可能だが
+#   図表を出すにはこのバインディングが必要なので、実運用では1〜3を完了させること）
+# [[r2_buckets]]
+# binding = "PMSR_FIGS"
+# bucket_name = "wcup2026-pmsr"
