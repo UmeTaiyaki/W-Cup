@@ -9,6 +9,12 @@ binding = "DB"
 database_name = "wcup2026-db"
 database_id = "a149694b-686c-45a4-9130-01969cccd82a"
 
+# ニュース(RSS)プール更新用に Pages と同一の KV(CONFIG) を binding。
+# id は Pages 側 wrangler.toml の CONFIG と同一（同じ名前空間を読み書きする）。
+[[kv_namespaces]]
+binding = "CONFIG"
+id = "8c9c431e2ee146a5a8ebafed58758a45"
+
 # Cron Trigger（C案: ライブは1分間隔。Workers Cron の最小粒度=1分）
 [triggers]
 crons = ["* * * * *", "0 3 * * *"]
@@ -16,6 +22,9 @@ crons = ["* * * * *", "0 3 * * *"]
 [vars]
 AI_MATCH_ENABLED = "true"
 GCP_LOCATION = "global"
+# ニュースカルーセル(RSS)。Cron が15分ごとに NEWS_RSS_FEEDS を取得し KV(CONFIG)を更新。
+NEWS_ENABLED = "true"
+NEWS_RSS_FEEDS = "サッカーキング|https://www.soccer-king.jp/feed,フットボールチャンネル|https://www.footballchannel.jp/feed/,ゲキサカ|https://web.gekisaka.jp/feed"
 # SPORTMONKS_TOKEN は Secret（wrangler secret put SPORTMONKS_TOKEN）で設定する。
 # WATCH_CRON_KEY も手動トリガ保護用に Secret 推奨。ここには置かない。
 # GCP_SERVICE_ACCOUNT は Secret（サービスアカウント JSON。wrangler secret put GCP_SERVICE_ACCOUNT）で out-of-band 設定する。

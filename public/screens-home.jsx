@@ -204,6 +204,156 @@ function formatDateJa(dateStr) {
 	return `${m}月${d}日(${wd})`;
 }
 
+// GNews(外部API)由来のURLを http/https のみに制限し、CSS/JSスキーム注入を防ぐ。
+// 不正・非http(s)・パース不能は null。url("…") への埋め込み時は引用符/制御文字もエンコード。
+function safeHttpUrl(raw) {
+	const s = String(raw || "");
+	// 絶対 http(s) のみ許可。相対URLは自オリジンに解決されてしまうため、
+	// new URL に base を渡さず「外部の絶対URLのみ」を厳格に通す。
+	if (!/^https?:\/\//i.test(s)) return null;
+	try {
+		const u = new URL(s);
+		if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+		return u.href;
+	} catch (e) {
+		return null;
+	}
+}
+
+function NewsCard({ item, onOpen }) {
+	const hero = safeHttpUrl(item.image);
+	const heroCss = hero ? hero.replace(/["\\\n\r]/g, encodeURIComponent) : null;
+	const bgLayer = heroCss
+		? `linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.78) 100%), url("${heroCss}")`
+		: "linear-gradient(135deg, #1f2937 0%, #0b3a6b 60%, #061a33 100%)";
+	const dateStr = item.publishedAt
+		? new Date(item.publishedAt).toLocaleDateString("ja-JP", {
+				month: "numeric",
+				day: "numeric",
+			})
+		: "";
+	return (
+		<button
+			type="button"
+			onClick={() => onOpen(item)}
+			style={{
+				flex: "0 0 auto",
+				width: 240,
+				height: 150,
+				position: "relative",
+				textAlign: "left",
+				border: "none",
+				borderRadius: 14,
+				padding: 0,
+				overflow: "hidden",
+				cursor: "pointer",
+				scrollSnapAlign: "start",
+				backgroundImage: bgLayer,
+				backgroundSize: "cover",
+				backgroundPosition: "center",
+				backgroundColor: "#0b3a6b",
+			}}
+		>
+			{(item.source || dateStr) && (
+				<span
+					style={{
+						position: "absolute",
+						top: 8,
+						left: 8,
+						fontSize: 10,
+						fontWeight: 700,
+						color: "#fff",
+						background: "rgba(0,0,0,0.55)",
+						borderRadius: 8,
+						padding: "2px 7px",
+						maxWidth: 200,
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+					}}
+				>
+					{[item.source, dateStr].filter(Boolean).join(" ・ ")}
+				</span>
+			)}
+			<div
+				style={{
+					position: "absolute",
+					left: 0,
+					right: 0,
+					bottom: 0,
+					padding: "10px 12px",
+					fontSize: 13,
+					fontWeight: 800,
+					color: "#fff",
+					lineHeight: 1.35,
+					textShadow: "0 1px 3px rgba(0,0,0,0.6)",
+					display: "-webkit-box",
+					WebkitLineClamp: 3,
+					WebkitBoxOrient: "vertical",
+					overflow: "hidden",
+				}}
+			>
+				{item.title}
+			</div>
+		</button>
+	);
+}
+
+function NewsCarousel({ T }) {
+	const [items, setItems] = React.useState(null);
+	React.useEffect(() => {
+		let alive = true;
+		if (window.WC.fetchNews) {
+			window.WC.fetchNews().then((list) => {
+				if (alive) setItems(list);
+			});
+		} else {
+			setItems([]);
+		}
+		return () => {
+			alive = false;
+		};
+	}, []);
+
+	if (!items || items.length === 0) return null; // 取得前/空は非表示＝既存ホームと同一
+
+	const openArticle = (item) => {
+		const href = item && safeHttpUrl(item.url);
+		if (href) window.open(href, "_blank", "noopener,noreferrer");
+	};
+
+	return (
+		<div style={{ margin: "8px 0 4px" }}>
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 6,
+					padding: "0 8px 6px",
+				}}
+			>
+				<span style={{ fontSize: 14, fontWeight: 800, color: T.text }}>
+					📰 ニュース
+				</span>
+			</div>
+			<div
+				style={{
+					display: "flex",
+					gap: 10,
+					overflowX: "auto",
+					padding: "0 8px 4px",
+					scrollSnapType: "x mandatory",
+					WebkitOverflowScrolling: "touch",
+				}}
+			>
+				{items.map((it) => (
+					<NewsCard key={it.id} item={it} onOpen={openArticle} />
+				))}
+			</div>
+		</div>
+	);
+}
+
 // 翌日以降の日付グループを順に表示
 function DayTimeline({ T, groups }) {
 	if (!groups.length) return null;
@@ -963,9 +1113,16 @@ function HomeScreen({ T }) {
 				matches={focusGroup.matches}
 				today={today}
 			/>
+			<NewsCarousel T={T} />
 			<DayTimeline T={T} groups={rest} />
 		</div>
 	);
 }
 
-Object.assign(window, { HomeScreen, MatchRow, DayTimeline });
+Object.assign(window, {
+	HomeScreen,
+	MatchRow,
+	DayTimeline,
+	NewsCarousel,
+	NewsCard,
+});

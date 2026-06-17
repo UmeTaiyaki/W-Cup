@@ -604,4 +604,18 @@
 			return null;
 		}
 	};
+
+	// GET /api/news → {enabled, items}。失敗/OFF/空は [] を返す。
+	window.WC.fetchNews = async function fetchNews() {
+		try {
+			const res = await fetch("/api/news", { cache: "no-store" });
+			if (!res.ok) return [];
+			const data = await res.json();
+			return data && data.enabled && Array.isArray(data.items)
+				? data.items
+				: [];
+		} catch (e) {
+			return [];
+		}
+	};
 })();
