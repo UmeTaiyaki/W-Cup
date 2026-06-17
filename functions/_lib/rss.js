@@ -23,12 +23,19 @@ export const NEWS_KV_KEY = "news:rss:ja:v2";
 const WC_RE = /ワールドカップ|W杯|北中米/i;
 // 速報スタブ(中身が無く逐次更新される枠)を弾く。タイトルで判定。
 const STUB_RE = /試合記録|試合経過|スタメン発表|スタメン|試合結果速報/;
+// 広報/販促枠を弾く(W杯に言及するスポンサーCM・グッズ・コラボ等は試合/チームのニュースでない)。
+const PROMO_CAT_RE = /リリース|プレゼント|キャンペーン/;
+const PROMO_TITLE_RE =
+	/CM|ＣＭ|グッズ|プレゼント|キャンペーン|コラボ|タイアップ|発売|福袋|ガチャ/;
 
-// W杯2026以外(Jリーグ等)とスタブ記事を除外する。
+// W杯2026以外(Jリーグ等)・スタブ・広報/販促記事を除外する。
 export function filterWorldCup(items) {
 	return items.filter((it) => {
+		const cats = (it.categories || []).join(" ");
 		if (STUB_RE.test(it.title)) return false;
-		const hay = `${it.title} ${it.description} ${(it.categories || []).join(" ")}`;
+		if (PROMO_CAT_RE.test(cats)) return false; // 広報/プレゼント等のカテゴリ
+		if (PROMO_TITLE_RE.test(it.title)) return false; // CM/グッズ等の販促タイトル
+		const hay = `${it.title} ${it.description} ${cats}`;
 		return WC_RE.test(hay);
 	});
 }

@@ -107,6 +107,34 @@ test("filterWorldCup: スタブ(試合記録/試合経過/スタメン発表)を
 	assert.equal(kept[0].title, "ムバッペが代表歴代最多得点者に");
 });
 
+test("filterWorldCup: 広報/販促(CM・リリース等)はW杯言及でも除外", () => {
+	const items = [
+		// W杯スポンサーCMだが試合/チームのニュースではない(カテゴリ=リリース)
+		{
+			title: "＝LOVEがユニ姿でマクドナルドCMに登場",
+			description: "FIFAワールドカップ2026のオフィシャルスポンサー…",
+			categories: ["リリース", "ワールドカップ"],
+		},
+		// グッズ販促
+		{
+			title: "W杯記念グッズが発売",
+			description: "",
+			categories: ["ワールドカップ"],
+		},
+		// 通常の試合ニュースは残る
+		{
+			title: "メッシがハットトリック",
+			description: "",
+			categories: ["FIFAワールドカップ2026"],
+		},
+	];
+	const kept = filterWorldCup(items);
+	assert.deepEqual(
+		kept.map((i) => i.title),
+		["メッシがハットトリック"],
+	);
+});
+
 test("filterWorldCup: W杯2026以外(Jリーグ等)を除外", () => {
 	const items = [
 		{
