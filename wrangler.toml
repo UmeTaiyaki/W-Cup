@@ -22,6 +22,11 @@ PMSR_ENABLED = "true"
 # DB バインドが無ければ常に KV 単独（このフラグは無視される）。詳細は
 # docs/superpowers/plans/2026-06-08-kv-to-d1-migration.md。
 STORE_READ_BACKEND = "d1-only"
+# ホームのニュースカルーセル（GNews lang=ja）のフィーチャーフラグ。true で /api/news が稼働
+# （OFF/失敗/空は items:[]＝カルーセル非表示＝既存ホームと同一）。要 secret GNEWS_API_KEY。
+NEWS_ENABLED = "true"
+GNEWS_QUERY = "\"ワールドカップ\" OR \"W杯\""
+GNEWS_LANG = "ja"
 # OTPメールの差出人。Resend のDNS(SPF/DKIM)検証が完了してから下行のコメントを外す。
 # 未検証の間はコメントのままにし、email.js 既定の onboarding@resend.dev で送る
 # （Resend に umetaiyaki@umetaiyaki.com で登録すれば、検証前でも自分宛に送れる）。
