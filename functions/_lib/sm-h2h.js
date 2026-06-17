@@ -1,6 +1,6 @@
 // 試合前カード H2H（過去対戦）の純粋ヘルパ群（D1/環境に依存しない）。
 // API ハンドラ（functions/api/h2h.js）と Cron 同期（sm-sync.js syncH2H）から利用。
-// SportMonks のレスポンス整形・集計・D1 read 整形をここに隔離して単体テストする。
+// H2H 集計・D1 読み込み整形の純関数（データソース非依存）。
 
 // 取得対象 fixture の窓（現在〜N日後の未開始試合のみ H2H を事前取得）。
 export const H2H_WINDOW_DAYS = 7;
