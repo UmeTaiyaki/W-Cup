@@ -3,7 +3,7 @@
 // 副作用は runBatch に集約。各関数は障害隔離のため例外を投げず結果オブジェクトを返す。
 
 import { afIdForCode } from "./af-team-map.js";
-import { extractAfH2HResult } from "./apifootball-h2h.js";
+import { afResponseHasError, extractAfH2HResult } from "./apifootball-h2h.js";
 import { aggregateResults, H2H_WINDOW_DAYS } from "./sm-h2h.js";
 import { toTopscorerRows } from "./sm-ingest.js";
 import {
@@ -308,7 +308,10 @@ export async function syncH2H(
 		const { status, json } = await afClient.get(
 			`/fixtures/headtohead?h2h=${afHome}-${afAway}`,
 		);
-		if (status === 429) break; // レート上限 → 部分コミットして次回継続
+		// レート/クォータ上限 → 部分コミットして次回継続。無料枠は上限超過時に
+		// 429 ではなく 200 + errors(非空) + 空 response を返すため、両方を検知する。
+		// これを怠ると空 response を「0戦(初対戦)」として誤キャッシュしてしまう。
+		if (status === 429 || afResponseHasError(json)) break;
 		if (status !== 200 || !json) continue; // その他失敗はスキップ
 
 		const data = Array.isArray(json.response) ? json.response : [];

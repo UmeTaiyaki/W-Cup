@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { extractAfH2HResult } from "./apifootball-h2h.js";
+import { afResponseHasError, extractAfH2HResult } from "./apifootball-h2h.js";
 
 const fx = (homeId, awayId, hg, ag) => ({
 	teams: { home: { id: homeId }, away: { id: awayId } },
@@ -40,4 +40,31 @@ test("extractAfH2HResult: goals 欠損なら null", () => {
 test("extractAfH2HResult: teams 欠損なら null", () => {
 	assert.equal(extractAfH2HResult({ goals: { home: 1, away: 0 } }), null);
 	assert.equal(extractAfH2HResult(null), null);
+});
+
+test("afResponseHasError: 成功(errors:[])は false", () => {
+	assert.equal(afResponseHasError({ errors: [], response: [] }), false);
+	assert.equal(afResponseHasError({ response: [] }), false);
+	assert.equal(afResponseHasError(null), false);
+});
+
+test("afResponseHasError: 上限超過(errors非空)は true", () => {
+	// 分間超過
+	assert.equal(
+		afResponseHasError({
+			errors: { rateLimit: "Too many requests..." },
+			response: [],
+		}),
+		true,
+	);
+	// 日次超過
+	assert.equal(
+		afResponseHasError({
+			errors: { requests: "You have reached the request limit for the day" },
+			response: [],
+		}),
+		true,
+	);
+	// 配列形のエラー
+	assert.equal(afResponseHasError({ errors: ["bad"], response: [] }), true);
 });
