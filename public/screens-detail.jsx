@@ -1271,7 +1271,8 @@ function XgSectionHead({ T, n, title, desc, example, badge }) {
 
 // ③ セクション3: xG内訳（オープン/CK/FK/PK）。値がある列だけ出す。
 function XgBreakdown({ T, homeName, awayName, parts }) {
-	const shown = parts.filter((p) => p.home != null || p.away != null);
+	// 0.00 同士の内訳列はノイズになるため、どちらかが正値の内訳だけ出す。
+	const shown = parts.filter((p) => (p.home || 0) > 0 || (p.away || 0) > 0);
 	if (shown.length === 0) return null;
 	const fmt = (v) => (v != null ? v.toFixed(2) : "–");
 	return (
@@ -1476,7 +1477,7 @@ function AiTab({ T, detail }) {
 function XgMomentum({ T, series }) {
 	const pts = (
 		series && Array.isArray(series.pressure) ? series.pressure : []
-	).filter((p) => p && p.minute != null);
+	).filter((p) => p && p.minute != null && (p.home != null || p.away != null));
 	if (pts.length < 2) return null;
 	const W = 300,
 		H = 70,
@@ -1524,15 +1525,20 @@ function XgMomentum({ T, series }) {
 // 試合の流れ（trends）。shots/possession/attacks をタブ切替。FTのみ。
 function XgFlow({ T, series }) {
 	const flow = (series && series.flow) || {};
+	// null点（home/away とも未充填）を除いてから判定・描画する。
+	const clean = (key) =>
+		(Array.isArray(flow[key]) ? flow[key] : []).filter(
+			(p) => p && p.minute != null && (p.home != null || p.away != null),
+		);
 	const tabs = [
 		{ key: "shots", label: "累積シュート" },
 		{ key: "possession", label: "支配率" },
 		{ key: "attacks", label: "攻撃" },
-	].filter((t) => Array.isArray(flow[t.key]) && flow[t.key].length >= 2);
+	].filter((t) => clean(t.key).length >= 2);
 	const [active, setActive] = React.useState(tabs[0] ? tabs[0].key : null);
 	if (!active) return null;
-	const pts = flow[active];
-	if (!Array.isArray(pts) || pts.length < 2) return null;
+	const pts = clean(active);
+	if (pts.length < 2) return null;
 	const W = 300,
 		H = 60;
 	const maxMin = Math.max(1, ...pts.map((p) => p.minute));
@@ -1649,8 +1655,14 @@ function XgTab({ T, detail }) {
 		{ label: "PK", home: pick(7940, "home"), away: pick(7940, "away") },
 	];
 	const hasBreakdown = breakdownParts.some(
-		(p) => p.home != null || p.away != null,
+		(p) => (p.home || 0) > 0 || (p.away || 0) > 0,
 	);
+	// npxG は PK が無ければ xG と同値で冗長。差がある時だけ4節を出す。
+	const npxgMeaningful =
+		(homeNpxg != null &&
+			homeXg != null &&
+			Math.abs(homeXg - homeNpxg) > 0.05) ||
+		(awayNpxg != null && awayXg != null && Math.abs(awayXg - awayNpxg) > 0.05);
 
 	const teamMap = window.WC && window.WC.TEAM ? window.WC.TEAM : {};
 	const homeInfo = teamMap[fx && fx.home && fx.home.app_code] || {};
@@ -1707,12 +1719,23 @@ function XgTab({ T, detail }) {
 
 	// ── セクション3: 選手別xG ─────────────────────────────────────────────
 	const playerStats = (detail && detail.player_stats) || [];
+	// 選手別 xG(5304)/xGoT(5305) は player_stats(縦持ち)から引く。
+	// sm_lineups.xg(xglineup) は本番で未充填のため、player_stats を優先しlineups.xgにフォールバック。
+	const xgByPlayer = {};
 	const xgotByPlayer = {};
 	playerStats.forEach((r) => {
-		if (r.type_id === 5305 && r.player_id != null)
-			xgotByPlayer[r.player_id] = r.value;
+		if (r.player_id == null) return;
+		if (r.type_id === 5304) xgByPlayer[r.player_id] = r.value;
+		else if (r.type_id === 5305) xgotByPlayer[r.player_id] = r.value;
 	});
-	const withXg = lineups.filter((p) => p.xg != null && p.xg > 0);
+	const resolvePlayerXg = (p) => {
+		const v = xgByPlayer[p.player_id];
+		if (v != null) return v;
+		return p.xg != null ? p.xg : null;
+	};
+	const withXg = lineups
+		.map((p) => ({ ...p, xg: resolvePlayerXg(p) }))
+		.filter((p) => p.xg != null && p.xg > 0);
 	// チームごとに上位5人に絞る
 	const homeTopPlayers = withXg
 		.filter((p) => p.team_id === homeTeamId)
@@ -1957,7 +1980,7 @@ function XgTab({ T, detail }) {
 				</>
 			)}
 
-			{(homeNpxg != null || awayNpxg != null) && (
+			{npxgMeaningful && (
 				<>
 					<XgSectionHead
 						T={T}
