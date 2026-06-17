@@ -709,6 +709,77 @@ function CheerBar({ T, match, a, b }) {
 	);
 }
 
+// 得点・退場サマリ（試合詳細タイムライン由来）。
+// live.events（code=app_code / type / player_name / minute）を陣営別の2カラムに割る。
+// ⚽=得点（オウンゴールは「(OG)」付与）/ 🟥=退場（直接レッド・2枚目イエロー）。
+// イベント無し（未開始や取得前）は何も描かない。
+function fmtEventMinute(ev) {
+	if (ev.minute == null) return "";
+	if (ev.extra_minute != null && ev.extra_minute > 0) {
+		return `${ev.minute}+${ev.extra_minute}'`;
+	}
+	return `${ev.minute}'`;
+}
+function MatchEvents({ T, events, aCode, bCode }) {
+	const list = Array.isArray(events) ? events : [];
+	if (list.length === 0) return null;
+	const left = list.filter((e) => e.code === aCode);
+	const right = list.filter((e) => e.code === bCode);
+	if (left.length === 0 && right.length === 0) return null;
+
+	const line = (ev, i, align) => {
+		const isRed = ev.type === "redcard" || ev.type === "yellowredcard";
+		const sym = isRed ? "🟥" : "⚽";
+		const name = ev.player_name || "";
+		const og = ev.type === "own_goal" ? " (OG)" : "";
+		const min = fmtEventMinute(ev);
+		const text = `${name}${og}${min ? ` ${min}` : ""}`.trim();
+		return (
+			<div
+				key={i}
+				style={{
+					display: "flex",
+					gap: 4,
+					alignItems: "baseline",
+					justifyContent: align === "right" ? "flex-end" : "flex-start",
+					fontSize: 11,
+					lineHeight: 1.7,
+					color: isRed ? "#ff5a5a" : T.sub,
+				}}
+			>
+				{align === "right" ? (
+					<>
+						<span style={{ minWidth: 0, textAlign: "right" }}>{text}</span>
+						<span aria-hidden="true">{sym}</span>
+					</>
+				) : (
+					<>
+						<span aria-hidden="true">{sym}</span>
+						<span style={{ minWidth: 0 }}>{text}</span>
+					</>
+				)}
+			</div>
+		);
+	};
+
+	return (
+		<div
+			style={{
+				display: "flex",
+				gap: 10,
+				marginTop: 12,
+			}}
+		>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				{left.map((ev, i) => line(ev, i, "left"))}
+			</div>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				{right.map((ev, i) => line(ev, i, "right"))}
+			</div>
+		</div>
+	);
+}
+
 // カルーセル1枚分のカード。表示中(active)かどうかでスケール/不透明度を変え、
 // スライド遷移中に隣カードが奥から手前へ立ち上がる奥行き感を出す。
 function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
@@ -852,6 +923,13 @@ function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
 				{active && !live && !kickedOff && (
 					<CheerBar T={T} match={match} a={a} b={b} />
 				)}
+				{/* 得点・退場サマリ（タイムライン由来）。得点/国旗の下・配信メディアの上に表示。 */}
+				<MatchEvents
+					T={T}
+					events={live && live.events}
+					aCode={match.a}
+					bCode={match.b}
+				/>
 				<div
 					style={{
 						marginTop: 14,
@@ -876,18 +954,6 @@ function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
 							{live.result_info}
 						</div>
 					)}
-				{match.note && (
-					<div
-						style={{
-							textAlign: "center",
-							fontSize: 11,
-							color: T.faint,
-							marginTop: 14,
-						}}
-					>
-						📍 {match.note}
-					</div>
-				)}
 			</Card>
 		</div>
 	);

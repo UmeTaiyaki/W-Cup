@@ -297,6 +297,24 @@
 				const aa = fx.away && fx.away.app_code;
 				const key = window.WC.liveKey(ha, aa);
 				if (!key) continue; // プレースホルダ(未確定)はスキップ
+				// 得点・退場イベント: team_id を app_code(FIFAコード)へ解決してカルーセル表示に渡す。
+				// 未解決(team_id 不一致)は code:null＝どちらの陣営にも振らない。
+				const hTid = fx.home && fx.home.team_id;
+				const aTid = fx.away && fx.away.team_id;
+				const events = Array.isArray(fx.events)
+					? fx.events.map((e) => ({
+							minute: e.minute ?? null,
+							extra_minute: e.extra_minute ?? null,
+							type: e.type,
+							player_name: e.player_name ?? null,
+							code:
+								e.team_id != null && e.team_id === hTid
+									? ha
+									: e.team_id != null && e.team_id === aTid
+										? aa
+										: null,
+						}))
+					: [];
 				index[key] = {
 					id: fx.id, // sm_fixture_id（詳細画面遷移に使用）
 					status: fx.status, // NS / LIVE / FT
@@ -306,6 +324,7 @@
 					minute: fx.minute ?? null, // 進行中ピリオドの経過分（無→null）
 					added_time: fx.added_time ?? null, // アディショナル分（無→null）
 					scores: { [ha]: fx.home.score, [aa]: fx.away.score },
+					events, // 得点/退場（code=app_code, type, player_name, minute）
 				};
 				// ロゴ URL 索引（app_code → image_url）
 				if (ha && fx.home.image_url) logos[ha] = fx.home.image_url;
@@ -457,6 +476,7 @@
 			result_info: live.result_info,
 			minute: live.minute ?? null, // 経過分（LIVE中・進行ピリオドのみ）
 			added_time: live.added_time ?? null, // アディショナル分
+			events: Array.isArray(live.events) ? live.events : [], // 得点/退場サマリ
 		};
 	};
 	// ライブ取得のポーリングを継続すべきか。
