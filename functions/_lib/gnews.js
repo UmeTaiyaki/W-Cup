@@ -19,7 +19,21 @@ export async function fetchGnews(env) {
 	if (!res.ok) return [];
 	const data = await res.json();
 	const articles = Array.isArray(data?.articles) ? data.articles : [];
-	return articles.map(normalizeArticle).filter(Boolean);
+	return dedupeByTitle(articles.map(normalizeArticle).filter(Boolean));
+}
+
+// 同一記事が複数の配信元(シンジケート)で重複するため、タイトルで重複排除する。
+// 先頭(=新着/関連度上位)を残す。タイトル空はキー化できないので常に残す。
+function dedupeByTitle(items) {
+	const seen = new Set();
+	const out = [];
+	for (const it of items) {
+		const key = it.title.trim().toLowerCase();
+		if (key && seen.has(key)) continue;
+		if (key) seen.add(key);
+		out.push(it);
+	}
+	return out;
 }
 
 function normalizeArticle(a) {

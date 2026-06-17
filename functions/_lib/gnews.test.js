@@ -134,3 +134,49 @@ test("source/image欠損は安全な既定値", async () => {
 	assert.equal(items[0].image, "");
 	assert.equal(items[0].description, "");
 });
+
+test("同一タイトルの重複(シンジケート配信)は先頭を残して排除", async () => {
+	const env = {
+		GNEWS_API_KEY: "k",
+		__fetchImpl: fakeFetch({
+			articles: [
+				{
+					title: "W杯日本勝利",
+					url: "https://a.com/1",
+					source: { name: "A" },
+					publishedAt: "2026-06-17T10:00:00Z",
+				},
+				{
+					title: "W杯日本勝利",
+					url: "https://b.com/1",
+					source: { name: "B" },
+					publishedAt: "2026-06-17T09:00:00Z",
+				},
+				{
+					title: "別の記事",
+					url: "https://c.com/1",
+					source: { name: "C" },
+					publishedAt: "2026-06-17T08:00:00Z",
+				},
+			],
+		}),
+	};
+	const items = await fetchGnews(env);
+	assert.equal(items.length, 2);
+	assert.equal(items[0].source, "A"); // 先頭を残す
+	assert.equal(items[1].title, "別の記事");
+});
+
+test("タイトル空は重複扱いせず全て残す", async () => {
+	const env = {
+		GNEWS_API_KEY: "k",
+		__fetchImpl: fakeFetch({
+			articles: [
+				{ url: "https://a.com/1", publishedAt: "2026-06-17T10:00:00Z" },
+				{ url: "https://b.com/1", publishedAt: "2026-06-17T09:00:00Z" },
+			],
+		}),
+	};
+	const items = await fetchGnews(env);
+	assert.equal(items.length, 2);
+});
