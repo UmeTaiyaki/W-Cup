@@ -723,13 +723,14 @@ function fmtEventMinute(ev) {
 	return `${ev.minute}'`;
 }
 
-// 1陣営のイベント → 表示行配列。退場は各1行、得点は「同一プレイヤー×OG区分」で
-// まとめて時間を ", " 連結。各行 { sym, red, name, mins, sort(時系列キー) }。
+// 1陣営のイベント → { goals, reds }。得点は「同一プレイヤー×OG区分」でまとめ
+// 時間を ", " 連結。退場は各1行。いずれも時系列ソート。
+// 各行 { sym, red, name, mins, sort(時系列キー) }。退場は得点と分けて最下部に出す。
 function buildEventRows(sideEvents) {
-	const rows = [];
+	const reds = [];
 	for (const e of sideEvents) {
 		if (e.type === "redcard" || e.type === "yellowredcard") {
-			rows.push({
+			reds.push({
 				sym: "🟥",
 				red: true,
 				name: e.player_name || "",
@@ -738,11 +739,12 @@ function buildEventRows(sideEvents) {
 			});
 		}
 	}
-	const goals = sideEvents.filter(
-		(e) => e.type === "goal" || e.type === "penalty" || e.type === "own_goal",
-	);
+	reds.sort((a, b) => a.sort - b.sort);
+
 	const groups = new Map();
-	for (const e of goals) {
+	for (const e of sideEvents) {
+		if (e.type !== "goal" && e.type !== "penalty" && e.type !== "own_goal")
+			continue;
 		const og = e.type === "own_goal";
 		const key = `${e.player_name || ""}|${og ? "og" : "g"}`;
 		let g = groups.get(key);
@@ -752,13 +754,14 @@ function buildEventRows(sideEvents) {
 		}
 		g.items.push(e);
 	}
+	const goals = [];
 	for (const g of groups.values()) {
 		g.items.sort(
 			(a, b) =>
 				(a.minute ?? 0) - (b.minute ?? 0) ||
 				(a.extra_minute ?? 0) - (b.extra_minute ?? 0),
 		);
-		rows.push({
+		goals.push({
 			sym: "⚽",
 			red: g.og, // OG は赤
 			name: g.name + (g.og ? " (OG)" : ""),
@@ -766,16 +769,19 @@ function buildEventRows(sideEvents) {
 			sort: g.items[0].minute ?? 0,
 		});
 	}
-	rows.sort((a, b) => a.sort - b.sort);
-	return rows;
+	goals.sort((a, b) => a.sort - b.sort);
+
+	return { goals, reds };
 }
 
 function MatchEvents({ events, aCode, bCode }) {
 	const list = Array.isArray(events) ? events : [];
 	if (list.length === 0) return null;
-	const leftRows = buildEventRows(list.filter((e) => e.code === aCode));
-	const rightRows = buildEventRows(list.filter((e) => e.code === bCode));
-	if (leftRows.length === 0 && rightRows.length === 0) return null;
+	const left = buildEventRows(list.filter((e) => e.code === aCode));
+	const right = buildEventRows(list.filter((e) => e.code === bCode));
+	const hasGoals = left.goals.length > 0 || right.goals.length > 0;
+	const hasReds = left.reds.length > 0 || right.reds.length > 0;
+	if (!hasGoals && !hasReds) return null;
 
 	const line = (row, i, align) => {
 		const text = `${row.name}${row.mins ? ` ${row.mins}` : ""}`.trim();
@@ -807,20 +813,23 @@ function MatchEvents({ events, aCode, bCode }) {
 		);
 	};
 
+	// 陣営別2カラム（左=A / 右=B）の行グリッド。
+	const grid = (lRows, rRows, extraStyle) => (
+		<div style={{ display: "flex", gap: 10, ...extraStyle }}>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				{lRows.map((row, i) => line(row, i, "left"))}
+			</div>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				{rRows.map((row, i) => line(row, i, "right"))}
+			</div>
+		</div>
+	);
+
+	// 得点ブロック → 1行分(≈19px)空けて → 退場ブロックを最下部に。
 	return (
-		<div
-			style={{
-				display: "flex",
-				gap: 10,
-				marginTop: 12,
-			}}
-		>
-			<div style={{ flex: 1, minWidth: 0 }}>
-				{leftRows.map((row, i) => line(row, i, "left"))}
-			</div>
-			<div style={{ flex: 1, minWidth: 0 }}>
-				{rightRows.map((row, i) => line(row, i, "right"))}
-			</div>
+		<div style={{ marginTop: 12 }}>
+			{hasGoals && grid(left.goals, right.goals)}
+			{hasReds && grid(left.reds, right.reds, { marginTop: hasGoals ? 19 : 0 })}
 		</div>
 	);
 }
