@@ -283,6 +283,11 @@ export default {
 				const r = await syncFixtureDetail(football, env.DB, id, now);
 				return Response.json(r);
 			}
+			// 手動 H2H 同期（daily Cron と同経路）。未開始×7日窓の各試合の過去対戦 W-D-L を upsert。
+			if (action === "h2h") {
+				const r = await syncH2H(football, env.DB, now);
+				return Response.json({ ok: true, ...r });
+			}
 			// AI疎通診断: 秘密JSON→SA署名→OAuth発行→Vertex応答 の全経路を1回叩く。
 			// AI_MATCH_ENABLED や試合データに依存しない手動チェック（返すエラーに秘密は含まない）。
 			if (action === "ai-probe") {
