@@ -1,8 +1,10 @@
-# ホーム ニュースカルーセル（GNews版）設計
+# ホーム ニュースカルーセル（サッカー専門メディアRSS版）設計
 
 **日付**: 2026-06-17
 **ブランチ**: `feat/home-news-gnews`（base=main）
-**置き換え対象**: PR#53 `feat/home-news-carousel`（SportMonks+Vertex翻訳版・OPEN）→ クローズ
+**置き換え対象**: PR#53 `feat/home-news-carousel`（SportMonks+Vertex翻訳版）→ クローズ
+
+> **改訂 (2026-06-17・最終)**: 当初はGNews APIで実装したが、ユーザー要望「サッカー専門メディア（Goal等）に絞りたい」を受け、**RSS直接取得に全面切替**。理由＝GNews無料プランの日本語インデックスにサッカー専門メディアが無く（実APIで確認：「サッカー」検索でも一般紙のみ）ソース指定もできないため。現行実装は **サッカーキング／フットボールチャンネル／ゲキサカ のRSSをマージ**（`functions/_lib/rss.js`）。GNewsの知見（2系統マージ等）は下記に履歴として残すが、コードはRSS版が正。`GNEWS_API_KEY` secret は不要。以下のGNews記述は歴史的経緯。
 
 ## 背景・方針
 

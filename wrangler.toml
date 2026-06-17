@@ -22,14 +22,11 @@ PMSR_ENABLED = "true"
 # DB バインドが無ければ常に KV 単独（このフラグは無視される）。詳細は
 # docs/superpowers/plans/2026-06-08-kv-to-d1-migration.md。
 STORE_READ_BACKEND = "d1-only"
-# ホームのニュースカルーセル（GNews lang=ja）のフィーチャーフラグ。true で /api/news が稼働
-# （OFF/失敗/空は items:[]＝カルーセル非表示＝既存ホームと同一）。要 secret GNEWS_API_KEY。
+# ホームのニュースカルーセル（サッカー専門メディアのRSS）のフィーチャーフラグ。
+# true で /api/news が稼働（OFF/失敗/空は items:[]＝カルーセル非表示＝既存ホームと同一）。
 NEWS_ENABLED = "true"
-GNEWS_QUERY = "\"ワールドカップ\" OR \"W杯\""
-# 海外枠: 各国「〇〇代表」の引用句OR。一般枠(GNEWS_QUERY)と交互マージし日本偏重を防ぐ。
-# GNews無料プランは AND/NOT/括弧が効かず(実測0件)、引用句のORのみ有効なためこの形。
-GNEWS_QUERY_INTL = "\"ブラジル代表\" OR \"アルゼンチン代表\" OR \"フランス代表\" OR \"ドイツ代表\" OR \"スペイン代表\" OR \"イングランド代表\" OR \"ポルトガル代表\" OR \"オランダ代表\" OR \"イタリア代表\" OR \"アメリカ代表\""
-GNEWS_LANG = "ja"
+# 取得元RSS（"表示名|URL" をカンマ区切り）。未指定なら rss.js の既定3フィードを使用。
+NEWS_RSS_FEEDS = "サッカーキング|https://www.soccer-king.jp/feed,フットボールチャンネル|https://www.footballchannel.jp/feed/,ゲキサカ|https://web.gekisaka.jp/feed"
 # OTPメールの差出人。Resend のDNS(SPF/DKIM)検証が完了してから下行のコメントを外す。
 # 未検証の間はコメントのままにし、email.js 既定の onboarding@resend.dev で送る
 # （Resend に umetaiyaki@umetaiyaki.com で登録すれば、検証前でも自分宛に送れる）。
