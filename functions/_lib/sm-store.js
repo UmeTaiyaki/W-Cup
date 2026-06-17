@@ -204,6 +204,29 @@ function topscorerStatement(row, updatedAt) {
 	};
 }
 
+export function h2hStatement(row, updatedAt) {
+	return {
+		sql: `INSERT INTO sm_h2h
+            (fixture_id, home_code, away_code, home_wins, draws, away_wins, total, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(fixture_id) DO UPDATE SET
+            home_code=excluded.home_code, away_code=excluded.away_code,
+            home_wins=excluded.home_wins, draws=excluded.draws,
+            away_wins=excluded.away_wins, total=excluded.total,
+            updated_at=excluded.updated_at`,
+		args: [
+			row.fixture_id,
+			row.home_code ?? null,
+			row.away_code ?? null,
+			row.home_wins ?? 0,
+			row.draws ?? 0,
+			row.away_wins ?? 0,
+			row.total ?? 0,
+			updatedAt,
+		],
+	};
+}
+
 function seriesStatement(fixtureId, seriesJson, updatedAt) {
 	return {
 		sql: `INSERT INTO sm_fixture_series (sm_fixture_id, series_json, updated_at)

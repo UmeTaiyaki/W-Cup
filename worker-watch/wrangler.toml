@@ -25,6 +25,8 @@ GCP_LOCATION = "global"
 # ニュースカルーセル(RSS)。Cron が15分ごとに NEWS_RSS_FEEDS を取得し KV(CONFIG)を更新。
 NEWS_ENABLED = "true"
 NEWS_RSS_FEEDS = "サッカーキング|https://www.soccer-king.jp/feed,フットボールチャンネル|https://www.footballchannel.jp/feed/,ゲキサカ|https://web.gekisaka.jp/feed"
+# 試合前カードの過去対戦成績(H2H)を daily Cron で取込。
+H2H_ENABLED = "true"
 # SPORTMONKS_TOKEN は Secret（wrangler secret put SPORTMONKS_TOKEN）で設定する。
 # WATCH_CRON_KEY も手動トリガ保護用に Secret 推奨。ここには置かない。
 # GCP_SERVICE_ACCOUNT は Secret（サービスアカウント JSON。wrangler secret put GCP_SERVICE_ACCOUNT）で out-of-band 設定する。

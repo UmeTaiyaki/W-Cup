@@ -10,6 +10,10 @@ TURNSTILE_SITE_KEY = "0x4AAAAAADfpjorHdMgnGDQ_"
 WATCH_ENABLED = "true"
 # 試合前ご当地応援バトルのフィーチャーフラグ。true で /api/cheer が稼働（OFFなら enabled:false＝UI非表示）。
 CHEER_ENABLED = "true"
+# 試合前カードの過去対戦成績（H2H 通算W-D-L）のフィーチャーフラグ。true で /api/h2h が稼働
+# （OFF/未設定なら enabled:false＝バー非表示・応援ボタンは表示）。要 sm_h2h テーブル(schema/0013_sm_h2h.sql)と
+# worker-watch の daily Cron 取込（同 H2H_ENABLED）。データ未投入時は「初対戦」表示で安全側。
+H2H_ENABLED = "true"
 # 試合ハイライト（YouTube）のフィーチャーフラグ。true で /api/fixture が highlight を返す
 # （OFF/未設定なら highlight:null＝タブにデータが出ない安全側）。要 sm_highlights テーブル(db/schema-watch.sql)。
 HIGHLIGHTS_ENABLED = "true"
