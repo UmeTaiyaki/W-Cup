@@ -328,7 +328,64 @@ test("syncTopscorers は topscorers を取得し upsert 件数を返す", async 
 	const db = { batch: async () => {}, prepare: () => ({ bind: () => ({}) }) };
 	const r = await syncTopscorers(football, db, 26618, 1700);
 	assert.equal(r.count, 1);
-	assert.match(calls[0].path, /seasons\/26618\/topscorers/);
+	// 正しいエンドポイントは topscorers/seasons/{id}（seasons/{id}/topscorers は404）
+	assert.match(calls[0].path, /^topscorers\/seasons\/26618$/);
+});
+
+test("syncTopscorers は全ページを辿りゴール(208)を取りこぼさない", async () => {
+	// SportMonks は type_id 昇順で返すため page1 はカード(83/84)で埋まり、
+	// ゴール(208)は後続ページに来る。ページネーション未対応だと得点王が空になる回帰を防ぐ。
+	const pages = {
+		1: {
+			data: [
+				{
+					position: 1,
+					total: 1,
+					type_id: 84,
+					player_id: 1,
+					participant_id: 9,
+					player: { name: "Card Guy" },
+				},
+			],
+			pagination: { has_more: true },
+		},
+		2: {
+			data: [
+				{
+					position: 1,
+					total: 3,
+					type_id: 208,
+					player_id: 11,
+					participant_id: 99,
+					player: { name: "Messi" },
+				},
+				{
+					position: 2,
+					total: 2,
+					type_id: 209,
+					player_id: 12,
+					participant_id: 98,
+					player: { name: "Assister" },
+				},
+			],
+			pagination: { has_more: false },
+		},
+	};
+	const calls = [];
+	const football = {
+		get: async (path, opts) => {
+			calls.push({ path, page: opts?.params?.page });
+			return pages[opts?.params?.page ?? 1];
+		},
+	};
+	const db = { batch: async () => {}, prepare: () => ({ bind: () => ({}) }) };
+	const r = await syncTopscorers(football, db, 26618, 1700);
+	// page1=カード(除外)/page2=ゴール1+アシスト1 → toTopscorerRows が 208 のみ採用＝1件
+	assert.equal(r.count, 1);
+	assert.deepEqual(
+		calls.map((c) => c.page),
+		[1, 2],
+	);
 });
 
 test("syncTopscorers は fetch 失敗でも例外を投げず error を返す", async () => {
