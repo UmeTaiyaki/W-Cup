@@ -18,6 +18,7 @@ import {
 	shouldRunInterval,
 	syncFixtureDetail,
 	syncFixtureSeries,
+	syncH2H,
 	syncLive,
 	syncSeasonFixtures,
 	syncTopscorers,
@@ -71,6 +72,12 @@ export default {
 			console.log(
 				`watch-cron daily: topscorers=${ts.count}${ts.error ? " err=" + ts.error : ""}`,
 			);
+			if (env.H2H_ENABLED === "true") {
+				const h = await syncH2H(football, env.DB, now);
+				console.log(
+					`watch-cron daily: h2h=${h.count}${h.error ? " err=" + h.error : ""}`,
+				);
+			}
 		} else {
 			const r = await syncLive(football, env.DB, now);
 			console.log(
