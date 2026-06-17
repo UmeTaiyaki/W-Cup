@@ -53,6 +53,7 @@ async function publishFixture(fixtureId, scope) {
 		keyStats: report.stats.keyStats,
 		phasesInPossession: report.stats.phasesInPossession,
 		phasesOutOfPossession: report.stats.phasesOutOfPossession,
+		pressure: report.stats.pressure,
 	});
 	const figuresJson = JSON.stringify(report.figures.map((f) => ({ key: f.key, ja: f.ja, side: f.side })));
 	const now = Math.floor(Date.now() / 1000);

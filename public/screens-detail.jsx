@@ -3646,13 +3646,37 @@ function ReportSectionHead({ T, title }) {
 	);
 }
 
-// 図表キーのプレフィックス → 日本語ラベル（保存ja に依存せずJP統一）。
-const PMSR_FIG_LABEL = {
-	"shot-map": "シュートマップ",
-	"attack-shape": "攻撃時のライン高 & チーム長",
-	"def-shape": "守備時のライン高 & チーム長",
-	crosses: "クロス分布",
+// 図表タイプ（key の "-home"/"-away" を除いた接頭辞）→ 日本語ラベルとセクション分類。
+// 保存 ja に依存せず JP 統一。group は表示セクションの振り分けに使う。
+const PMSR_FIG_META = {
+	"shot-map": { ja: "シュートマップ", group: "attack" },
+	"attack-shape": { ja: "攻撃時のライン高 & チーム長", group: "attack" },
+	"line-breaks": { ja: "ライン突破", group: "attack" },
+	"passing-network": { ja: "パスネットワーク", group: "attack" },
+	crosses: { ja: "クロス分布", group: "attack" },
+	"offering-to-receive": { ja: "受けの動き出し（提供）", group: "attack" },
+	"movement-to-receive": { ja: "受けの動き出し（移動）", group: "attack" },
+	"def-shape": { ja: "守備時のライン高 & チーム長", group: "defense" },
+	"def-actions": { ja: "守備アクション", group: "defense" },
+	"gk-involvement": { ja: "GK関与タイムライン", group: "gk" },
+	"gk-distribution": { ja: "GK配球", group: "gk" },
+	"goal-prevention": { ja: "失点阻止", group: "gk" },
+	"aerial-control": { ja: "空中戦コントロール", group: "gk" },
+	"set-plays": { ja: "セットプレー", group: "setplay" },
+	"player-distributions": { ja: "選手別 配球", group: "player" },
+	"player-offers": { ja: "選手別 動き出し・受球", group: "player" },
+	"player-out-of-possession": { ja: "選手別 守備", group: "player" },
+	"player-physical": { ja: "選手別 フィジカル", group: "player" },
 };
+
+// 図表セクションの表示順とタイトル。
+const PMSR_FIG_GROUPS = [
+	{ group: "attack", title: "タクティカル図 — 攻撃（In Possession）" },
+	{ group: "defense", title: "タクティカル図 — 守備（Out of Possession）" },
+	{ group: "gk", title: "タクティカル図 — ゴールキーピング" },
+	{ group: "setplay", title: "タクティカル図 — セットプレー" },
+	{ group: "player", title: "個人データ（選手別）" },
+];
 
 // 図表の全画面ビューア。ピンチでズーム / ドラッグでパン / ダブルタップでズーム切替 /
 // ホイールでズーム(PC)。✕・ESC・等倍時の背景タップで閉じる。表示中は背面スクロールをロック。
@@ -4015,14 +4039,27 @@ function ReportTab({ T, detail }) {
 			/>
 		) : null;
 
+	const pr = pmsr.pressure || {};
 	const figures = Array.isArray(pmsr.figures) ? pmsr.figures : [];
-	const figLabel = (f) => {
+	const figMeta = (f) => {
 		const m = String(f.key).match(/^(.*)-(home|away)$/);
-		const type = m ? PMSR_FIG_LABEL[m[1]] : null;
-		const side = m ? m[2] : null;
-		if (type && side) return `${jpName(side)} — ${type}`;
+		return {
+			meta: m ? PMSR_FIG_META[m[1]] : null,
+			side: m ? m[2] : null,
+		};
+	};
+	const figLabel = (f) => {
+		const { meta, side } = figMeta(f);
+		if (meta && side) return `${jpName(side)} — ${meta.ja}`;
 		return f.ja || f.key;
 	};
+	// グループ単位に図表を分配（未知タイプは attack 扱いにせず末尾の「その他」へ）。
+	const figByGroup = {};
+	for (const f of figures) {
+		const { meta } = figMeta(f);
+		const g = meta ? meta.group : "other";
+		(figByGroup[g] = figByGroup[g] || []).push(f);
+	}
 
 	return (
 		<div style={{ padding: "12px 14px 24px" }}>
@@ -4079,83 +4116,117 @@ function ReportTab({ T, detail }) {
 					away={poss.away != null ? `${poss.away}%` : null}
 				/>
 			)}
+			{bar(ks.goals)}
 			{bar(ks.xg)}
 			{bar(ks.attempts)}
 			{bar(ks.passes)}
 			{bar(ks.passPct)}
 			{bar(ks.lineBreaks)}
+			{bar(ks.defLineBreaks)}
 			{bar(ks.receptionsF3)}
 			{bar(ks.crosses)}
+			{bar(ks.ballProg)}
 			{bar(ks.forcedTurnovers)}
 
-			{/* フィジカル / FIFA独自指標 */}
+			{/* フィジカル / FIFA独自指標（プレッシャー量は守備プレッシングへ集約） */}
 			<ReportSectionHead T={T} title="フィジカル・FIFA独自指標" />
 			{bar(ks.distance)}
 			{bar(ks.sprintZone4)}
-			{bar(ks.defPressures)}
 			{bar(ks.secondBalls)}
+
+			{/* 守備プレッシング（Defensive Pressure ページ） */}
+			{(pr.totalPressures || pr.pushingOn) && (
+				<>
+					<ReportSectionHead T={T} title="守備プレッシング" />
+					{bar(pr.totalPressures)}
+					{bar(pr.directPressures)}
+					{bar(pr.avgPressureDuration)}
+					{/* 奪回までの時間は短いほど良い → invert */}
+					{bar(pr.ballRecoveryTime, { invert: true })}
+					{bar(pr.pushingIntoPressing)}
+					{bar(pr.pushingOn)}
+					{bar(pr.pressDirInside)}
+					{bar(pr.pressDirOutside)}
+				</>
+			)}
 
 			{/* プレー局面 */}
 			<ReportSectionHead T={T} title="プレー局面 — 攻撃時（時間割合）" />
 			{bar(pi.buildUpUnopposed)}
 			{bar(pi.buildUpOpposed)}
+			{bar(pi.progression)}
 			{bar(pi.finalThird)}
+			{bar(pi.longBall)}
 			{bar(pi.attackingTransition)}
+			{bar(pi.counterAttack)}
 			{bar(pi.setPiece)}
 
 			<ReportSectionHead T={T} title="プレー局面 — 守備時（時間割合）" />
+			{bar(po.highPress)}
+			{bar(po.midPress)}
+			{bar(po.lowPress)}
+			{bar(po.highBlock)}
 			{bar(po.midBlock)}
 			{bar(po.lowBlock)}
+			{bar(po.recovery)}
 			{bar(po.defensiveTransition)}
 			{bar(po.counterPress)}
 
-			{/* タクティカル図（公式PDFから画像化） */}
-			{figures.length > 0 && (
-				<>
-					<ReportSectionHead T={T} title="タクティカル図（FIFA公式PDFより）" />
-					{figures.map((f) => (
-						<div
-							key={f.key}
-							style={{
-								margin: "0 0 12px",
-								background: T.card,
-								border: `1px solid ${T.line}`,
-								borderRadius: 12,
-								overflow: "hidden",
-							}}
-						>
-							<div
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: 6,
-									fontSize: 11,
-									fontWeight: 800,
-									color: T.text,
-									padding: "8px 11px",
-								}}
-							>
-								<span style={{ flex: 1 }}>{figLabel(f)}</span>
-								<span style={{ fontSize: 9.5, color: T.sub, fontWeight: 700 }}>
-									🔍 タップで拡大
-								</span>
-							</div>
-							<img
-								src={f.url}
-								alt={figLabel(f)}
-								loading="lazy"
-								onClick={() => setZoomFig(f)}
-								style={{
-									display: "block",
-									width: "100%",
-									height: "auto",
-									background: "#f4f6f5",
-									cursor: "zoom-in",
-								}}
-							/>
-						</div>
-					))}
-				</>
+			{/* タクティカル図（公式PDFから画像化）。グループ単位にセクション分け。 */}
+			{[...PMSR_FIG_GROUPS, { group: "other", title: "その他の図表" }].map(
+				(grp) => {
+					const list = figByGroup[grp.group];
+					if (!list || list.length === 0) return null;
+					return (
+						<React.Fragment key={grp.group}>
+							<ReportSectionHead T={T} title={grp.title} />
+							{list.map((f) => (
+								<div
+									key={f.key}
+									style={{
+										margin: "0 0 12px",
+										background: T.card,
+										border: `1px solid ${T.line}`,
+										borderRadius: 12,
+										overflow: "hidden",
+									}}
+								>
+									<div
+										style={{
+											display: "flex",
+											alignItems: "center",
+											gap: 6,
+											fontSize: 11,
+											fontWeight: 800,
+											color: T.text,
+											padding: "8px 11px",
+										}}
+									>
+										<span style={{ flex: 1 }}>{figLabel(f)}</span>
+										<span
+											style={{ fontSize: 9.5, color: T.sub, fontWeight: 700 }}
+										>
+											🔍 タップで拡大
+										</span>
+									</div>
+									<img
+										src={f.url}
+										alt={figLabel(f)}
+										loading="lazy"
+										onClick={() => setZoomFig(f)}
+										style={{
+											display: "block",
+											width: "100%",
+											height: "auto",
+											background: "#f4f6f5",
+											cursor: "zoom-in",
+										}}
+									/>
+								</div>
+							))}
+						</React.Fragment>
+					);
+				},
 			)}
 
 			{/* 図表ライトボックス（タップで拡大・パン可） */}
