@@ -26,6 +26,9 @@ STORE_READ_BACKEND = "d1-only"
 # （OFF/失敗/空は items:[]＝カルーセル非表示＝既存ホームと同一）。要 secret GNEWS_API_KEY。
 NEWS_ENABLED = "true"
 GNEWS_QUERY = "\"ワールドカップ\" OR \"W杯\""
+# 海外枠: 各国「〇〇代表」の引用句OR。一般枠(GNEWS_QUERY)と交互マージし日本偏重を防ぐ。
+# GNews無料プランは AND/NOT/括弧が効かず(実測0件)、引用句のORのみ有効なためこの形。
+GNEWS_QUERY_INTL = "\"ブラジル代表\" OR \"アルゼンチン代表\" OR \"フランス代表\" OR \"ドイツ代表\" OR \"スペイン代表\" OR \"イングランド代表\" OR \"ポルトガル代表\" OR \"オランダ代表\" OR \"イタリア代表\" OR \"アメリカ代表\""
 GNEWS_LANG = "ja"
 # OTPメールの差出人。Resend のDNS(SPF/DKIM)検証が完了してから下行のコメントを外す。
 # 未検証の間はコメントのままにし、email.js 既定の onboarding@resend.dev で送る

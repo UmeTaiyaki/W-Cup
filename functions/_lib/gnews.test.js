@@ -2,13 +2,25 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fetchGnews } from "./gnews.js";
 
+// 全クエリに同一payloadを返す。叩かれた全URLを urls() で参照できる。
 function fakeFetch(payload, status = 200) {
-	let captured = null;
+	const urls = [];
 	const impl = async (url) => {
-		captured = url;
+		urls.push(url);
 		return new Response(JSON.stringify(payload), { status });
 	};
-	impl.lastUrl = () => captured;
+	impl.urls = () => urls;
+	impl.lastUrl = () => urls[urls.length - 1];
+	return impl;
+}
+
+// q(検索語)ごとに別payloadを返す。一般枠/海外枠の交互マージ検証用。
+function fakeFetchByQuery(map, status = 200) {
+	const impl = async (url) => {
+		const q = new URL(url).searchParams.get("q");
+		const payload = map[q] || { articles: [] };
+		return new Response(JSON.stringify(payload), { status });
+	};
 	return impl;
 }
 
@@ -50,22 +62,110 @@ test("正常レスポンスを正規化", async () => {
 	});
 });
 
-test("URLにlang/q/max/sortby/apikeyを組み立てる", async () => {
+test("一般枠と海外枠の2クエリを叩き、共通パラメータを組み立てる", async () => {
 	const impl = fakeFetch(SAMPLE);
 	const env = {
 		GNEWS_API_KEY: "secret-key",
 		GNEWS_QUERY: '"ワールドカップ"',
+		GNEWS_QUERY_INTL: '"ワールドカップ" NOT 日本',
 		GNEWS_LANG: "ja",
 		__fetchImpl: impl,
 	};
 	await fetchGnews(env);
-	const u = new URL(impl.lastUrl());
-	assert.equal(u.origin + u.pathname, "https://gnews.io/api/v4/search");
-	assert.equal(u.searchParams.get("lang"), "ja");
-	assert.equal(u.searchParams.get("q"), '"ワールドカップ"');
-	assert.equal(u.searchParams.get("max"), "10");
-	assert.equal(u.searchParams.get("sortby"), "publishedAt");
-	assert.equal(u.searchParams.get("apikey"), "secret-key");
+	const urls = impl.urls().map((u) => new URL(u));
+	assert.equal(urls.length, 2, "一般枠＋海外枠で2回叩く");
+	const queries = urls.map((u) => u.searchParams.get("q"));
+	assert.ok(queries.includes('"ワールドカップ"'), "一般枠クエリ");
+	assert.ok(queries.includes('"ワールドカップ" NOT 日本'), "海外枠クエリ");
+	for (const u of urls) {
+		assert.equal(u.origin + u.pathname, "https://gnews.io/api/v4/search");
+		assert.equal(u.searchParams.get("lang"), "ja");
+		assert.equal(u.searchParams.get("max"), "10");
+		assert.equal(u.searchParams.get("sortby"), "publishedAt");
+		assert.equal(u.searchParams.get("apikey"), "secret-key");
+	}
+});
+
+test("海外枠の結果が一般枠と交互にマージされる", async () => {
+	const env = {
+		GNEWS_API_KEY: "k",
+		GNEWS_QUERY: "GEN",
+		GNEWS_QUERY_INTL: "INTL",
+		__fetchImpl: fakeFetchByQuery({
+			GEN: {
+				articles: [
+					{
+						title: "日本G1",
+						url: "https://g.com/1",
+						publishedAt: "2026-06-17T10:00:00Z",
+					},
+					{
+						title: "日本G2",
+						url: "https://g.com/2",
+						publishedAt: "2026-06-17T09:00:00Z",
+					},
+				],
+			},
+			INTL: {
+				articles: [
+					{
+						title: "ブラジルI1",
+						url: "https://i.com/1",
+						publishedAt: "2026-06-17T10:00:00Z",
+					},
+					{
+						title: "ドイツI2",
+						url: "https://i.com/2",
+						publishedAt: "2026-06-17T09:00:00Z",
+					},
+				],
+			},
+		}),
+	};
+	const items = await fetchGnews(env);
+	// interleave: [G1, I1, G2, I2]
+	assert.deepEqual(
+		items.map((it) => it.title),
+		["日本G1", "ブラジルI1", "日本G2", "ドイツI2"],
+	);
+});
+
+test("両枠が同一URL記事を返しても重複排除される", async () => {
+	const shared = {
+		articles: [
+			{
+				title: "共通記事",
+				url: "https://x.com/same",
+				publishedAt: "2026-06-17T10:00:00Z",
+			},
+		],
+	};
+	const env = {
+		GNEWS_API_KEY: "k",
+		GNEWS_QUERY: "GEN",
+		GNEWS_QUERY_INTL: "INTL",
+		__fetchImpl: fakeFetchByQuery({ GEN: shared, INTL: shared }),
+	};
+	const items = await fetchGnews(env);
+	assert.equal(items.length, 1);
+});
+
+test("マージ結果は表示上限(12件)で打ち切る", async () => {
+	const mk = (p, n) => ({
+		articles: Array.from({ length: n }, (_, i) => ({
+			title: `${p}-${i}`,
+			url: `https://${p}.com/${i}`,
+			publishedAt: "2026-06-17T10:00:00Z",
+		})),
+	});
+	const env = {
+		GNEWS_API_KEY: "k",
+		GNEWS_QUERY: "GEN",
+		GNEWS_QUERY_INTL: "INTL",
+		__fetchImpl: fakeFetchByQuery({ GEN: mk("g", 10), INTL: mk("i", 10) }),
+	};
+	const items = await fetchGnews(env);
+	assert.equal(items.length, 12);
 });
 
 test("APIキー未設定 → 空配列（fetchしない）", async () => {

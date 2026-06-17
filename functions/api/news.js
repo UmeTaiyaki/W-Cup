@@ -1,11 +1,13 @@
 // GET /api/news — GNews(lang=ja)のW杯ニュースを配信。
-// NEWS_ENABLED ゲート＋KVキャッシュ30分＋障害隔離。OFF/失敗/空は items:[]（カルーセル非表示）。
+// NEWS_ENABLED ゲート＋KVキャッシュ60分＋障害隔離。OFF/失敗/空は items:[]（カルーセル非表示）。
 
 import { fetchGnews } from "../_lib/gnews.js";
 import { json } from "../_lib/http.js";
 
-const CACHE_KEY = "news:gnews:ja:v1";
-const CACHE_TTL_SEC = 1800; // 30分。無料プラン100req/日を遵守。
+// v2: 一般枠＋海外枠の2系統マージに変更（旧v1の日本偏重キャッシュを配信しない）。
+const CACHE_KEY = "news:gnews:ja:v2";
+// 60分。1リフレッシュで2クエリ叩くため、24リフレッシュ×2=48call/日に抑え無料枠100/日を遵守。
+const CACHE_TTL_SEC = 3600;
 // 空結果(0件/429/401等で fetchGnews が []) も短TTLでキャッシュし、
 // 失敗時に毎リクエストGNewsを叩いて無料枠を使い切る「呼び出しの嵐」を防ぐ。
 const EMPTY_TTL_SEC = 300; // 5分。
