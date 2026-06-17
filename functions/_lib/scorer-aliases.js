@@ -7061,5 +7061,11 @@ export const SCORER_ALIASES = [
 		"variants": [
 			"SENEYA (GHA)"
 		]
+	},
+	{
+		"canonical": "CPV::LAROS DUARTE",
+		"variants": [
+			"DUARTE (CPV)"
+		]
 	}
 ];
