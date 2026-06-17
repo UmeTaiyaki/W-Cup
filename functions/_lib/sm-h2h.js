@@ -66,6 +66,30 @@ export function aggregateH2H(homeTeamId, fixtures) {
 	return out;
 }
 
+// homeTeamId 視点で、正規化済み結果配列から勝/分/敗を集計。関与しない結果はスキップ。
+export function aggregateResults(homeTeamId, results) {
+	const out = { home_wins: 0, draws: 0, away_wins: 0, total: 0 };
+	for (const r of results || []) {
+		if (!r) continue;
+		let forGoals;
+		let againstGoals;
+		if (r.home_team_id === homeTeamId) {
+			forGoals = r.home_score;
+			againstGoals = r.away_score;
+		} else if (r.away_team_id === homeTeamId) {
+			forGoals = r.away_score;
+			againstGoals = r.home_score;
+		} else {
+			continue;
+		}
+		out.total += 1;
+		if (forGoals > againstGoals) out.home_wins += 1;
+		else if (forGoals < againstGoals) out.away_wins += 1;
+		else out.draws += 1;
+	}
+	return out;
+}
+
 // sm_h2h の行配列を { "<fixtureId>": {home_code, away_code, W-D-L, total} } へ整形。
 export function rowsToH2H(rows) {
 	const out = {};
