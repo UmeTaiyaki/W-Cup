@@ -136,14 +136,13 @@ git commit -m "feat(h2h): API-Football H2Hレスポンスのパース純関数"
 **Interfaces:**
 - Produces: `aggregateResults(homeTeamId, results) -> {home_wins, draws, away_wins, total}`
   - 既に正規化済みの結果配列（各 `{home_team_id, away_team_id, home_score, away_score}`）から home 視点 W-D-L 集計。`homeTeamId` が関与しない結果はスキップ。
-- 維持: `rowsToH2H`、`H2H_WINDOW_DAYS`。
-- 削除: SportMonks 専用 `extractH2HResult`、旧 `aggregateH2H`（内部で extract を呼ぶ版）。
+- 維持: `rowsToH2H`、`H2H_WINDOW_DAYS`、**および既存の `extractH2HResult` / 旧 `aggregateH2H`**（本タスクでは削除しない）。
 
-**背景:** 旧 `aggregateH2H(homeTeamId, fixtures)` は内部で SportMonks 専用 `extractH2HResult` を呼ぶ。完全置換で SportMonks パースは不要になるため、集計を「正規化済み結果を受ける」形に分離する。集計ループ自体は既存のテスト済みロジックをそのまま流用。
+**背景・重要:** 本タスクは **追加のみ（additive）**。旧 `extractH2HResult` / `aggregateH2H` を**まだ削除しない**。なぜなら現行 `sm-sync.js` の旧 `syncH2H` がそれらを import/使用しており、ここで消すと Task 5 まで `npm test` が赤になる（各コミットをグリーンに保てない）。`aggregateResults` を新規追加するだけにし、**旧関数とその削除は Task 5（syncH2H 書き換えと同コミット）で行う**。集計ループ自体は既存のテスト済みロジックをそのまま流用。
 
-- [ ] **Step 1: 既存テストを新APIへ更新（失敗させる）**
+- [ ] **Step 1: aggregateResults のテストを追加（失敗させる）**
 
-`functions/_lib/sm-h2h.test.js` の `aggregateH2H` を使うテストを `aggregateResults` ＋正規化済み入力へ書き換える。`extractH2HResult` を直接テストしているケースは削除。代表ケース:
+`functions/_lib/sm-h2h.test.js` に `aggregateResults` のテストを**追加**する（既存テストは残す）。代表ケース:
 ```js
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -187,9 +186,9 @@ test("rowsToH2H: D1行を fixtureId キーへ整形", () => {
 Run: `node --test functions/_lib/sm-h2h.test.js`
 Expected: FAIL（`aggregateResults` 未エクスポート）
 
-- [ ] **Step 3: `sm-h2h.js` をリファクタ**
+- [ ] **Step 3: `sm-h2h.js` に aggregateResults を追加**
 
-`functions/_lib/sm-h2h.js` から `extractH2HResult` と旧 `aggregateH2H` を削除し、`aggregateResults` を追加（`H2H_WINDOW_DAYS`・`rowsToH2H` は維持）:
+`functions/_lib/sm-h2h.js` に `aggregateResults` を**追加**する（`extractH2HResult` / 旧 `aggregateH2H` / `H2H_WINDOW_DAYS` / `rowsToH2H` はすべて維持。削除は Task 5）:
 ```js
 // homeTeamId 視点で、正規化済み結果配列から勝/分/敗を集計。関与しない結果はスキップ。
 export function aggregateResults(homeTeamId, results) {
@@ -216,21 +215,21 @@ export function aggregateResults(homeTeamId, results) {
 }
 ```
 
-- [ ] **Step 4: テストが通ることを確認**
+- [ ] **Step 4: テストが通ることを確認（追加分）**
 
 Run: `node --test functions/_lib/sm-h2h.test.js`
-Expected: PASS
+Expected: PASS（既存＋新規 aggregateResults）
 
-- [ ] **Step 5: 旧 import の取りこぼし確認**
+- [ ] **Step 5: 全テスト回帰（追加のみなので緑のまま）**
 
-Run: `grep -rn "extractH2HResult\|aggregateH2H\b" functions/ worker-watch/`
-Expected: ヒットは Task 5 で書き換える `sm-sync.js` のみ（それ以外に残っていたら次タスクで対応）。現時点で他にあれば本ステップで合わせて除去。
+Run: `npm test`
+Expected: 全 PASS（旧関数を消していないので `sm-sync.js` の旧 syncH2H も無傷）。
 
 - [ ] **Step 6: コミット**
 
 ```bash
 git add functions/_lib/sm-h2h.js functions/_lib/sm-h2h.test.js
-git commit -m "refactor(h2h): 集計をソース非依存のaggregateResultsへ分離しSM専用パース削除"
+git commit -m "feat(h2h): 集計をソース非依存のaggregateResultsとして追加（旧関数は温存）"
 ```
 
 ---
@@ -603,11 +602,19 @@ test("syncH2H: max で per-run 件数を制限", async () => {
 Run: `node --test functions/_lib/sm-sync.test.js`
 Expected: FAIL（旧 syncH2H 実装・旧 import のため）
 
-- [ ] **Step 3: `sm-sync.js` の import を更新**
+- [ ] **Step 3: `sm-sync.js` の import を更新＋旧 SM 関数を削除（Task 2 で温存した分）**
 
-`functions/_lib/sm-sync.js` 冒頭の import を調整:
-- `sm-h2h.js` からの import を `H2H_WINDOW_DAYS, aggregateResults`（`aggregateH2H`/`extractH2HResult` は削除）に変更。
+(a) `functions/_lib/sm-sync.js` 冒頭の import を調整:
+- `sm-h2h.js` からの import を `H2H_WINDOW_DAYS, aggregateResults`（`aggregateH2H`/`extractH2HResult` は外す）に変更。
 - 追加: `import { extractAfH2HResult } from "./apifootball-h2h.js";` と `import { afIdForCode } from "./af-team-map.js";`。
+
+(b) `functions/_lib/sm-h2h.js` から **旧 `extractH2HResult` と旧 `aggregateH2H` を削除**（Task 2 で温存したもの。`aggregateResults`/`rowsToH2H`/`H2H_WINDOW_DAYS` は維持）。
+
+(c) `functions/_lib/sm-h2h.test.js` から **旧 `extractH2HResult`/`aggregateH2H` を参照するテストを削除**（`aggregateResults`/`rowsToH2H` のテストは維持）。
+
+(d) 取りこぼし確認:
+Run: `grep -rn "extractH2HResult\|aggregateH2H\b" functions/ worker-watch/`
+Expected: ヒット 0 件（全て本タスクで除去済み）。残れば修正。
 
 - [ ] **Step 4: `syncH2H` を全置換**
 
