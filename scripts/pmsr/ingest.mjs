@@ -136,7 +136,9 @@ async function main() {
 	const args = parseArgs(process.argv.slice(2));
 	if (!args.all && !args.match) { console.error("--all か --match <n> を指定"); process.exit(2); }
 
+	// 作業/出力ディレクトリは毎回まっさらにする（古い試合や検証用の残骸を publish しないため）。
 	await rm(WORK, { recursive: true, force: true });
+	await rm(DIST, { recursive: true, force: true });
 	await mkdir(join(WORK, "pdfs"), { recursive: true });
 	await mkdir(DIST, { recursive: true });
 
