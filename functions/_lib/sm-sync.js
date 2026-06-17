@@ -12,8 +12,11 @@ import {
 } from "./sm-store.js";
 
 // fixture 時系列データの include（pressure/trends/periods）
+// participants は必須: toSeriesRow が participantsByLocation で home/away の team_id を解決するため。
+//   これが無いと pressure/trends の participant_id を home/away に振り分けられず全点 null になる。
 // periods.statistics は現状未使用・将来の前後半分析用に予約（payloadは僅少）
-export const FIXTURE_SERIES_INCLUDE = "pressure;trends;periods.statistics";
+export const FIXTURE_SERIES_INCLUDE =
+	"participants;pressure;trends;periods.statistics";
 
 // fixture 詳細の include。ラインナップ・xG を含む完全版（lineups/xGFixture を追加）。
 // periods: 進行中ピリオドの経過分(minutes/time_added)取得用。

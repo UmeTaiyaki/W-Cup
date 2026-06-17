@@ -342,15 +342,26 @@ test("syncTopscorers は fetch 失敗でも例外を投げず error を返す", 
 	assert.equal(r.error, "boom");
 });
 
-test("FIXTURE_SERIES_INCLUDE は pressure;trends;periods.statistics を含む", () => {
-	assert.equal(FIXTURE_SERIES_INCLUDE, "pressure;trends;periods.statistics");
+test("FIXTURE_SERIES_INCLUDE は participants と pressure;trends を含む", () => {
+	// participants が無いと home/away を解決できず全点 null になる回帰を防ぐ。
+	assert.equal(
+		FIXTURE_SERIES_INCLUDE,
+		"participants;pressure;trends;periods.statistics",
+	);
+	assert.ok(FIXTURE_SERIES_INCLUDE.includes("participants"));
 });
 
 test("syncFixtureSeries: include が正しく path が fixtures/9、書き込みが1回起きる", async () => {
 	const fakeDetail = {
 		id: 9,
-		participants: [],
-		pressure: [{ participant_id: 10, value: 50, location: "home" }],
+		participants: [
+			{ id: 10, meta: { location: "home" } },
+			{ id: 20, meta: { location: "away" } },
+		],
+		pressure: [
+			{ participant_id: 10, minute: 5, pressure: 50 },
+			{ participant_id: 20, minute: 5, pressure: 30 },
+		],
 		trends: [],
 	};
 	let captured = null;
@@ -360,13 +371,27 @@ test("syncFixtureSeries: include が正しく path が fixtures/9、書き込み
 			return { data: fakeDetail };
 		},
 	};
-	const db = fakeDb();
+	// バッチに渡る bind 済みステートメントを捕捉する db（fakeDb は件数のみ記録のため）。
+	const written = [];
+	const db = {
+		prepare: (sql) => ({ bind: (...a) => ({ sql, a }) }),
+		batch: async (stmts) => {
+			written.push(...stmts);
+			return stmts.map(() => ({ success: true }));
+		},
+	};
 	const res = await syncFixtureSeries(client, db, 9, 1000);
 	assert.equal(captured.path, "fixtures/9");
-	assert.equal(captured.opts.include, "pressure;trends;periods.statistics");
+	assert.equal(
+		captured.opts.include,
+		"participants;pressure;trends;periods.statistics",
+	);
 	assert.equal(res.ok, true);
 	assert.equal(res.fixtureId, 9);
-	assert.equal(db.batched.length, 1);
+	assert.equal(written.length, 1);
+	// participants 経由で home/away が解決され、全点 null にならないこと（バグ回帰防止）。
+	const parsed = JSON.parse(written[0].a[1]);
+	assert.deepEqual(parsed.pressure, [{ minute: 5, home: 50, away: 30 }]);
 });
 
 test("syncFixtureSeries: data が無ければ ok:false（例外なし）", async () => {
