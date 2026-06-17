@@ -88,13 +88,17 @@ function breakTie(codes, rowByCode, matches) {
 }
 
 // members: コード配列（空スロット可）, matches: [{a,b,ga,gb}]
-// 返り値: [{code, played, w, d, l, gf, ga, gd, pts}] を FIFA 2026 の
-// グループ順位決定基準でソート:
+// opts.fairPlay: { CODE: number }（フェアプレーポイント / 大きいほど上位・カード減点方式）
+// opts.fifaRank: { CODE: number }（FIFAランキング順位 / 小さいほど上位）
+// 返り値: [{code, played, w, d, l, gf, ga, gd, pts, fairPlay?, fifaRank?}] を
+// FIFA 2026 のグループ順位決定基準でソート:
 //   ①全試合の勝点 → ②当該チーム間の勝点 → ③当該チーム間の得失差
 //   → ④当該チーム間の総得点 → ⑤全試合の得失差 → ⑥全試合の総得点
 //   → ⑦フェアプレーポイント → ⑧FIFAランキング（⑦⑧はデータ未連携時は登録順）
-export function computeStandings(members = [], matches = []) {
+export function computeStandings(members = [], matches = [], opts = {}) {
 	const order = (members || []).filter(Boolean);
+	const fairPlay = opts?.fairPlay || {};
+	const fifaRank = opts?.fifaRank || {};
 	const row = {};
 	order.forEach((code, i) => {
 		row[code] = {
@@ -107,6 +111,9 @@ export function computeStandings(members = [], matches = []) {
 			ga: 0,
 			gd: 0,
 			pts: 0,
+			// ⑦⑧: 供給されたチームのみ値を持つ（未供給は undefined→比較スキップ）。
+			fairPlay: isNum(fairPlay[code]) ? fairPlay[code] : undefined,
+			fifaRank: isNum(fifaRank[code]) ? fifaRank[code] : undefined,
 			_i: i,
 		};
 	});
@@ -160,11 +167,16 @@ export function computeStandings(members = [], matches = []) {
 // 暫定グループ順位（採点用）。各グループの全チームが1試合以上消化したら
 // computeStandings 順の top3 コード配列、未達なら空配列を返す。
 // groupMatches[g] の ga/gb はライブスコアも含むため試合中も順位が動く。
-export function provisionalGroupResult(groups = {}, groupMatches = {}) {
+// opts.fairPlay/opts.fifaRank は { CODE: 数値 }（タイブレーカー⑦⑧用 / 省略可）。
+export function provisionalGroupResult(
+	groups = {},
+	groupMatches = {},
+	opts = {},
+) {
 	const out = {};
 	for (const g of Object.keys(groups || {})) {
 		const members = (groups[g] || []).filter(Boolean);
-		const rows = computeStandings(members, (groupMatches || {})[g] || []);
+		const rows = computeStandings(members, (groupMatches || {})[g] || [], opts);
 		out[g] =
 			members.length && rows.every((r) => r.played >= 1)
 				? rows.slice(0, 3).map((r) => r.code)

@@ -71,6 +71,23 @@ export async function listFixtures(db, { limit = 120 } = {}) {
 	return rows.map(mapFixtureRow);
 }
 
+// カードイベント（type_id 19=イエロー/20=直接レッド/21=2枚目イエロー）を返す。
+// グループ順位のフェアプレーポイント（タイブレーカー⑦）集計に使う。team_id は
+// sm_teams.app_code へ呼び出し側で解決する。テーブル未作成/失敗は空配列（障害隔離）。
+const CARD_EVENTS_SQL = `
+  SELECT sm_fixture_id, team_id, type_id, player_id
+  FROM sm_events
+  WHERE type_id IN (19, 20, 21)`;
+export async function listCardEvents(db) {
+	try {
+		const res = await db.prepare(CARD_EVENTS_SQL).all();
+		return Array.isArray(res?.results) ? res.results : [];
+	} catch (e) {
+		console.error("listCardEvents failed", e?.message);
+		return [];
+	}
+}
+
 // 1試合の詳細 (fixture + 関連テーブル) を束ねて返す。
 // 不在 id は null、クエリ失敗や results 欠落は空配列（障害隔離）。
 const FIXTURE_ONE_SQL = `

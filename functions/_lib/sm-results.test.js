@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
 	deriveBracket,
 	deriveChampion,
+	deriveFairPlay,
 	deriveGroupMatches,
 	deriveGroupResult,
 	deriveKnockout,
@@ -92,6 +93,80 @@ test("deriveGroupResult は未完（FT<6）のグループは空配列", () => {
 	];
 	const gr = deriveGroupResult(partial, { A: ["MEX", "KOR", "RSA", "CZE"] });
 	assert.deepEqual(gr.A, []);
+});
+
+// ---- deriveFairPlay（タイブレーカー⑦）----
+const cardFixtures = [
+	{
+		home: { team_id: 1, app_code: "MEX" },
+		away: { team_id: 2, app_code: "KOR" },
+	},
+	{
+		home: { team_id: 3, app_code: "RSA" },
+		away: { team_id: 4, app_code: "CZE" },
+	},
+];
+const cardGroups = { A: ["MEX", "KOR", "RSA", "CZE"] };
+
+test("deriveFairPlay はFIFA減点方式で集計（黄-1/間接赤-3/直接赤-4/黄+直接赤-5）", () => {
+	const events = [
+		// MEX 選手100: イエロー1枚 → -1
+		{ sm_fixture_id: 10, team_id: 1, type_id: 19, player_id: 100 },
+		// KOR 選手200: イエロー→2枚目イエロー(間接退場) → -3（-1-3 ではなく -3）
+		{ sm_fixture_id: 10, team_id: 2, type_id: 19, player_id: 200 },
+		{ sm_fixture_id: 10, team_id: 2, type_id: 21, player_id: 200 },
+		// RSA 選手300: 直接レッド → -4
+		{ sm_fixture_id: 11, team_id: 3, type_id: 20, player_id: 300 },
+		// CZE 選手400: イエロー+直接レッド → -5
+		{ sm_fixture_id: 11, team_id: 4, type_id: 19, player_id: 400 },
+		{ sm_fixture_id: 11, team_id: 4, type_id: 20, player_id: 400 },
+	];
+	const fp = deriveFairPlay(events, cardFixtures, cardGroups);
+	assert.equal(fp.MEX, -1);
+	assert.equal(fp.KOR, -3);
+	assert.equal(fp.RSA, -4);
+	assert.equal(fp.CZE, -5);
+});
+
+test("deriveFairPlay は選手別に合算し、グループ外チームは無視", () => {
+	const events = [
+		{ sm_fixture_id: 10, team_id: 1, type_id: 19, player_id: 100 },
+		{ sm_fixture_id: 12, team_id: 1, type_id: 19, player_id: 101 }, // 別選手の黄
+		{ sm_fixture_id: 10, team_id: 999, type_id: 20, player_id: 900 }, // 未知チーム→無視
+	];
+	const fp = deriveFairPlay(events, cardFixtures, cardGroups);
+	assert.equal(fp.MEX, -2); // -1 + -1
+	assert.equal(Object.hasOwn(fp, "undefined"), false);
+});
+
+test("deriveFairPlay は空入力で空オブジェクト", () => {
+	assert.deepEqual(deriveFairPlay([], cardFixtures, cardGroups), {});
+	assert.deepEqual(deriveFairPlay(null, cardFixtures, cardGroups), {});
+});
+
+test("deriveGroupResult はフェアプレーで最終決着（全6FT・完全同値）", () => {
+	// 全試合0-0 → 全チーム勝点3・得失差0・総得点0、head-to-head も完全同値。
+	// フェアプレー: CZE のみカード -4、他は0 → CZE が最下位、残りは登録順。
+	const m = (a, b) => ({
+		status: "FT",
+		home: { app_code: a, score: 0 },
+		away: { app_code: b, score: 0 },
+	});
+	const full = [
+		m("MEX", "KOR"),
+		m("MEX", "RSA"),
+		m("MEX", "CZE"),
+		m("KOR", "RSA"),
+		m("KOR", "CZE"),
+		m("RSA", "CZE"),
+	];
+	const gr = deriveGroupResult(
+		full,
+		{ A: ["MEX", "KOR", "RSA", "CZE"] },
+		{ CZE: -4 },
+	);
+	// CZE はフェアプレー最下位なので top3 に入らない。
+	assert.deepEqual(gr.A, ["MEX", "KOR", "RSA"]);
 });
 
 test("deriveChampion は決勝FTから勝者=champion・敗者=runnerUp", () => {
