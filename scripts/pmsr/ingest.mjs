@@ -124,7 +124,7 @@ async function processMatch(session, m, fixtureId) {
 		away_code: m.awayCode,
 		pdf_url: m.pdfUrl,
 		header,
-		stats: { possession: stats.possession, keyStats: stats.keyStats, phasesInPossession: stats.phasesInPossession, phasesOutOfPossession: stats.phasesOutOfPossession },
+		stats: { possession: stats.possession, keyStats: stats.keyStats, phasesInPossession: stats.phasesInPossession, phasesOutOfPossession: stats.phasesOutOfPossession, pressure: stats.pressure },
 		figures,
 		missing,
 	};

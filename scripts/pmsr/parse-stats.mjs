@@ -44,13 +44,29 @@ export const PHASES_OUT = [
 	{ key: "counterPress", label: "Counter-press", ja: "カウンタープレス" },
 ];
 
+// Defensive Pressure ページ（綺麗な home|ラベル|away 形式）の指標。出現順。
+// Total Pressures / Direct Pressures は Key Statistics の defPressures(=194 (30))と
+// 重複するが、こちらは内訳が明確なので独立セクションとして表示する。
+// Forced Turnovers は Key Statistics の forcedTurnovers と重複するため含めない。
+export const PRESSURE = [
+	{ key: "totalPressures", label: "Total Pressures", ja: "総プレッシャー数" },
+	{ key: "directPressures", label: "Direct Pressures", ja: "直接プレッシャー" },
+	{ key: "avgPressureDuration", label: "Avg Pressure Duration", ja: "平均プレッシャー時間" },
+	{ key: "ballRecoveryTime", label: "Ball Recovery Time", ja: "ボール奪回までの時間" },
+	{ key: "pushingIntoPressing", label: "Pushing on into Pressing", ja: "プレッシングへの押し上げ" },
+	{ key: "pushingOn", label: "Pushing on", ja: "押し上げ" },
+	{ key: "pressDirInside", label: "Pressing Direction Inside", ja: "プレス方向（内側）" },
+	{ key: "pressDirOutside", label: "Pressing Direction Outside", ja: "プレス方向（外側）" },
+];
+
 // 行末に混入する「14 June 2026 - Dallas Stadium - 15:00」等のフッターを除去。
 function stripFooter(s) {
 	return s.replace(/\d{1,2}\s+\w+\s+\d{4}\s*-.*$/g, "").trim();
 }
 
-// 値トークン: 数値 + 任意で % / km / (補助値)。
-const VALUE_RE = /[\d.]+\s*(?:%|km)?(?:\s*\([\d.]+\s*%?\))?/;
+// 値トークン: 数値 + 任意で % / km / s（秒）/ (補助値)。
+// s は Defensive Pressure ページの「1.57s」「14.25s」等の所要時間に必要。
+const VALUE_RE = /[\d.]+\s*(?:%|km|s)?(?:\s*\([\d.]+\s*%?\))?/;
 
 // ラベル前(home)・後(away)から、ラベルに隣接する値を1つ取り出す。
 // 値はラベルに直接隣接（間に文字が無い）していることを要求し、
@@ -139,13 +155,14 @@ export function parseStats(text) {
 		keyStats: parseStatBlock(lines, KEY_STATS),
 		phasesInPossession: parseStatBlock(lines, PHASES_IN),
 		phasesOutOfPossession: parseStatBlock(lines, PHASES_OUT),
+		pressure: parseStatBlock(lines, PRESSURE),
 	};
 }
 
 // 抽出品質チェック: 欠損キーの一覧を返す（インジェストの健全性検証用）。
 export function findMissing(stats) {
 	const missing = [];
-	for (const blk of ["keyStats", "phasesInPossession", "phasesOutOfPossession"]) {
+	for (const blk of ["keyStats", "phasesInPossession", "phasesOutOfPossession", "pressure"]) {
 		for (const [k, v] of Object.entries(stats[blk] || {})) {
 			if (v.home == null || v.away == null) missing.push(`${blk}.${k}`);
 		}
