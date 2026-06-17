@@ -13,6 +13,9 @@ CHEER_ENABLED = "true"
 # 試合ハイライト（YouTube）のフィーチャーフラグ。true で /api/fixture が highlight を返す
 # （OFF/未設定なら highlight:null＝タブにデータが出ない安全側）。要 sm_highlights テーブル(db/schema-watch.sql)。
 HIGHLIGHTS_ENABLED = "true"
+# PMSR（FIFA公式マッチレポート）のフィーチャーフラグ。true で /api/fixture が pmsr を返す
+# （OFF/未設定なら pmsr:null＝タブにデータが出ない安全側）。要 sm_pmsr テーブル(db/0014_sm_pmsr.sql)＋R2バケット。
+PMSR_ENABLED = "true"
 # 永続データ(user/room/config)の読み取り元バックエンド。KV→D1 無停止移行の切替フラグ。
 #   未設定/"kv" = 二重書き込み・読みは KV（移行 段1）/ "d1" = 二重書き込み・読みは D1（段3）
 #   "d1-only"   = D1 単独・KV 書き込み停止（段4）
@@ -37,3 +40,9 @@ preview_id = "f020e592e7c5484082229c56f653c465"
 binding = "DB"
 database_name = "wcup2026-db"
 database_id = "a149694b-686c-45a4-9130-01969cccd82a"
+
+# PMSR の図表PNG置き場（R2）。binding=PMSR_FIGS を /api/pmsr-figure が参照しstream配信。
+# バケット作成: wrangler r2 bucket create wcup2026-pmsr（作成済み 2026-06-17）。
+[[r2_buckets]]
+binding = "PMSR_FIGS"
+bucket_name = "wcup2026-pmsr"

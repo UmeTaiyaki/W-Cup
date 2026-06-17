@@ -1,0 +1,54 @@
+name: PMSR ingest (FIFA match reports)
+
+# FIFA Training Centre の Post-Match Summary Report を取得し、
+# 図表PNGをR2へ・数値スタッツをD1(sm_pmsr)へ反映する。
+# Pages デプロイとは独立（R2/D1へ直接書くため再デプロイ不要）。
+on:
+  # 大会期間中のみ有効化する想定。終了後はこの workflow を無効化/削除すること。
+  schedule:
+    - cron: "0 */6 * * *" # 6時間ごと（試合終了→レポート公開に追従）
+  workflow_dispatch:
+    inputs:
+      match:
+        description: "特定Match番号のみ処理（空=全件）"
+        required: false
+
+concurrency:
+  group: pmsr-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # pdfjs-dist（インジェストの依存）を導入。Chrome は ubuntu-latest 同梱の /usr/bin/google-chrome を使用。
+      - name: Install deps
+        run: |
+          npm ci
+          npm i -g wrangler@4
+
+      - name: Ingest + publish
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CHROME_PATH: /usr/bin/google-chrome
+          # 信頼できない入力はenv経由で受け、シェルに直接展開しない（インジェクション対策）。
+          MATCH_INPUT: ${{ github.event.inputs.match }}
+        run: |
+          MATCH_ARG="--all"
+          if [ -n "$MATCH_INPUT" ]; then
+            # 数値のみ許可（不正値は全件にフォールバックせず失敗させる）。
+            if ! printf '%s' "$MATCH_INPUT" | grep -qE '^[0-9]+$'; then
+              echo "match入力は数値のみ: $MATCH_INPUT" >&2; exit 1
+            fi
+            MATCH_ARG="--match $MATCH_INPUT"
+          fi
+          # fixture_id は本番D1(sm_fixtures×sm_teams)のトリコードで解決。
+          node scripts/pmsr/ingest.mjs $MATCH_ARG --resolve-d1
+          node scripts/pmsr/publish.mjs --remote

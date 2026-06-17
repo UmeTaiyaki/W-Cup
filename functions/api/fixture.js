@@ -29,6 +29,10 @@ export async function onRequestGet(context) {
 		if (detail && env.HIGHLIGHTS_ENABLED !== "true") {
 			detail.highlight = null;
 		}
+		// PMSR も独立フラグでゲート。OFF/未設定時はデータがあっても pmsr を出さない（安全側）。
+		if (detail && env.PMSR_ENABLED !== "true") {
+			detail.pmsr = null;
+		}
 		return json(
 			200,
 			{ enabled: true, detail },

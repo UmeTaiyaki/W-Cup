@@ -9,6 +9,7 @@ function makeFakeDb({
 	stats = [],
 	lineups = [],
 	playerStats = [],
+	pmsr = [],
 } = {}) {
 	return {
 		prepare: (sql) => ({
@@ -21,6 +22,8 @@ function makeFakeDb({
 						results = events;
 					} else if (sql.includes("sm_lineups")) {
 						results = lineups;
+					} else if (sql.includes("sm_pmsr")) {
+						results = pmsr;
 					} else if (sql.includes("sm_stats")) {
 						results = stats;
 					} else {
@@ -30,6 +33,32 @@ function makeFakeDb({
 				},
 			}),
 		}),
+	};
+}
+
+// PMSR行のヘルパー（happy path のfixtureを流用）。
+function fixtureRow() {
+	return {
+		sm_fixture_id: 1,
+		home_team_id: 10,
+		away_team_id: 20,
+		home_score: 2,
+		away_score: 2,
+		home_xg: null,
+		away_xg: null,
+		state_id: 5,
+		home_name: "A",
+		away_name: "B",
+		home_short: null,
+		home_img: null,
+		home_app: null,
+		away_short: null,
+		away_img: null,
+		away_app: null,
+		starting_at: "2026-06-14T15:00:00",
+		starting_at_ts: 1749913200,
+		round_name: "Group F",
+		result_info: null,
 	};
 }
 
@@ -167,4 +196,43 @@ test("DB.prepare throws → 200 fault-isolated note:unavailable", async () => {
 	assert.equal(body.enabled, true);
 	assert.equal(body.note, "unavailable");
 	assert.equal(body.detail, null);
+});
+
+// ────────────────────────────────────────────────────────────────
+// 6. PMSR ゲート: PMSR_ENABLED!=='true' なら pmsr データがあっても null（安全側）
+// ────────────────────────────────────────────────────────────────
+const PMSR_ROW = {
+	data_json: JSON.stringify({
+		possession: { home: 54.9, contested: 7.7, away: 37.4 },
+		keyStats: { xg: { label: "xG", ja: "xG", home: "0.63", away: "0.34" } },
+	}),
+	figures_json: JSON.stringify([
+		{ key: "shot-map-home", ja: "A — シュートマップ", side: "home" },
+	]),
+	pdf_url: "https://example.com/PMSR-M11.pdf",
+};
+
+test("PMSR_ENABLED unset → detail.pmsr is null", async () => {
+	const db = makeFakeDb({ fixture: [fixtureRow()], pmsr: [PMSR_ROW] });
+	const env = { WATCH_ENABLED: "true", DB: db }; // PMSR_ENABLED 未設定
+	const request = new Request("https://x/api/fixture?id=1");
+	const res = await onRequestGet({ env, request });
+	const body = await res.json();
+	assert.equal(body.detail.pmsr, null);
+});
+
+test("PMSR_ENABLED=true → detail.pmsr present with figure urls", async () => {
+	const db = makeFakeDb({ fixture: [fixtureRow()], pmsr: [PMSR_ROW] });
+	const env = { WATCH_ENABLED: "true", PMSR_ENABLED: "true", DB: db };
+	const request = new Request("https://x/api/fixture?id=1");
+	const res = await onRequestGet({ env, request });
+	const body = await res.json();
+	assert.ok(body.detail.pmsr, "pmsr should be present");
+	assert.equal(body.detail.pmsr.possession.home, 54.9);
+	assert.equal(body.detail.pmsr.figures.length, 1);
+	assert.equal(
+		body.detail.pmsr.figures[0].url,
+		"/api/pmsr-figure?m=1&k=shot-map-home",
+	);
+	assert.equal(body.detail.pmsr.pdf_url, "https://example.com/PMSR-M11.pdf");
 });

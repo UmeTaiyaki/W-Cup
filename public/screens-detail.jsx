@@ -3481,6 +3481,312 @@ function DetailUnavailable({ T, goBack }) {
 	);
 }
 
+// ── ReportTab（PMSR: FIFA公式マッチレポート） ─────────────────────────────
+// detail.pmsr を表示。数値スタッツ(比較バー)＋プレー局面＋タクティカル図(公式PDF画像)。
+// 図表はFIFA公式PDFの該当ページを画像化したもの → 出典明記＋公式PDFリンク必須。
+
+// "10 (6)" / "102.9 km" / "46%" 等の整形済み文字列から、バー比率用の先頭数値を取り出す。
+function pmsrNum(v) {
+	if (v == null) return null;
+	const m = String(v).match(/[\d.]+/);
+	return m ? Number(m[0]) : null;
+}
+
+// MirrorBar と同じ見た目で、表示は整形済み文字列のまま・バー比率は先頭数値で算出する。
+function PmsrBar({ T, label, home, away, invert = false }) {
+	const hv = pmsrNum(home);
+	const av = pmsrNum(away);
+	const total = (hv || 0) + (av || 0);
+	const homePct = total > 0 ? ((hv || 0) / total) * 100 : 50;
+	const awayPct = 100 - homePct;
+	const hLead = hv != null && av != null && (invert ? hv < av : hv > av);
+	const aLead = hv != null && av != null && (invert ? av < hv : av > hv);
+	return (
+		<div style={{ margin: "11px 0" }}>
+			<div
+				style={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "baseline",
+					fontSize: 11.5,
+					marginBottom: 5,
+					gap: 8,
+				}}
+			>
+				<span
+					style={{
+						fontWeight: 800,
+						color: hLead ? T.text : T.sub,
+						minWidth: 64,
+					}}
+				>
+					{home != null ? home : "–"}
+				</span>
+				<span
+					style={{
+						fontWeight: 700,
+						color: T.sub,
+						textAlign: "center",
+						flex: 1,
+					}}
+				>
+					{label}
+				</span>
+				<span
+					style={{
+						fontWeight: 800,
+						color: aLead ? T.text : T.sub,
+						minWidth: 64,
+						textAlign: "right",
+					}}
+				>
+					{away != null ? away : "–"}
+				</span>
+			</div>
+			<div
+				style={{
+					display: "flex",
+					height: 6,
+					borderRadius: 3,
+					overflow: "hidden",
+					background: "rgba(255,255,255,0.06)",
+				}}
+			>
+				<div
+					style={{
+						width: `${homePct}%`,
+						background: T.accent,
+						borderRadius: "3px 0 0 3px",
+					}}
+				/>
+				<div
+					style={{
+						width: `${awayPct}%`,
+						background: "rgba(226,240,228,0.42)",
+						marginLeft: "auto",
+						borderRadius: "0 3px 3px 0",
+					}}
+				/>
+			</div>
+		</div>
+	);
+}
+
+function ReportSectionHead({ T, title }) {
+	return (
+		<div
+			style={{
+				fontSize: 9.5,
+				fontWeight: 800,
+				letterSpacing: 0.8,
+				color: T.sub,
+				textTransform: "uppercase",
+				margin: "18px 0 8px",
+			}}
+		>
+			{title}
+		</div>
+	);
+}
+
+// 図表キーのプレフィックス → 日本語ラベル（保存ja に依存せずJP統一）。
+const PMSR_FIG_LABEL = {
+	"shot-map": "シュートマップ",
+	"attack-shape": "攻撃時のライン高 & チーム長",
+	"def-shape": "守備時のライン高 & チーム長",
+	crosses: "クロス分布",
+};
+
+function ReportTab({ T, detail }) {
+	const pmsr = detail && detail.pmsr;
+	if (!pmsr) {
+		return (
+			<div
+				style={{
+					padding: "40px 16px",
+					textAlign: "center",
+					color: T.faint,
+					fontSize: 13,
+					fontWeight: 700,
+				}}
+			>
+				公式マッチレポートはまだありません
+			</div>
+		);
+	}
+
+	const fx = detail.fixture;
+	const teamMap = (window.WC && window.WC.TEAM) || {};
+	const jpName = (side) => {
+		const t = fx && fx[side];
+		const info = teamMap[t && t.app_code] || {};
+		return (
+			info.ja || (t && t.name) || (side === "home" ? "ホーム" : "アウェイ")
+		);
+	};
+
+	const ks = pmsr.keyStats || {};
+	const pi = pmsr.phasesInPossession || {};
+	const po = pmsr.phasesOutOfPossession || {};
+	const poss = pmsr.possession;
+	// 値があるものだけ描画するヘルパ（graceful degradation）。
+	const bar = (s, opts) =>
+		s && (s.home != null || s.away != null) ? (
+			<PmsrBar
+				T={T}
+				key={s.label}
+				label={s.ja || s.label}
+				home={s.home}
+				away={s.away}
+				{...opts}
+			/>
+		) : null;
+
+	const figures = Array.isArray(pmsr.figures) ? pmsr.figures : [];
+	const figLabel = (f) => {
+		const m = String(f.key).match(/^(.*)-(home|away)$/);
+		const type = m ? PMSR_FIG_LABEL[m[1]] : null;
+		const side = m ? m[2] : null;
+		if (type && side) return `${jpName(side)} — ${type}`;
+		return f.ja || f.key;
+	};
+
+	return (
+		<div style={{ padding: "12px 14px 24px" }}>
+			{/* 出典バッジ＋公式PDFリンク */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 10,
+					padding: "11px 13px",
+					background: T.card,
+					border: `1px solid ${T.line}`,
+					borderRadius: 12,
+				}}
+			>
+				<span style={{ fontSize: 20 }}>📄</span>
+				<div style={{ flex: 1, minWidth: 0 }}>
+					<div style={{ fontSize: 12.5, fontWeight: 800, color: T.text }}>
+						公式マッチレポート
+					</div>
+					<div style={{ fontSize: 10, color: T.sub, marginTop: 1 }}>
+						FIFA Training Centre · Post-Match Summary Report
+					</div>
+				</div>
+				{pmsr.pdf_url && (
+					<a
+						href={pmsr.pdf_url}
+						target="_blank"
+						rel="noopener noreferrer"
+						style={{
+							fontSize: 11.5,
+							fontWeight: 800,
+							color: T.accent,
+							textDecoration: "none",
+							whiteSpace: "nowrap",
+						}}
+					>
+						PDF →
+					</a>
+				)}
+			</div>
+
+			{/* 主要スタッツ */}
+			<ReportSectionHead T={T} title="主要スタッツ" />
+			{poss && (
+				<PmsrBar
+					T={T}
+					label={
+						poss.contested != null
+							? "ボール支配率（中央=競合）"
+							: "ボール支配率"
+					}
+					home={poss.home != null ? `${poss.home}%` : null}
+					away={poss.away != null ? `${poss.away}%` : null}
+				/>
+			)}
+			{bar(ks.xg)}
+			{bar(ks.attempts)}
+			{bar(ks.passes)}
+			{bar(ks.passPct)}
+			{bar(ks.lineBreaks)}
+			{bar(ks.receptionsF3)}
+			{bar(ks.crosses)}
+			{bar(ks.forcedTurnovers)}
+
+			{/* フィジカル / FIFA独自指標 */}
+			<ReportSectionHead T={T} title="フィジカル・FIFA独自指標" />
+			{bar(ks.distance)}
+			{bar(ks.sprintZone4)}
+			{bar(ks.defPressures)}
+			{bar(ks.secondBalls)}
+
+			{/* プレー局面 */}
+			<ReportSectionHead T={T} title="プレー局面 — 攻撃時（時間割合）" />
+			{bar(pi.buildUpUnopposed)}
+			{bar(pi.buildUpOpposed)}
+			{bar(pi.finalThird)}
+			{bar(pi.attackingTransition)}
+			{bar(pi.setPiece)}
+
+			<ReportSectionHead T={T} title="プレー局面 — 守備時（時間割合）" />
+			{bar(po.midBlock)}
+			{bar(po.lowBlock)}
+			{bar(po.defensiveTransition)}
+			{bar(po.counterPress)}
+
+			{/* タクティカル図（公式PDFから画像化） */}
+			{figures.length > 0 && (
+				<>
+					<ReportSectionHead T={T} title="タクティカル図（FIFA公式PDFより）" />
+					{figures.map((f) => (
+						<div
+							key={f.key}
+							style={{
+								margin: "0 0 12px",
+								background: T.card,
+								border: `1px solid ${T.line}`,
+								borderRadius: 12,
+								overflow: "hidden",
+							}}
+						>
+							<div
+								style={{
+									fontSize: 11,
+									fontWeight: 800,
+									color: T.text,
+									padding: "8px 11px",
+								}}
+							>
+								{figLabel(f)}
+							</div>
+							<img
+								src={f.url}
+								alt={figLabel(f)}
+								loading="lazy"
+								style={{
+									display: "block",
+									width: "100%",
+									height: "auto",
+									background: "#f4f6f5",
+								}}
+							/>
+						</div>
+					))}
+				</>
+			)}
+
+			<div
+				style={{ fontSize: 10, color: T.faint, lineHeight: 1.6, marginTop: 14 }}
+			>
+				数値・図表の出典: FIFA Training Centre（Post-Match Summary Report）。
+				図表はデータ化できない可視化（ヒートマップ/パス網/シュート位置）を公式PDFのまま掲載しています。
+			</div>
+		</div>
+	);
+}
+
 // ── MatchDetailScreen (メイン) ────────────────────────────────────────────
 function MatchDetailScreen({ T, fixtureId, goBack }) {
 	const [detail, setDetail] = React.useState(null);
@@ -3544,11 +3850,25 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 
 	const fx = detail.fixture;
 
+	// 表示タブ。PMSR（公式レポート）がある時だけ xG の後に「レポート」を挿入する。
+	const visibleTabs = (() => {
+		const base = [...DETAIL_TABS];
+		if (detail.pmsr) {
+			const i = base.findIndex((t) => t.id === "xg");
+			base.splice(i >= 0 ? i + 1 : base.length, 0, {
+				id: "report",
+				label: "レポート",
+			});
+		}
+		return base;
+	})();
+
 	function renderTabBody() {
 		if (tab === "timeline") return <TimelineTab T={T} detail={detail} />;
 		if (tab === "ai") return <AiTab T={T} detail={detail} />;
 		if (tab === "stats") return <StatsTab T={T} detail={detail} />;
 		if (tab === "xg") return <XgTab T={T} detail={detail} />;
+		if (tab === "report") return <ReportTab T={T} detail={detail} />;
 		if (tab === "lineup") return <LineupTab T={T} detail={detail} />;
 		if (tab === "h2h") return <H2HPlaceholder T={T} />;
 		return null;
@@ -3571,7 +3891,7 @@ function MatchDetailScreen({ T, fixtureId, goBack }) {
 			<HighlightSection T={T} detail={detail} />
 
 			{/* タブバー */}
-			<DetailTabBar T={T} tab={tab} setTab={setTab} />
+			<DetailTabBar T={T} tab={tab} setTab={setTab} tabs={visibleTabs} />
 
 			{/* タブ本体 */}
 			<div style={{ flex: 1, overflowY: "auto" }}>{renderTabBody()}</div>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>pmsr-render</title></head>
+<body>
+<!-- PMSR PDF を pdf.js で読み込み、テキスト抽出と図表PNG化を1セッションで提供する。
+     CDP(Node)から window.__* を呼び出す。?pdf=<path> でPDFを指定。 -->
+<canvas id="full" style="display:none"></canvas>
+<canvas id="out" style="display:none"></canvas>
+<script type="module">
+import * as pdfjs from "/vendor/pdf.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdf.worker.mjs";
+
+window.__status = "loading";
+let doc = null;
+
+(async () => {
+  const pdfPath = new URLSearchParams(location.search).get("pdf");
+  if (!pdfPath) throw new Error("no ?pdf=");
+  const r = await fetch(pdfPath);
+  if (!r.ok) throw new Error("pdf fetch " + r.status);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  doc = await pdfjs.getDocument({ data: buf }).promise;
+  window.__status = "ready";
+})().catch((e) => { window.__status = "ERR:" + (e && e.message || e); });
+
+window.__numPages = () => (doc ? doc.numPages : 0);
+
+// テキスト項目を Y座標でグルーピングして行を復元する（defuddle相当の行構造）。
+// PDFのY原点は左下。同一行は近いYを共有。行内はX昇順で連結。
+function reconstructLines(items) {
+  const withPos = items
+    .filter((it) => it.str != null && it.str.trim() !== "")
+    .map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5] }));
+  const rows = [];
+  for (const it of withPos) {
+    let row = rows.find((r) => Math.abs(r.y - it.y) <= 3);
+    if (!row) { row = { y: it.y, items: [] }; rows.push(row); }
+    row.items.push(it);
+  }
+  rows.sort((a, b) => b.y - a.y); // 上から下
+  return rows.map((r) =>
+    r.items.sort((a, b) => a.x - b.x).map((i) => i.str).join(" ").replace(/\s+/g, " ").trim()
+  );
+}
+
+// 全ページのテキストを行単位の改行連結で返す（parseStats 用）。
+window.__allText = async () => {
+  const out = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    out.push(...reconstructLines(tc.items));
+  }
+  return out.join("\n");
+};
+
+// ページ別テキスト（1ページ=1文字列, 図表ページ特定用）。
+window.__pageTexts = async () => {
+  const out = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const tc = await page.getTextContent();
+    out.push(reconstructLines(tc.items).join(" "));
+  }
+  return out;
+};
+
+// pageNum(1始まり) を scale 倍で描画し、crop=[x,y,w,h](元ページ座標, null可) を切り出して PNG dataURL を返す。
+window.__render = async (pageNum, crop, scale) => {
+  scale = scale || 3;
+  const page = await doc.getPage(pageNum);
+  const vp = page.getViewport({ scale });
+  const full = document.getElementById("full");
+  full.width = vp.width; full.height = vp.height;
+  await page.render({ canvasContext: full.getContext("2d"), viewport: vp }).promise;
+  const out = document.getElementById("out");
+  if (crop) {
+    const [x, y, w, h] = crop.map((v) => v * scale);
+    out.width = w; out.height = h;
+    out.getContext("2d").drawImage(full, x, y, w, h, 0, 0, w, h);
+  } else {
+    out.width = full.width; out.height = full.height;
+    out.getContext("2d").drawImage(full, 0, 0);
+  }
+  return out.toDataURL("image/png");
+};
+</script>
+</body></html>
