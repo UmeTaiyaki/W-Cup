@@ -3654,10 +3654,185 @@ const PMSR_FIG_LABEL = {
 	crosses: "クロス分布",
 };
 
-// 図表の全画面ライトボックス。タップで fit↔拡大 を切替、はみ出しはスクロールでパン。
-// 背景タップ / ✕ / ESC で閉じる。表示中は背面スクロールをロック。
+// 図表の全画面ビューア。ピンチでズーム / ドラッグでパン / ダブルタップでズーム切替 /
+// ホイールでズーム(PC)。✕・ESC・等倍時の背景タップで閉じる。表示中は背面スクロールをロック。
+// 変形は ref で保持し img へ直接適用（ジェスチャー中に React 再描画しないので滑らか）。
+const PMSR_ZOOM_MIN = 1;
+const PMSR_ZOOM_MAX = 6;
+
 function FigureLightbox({ fig, label, onClose }) {
-	const [zoomed, setZoomed] = React.useState(false);
+	const wrapRef = React.useRef(null); // ジェスチャー面（画像領域）
+	const imgRef = React.useRef(null);
+	const tf = React.useRef({ scale: 1, x: 0, y: 0 }); // 現在の変形
+	const pointers = React.useRef(new Map()); // 同時押下中の pointerId→座標
+	const pinch = React.useRef(null);
+	const pan = React.useRef(null);
+	const lastTap = React.useRef({ t: 0, x: 0, y: 0 });
+	const moved = React.useRef(false);
+	const [scaleLabel, setScaleLabel] = React.useState(1); // ヒント表示用（描画は軽量）
+
+	const apply = () => {
+		const t = tf.current;
+		if (imgRef.current) {
+			imgRef.current.style.transform = `translate3d(${t.x}px, ${t.y}px, 0) scale(${t.scale})`;
+		}
+	};
+
+	const clamp = () => {
+		const t = tf.current;
+		t.scale = Math.max(PMSR_ZOOM_MIN, Math.min(PMSR_ZOOM_MAX, t.scale));
+		const wrap = wrapRef.current;
+		const img = imgRef.current;
+		if (wrap && img) {
+			const cw = wrap.clientWidth;
+			const ch = wrap.clientHeight;
+			const iw = img.offsetWidth * t.scale;
+			const ih = img.offsetHeight * t.scale;
+			const maxX = Math.max(0, (iw - cw) / 2);
+			const maxY = Math.max(0, (ih - ch) / 2);
+			t.x = Math.max(-maxX, Math.min(maxX, t.x));
+			t.y = Math.max(-maxY, Math.min(maxY, t.y));
+		}
+		if (t.scale <= 1.001) {
+			t.scale = 1;
+			t.x = 0;
+			t.y = 0;
+		}
+	};
+
+	const wrapCenter = () => {
+		const r = wrapRef.current.getBoundingClientRect();
+		return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+	};
+
+	// 画面点(sx,sy)を固定したまま targetScale へズーム（transform-origin=中央前提）。
+	const zoomAround = (targetScale, sx, sy) => {
+		const t = tf.current;
+		const c = wrapCenter();
+		const qx = sx - c.x;
+		const qy = sy - c.y;
+		const s0 = t.scale;
+		const s1 = Math.max(PMSR_ZOOM_MIN, Math.min(PMSR_ZOOM_MAX, targetScale));
+		t.x = qx - (qx - t.x) * (s1 / s0);
+		t.y = qy - (qy - t.y) * (s1 / s0);
+		t.scale = s1;
+		clamp();
+		apply();
+		setScaleLabel(Math.round(t.scale * 10) / 10);
+	};
+
+	const dist2 = (pts) => Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+	const mid2 = (pts) => ({
+		x: (pts[0].x + pts[1].x) / 2,
+		y: (pts[0].y + pts[1].y) / 2,
+	});
+
+	const onPointerDown = (e) => {
+		e.preventDefault();
+		try {
+			wrapRef.current.setPointerCapture(e.pointerId);
+		} catch {}
+		pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+		moved.current = false;
+		if (pointers.current.size === 2) {
+			const pts = [...pointers.current.values()];
+			pinch.current = {
+				startDist: dist2(pts) || 1,
+				startScale: tf.current.scale,
+				startMid: mid2(pts),
+				startX: tf.current.x,
+				startY: tf.current.y,
+			};
+			pan.current = null;
+		} else if (pointers.current.size === 1) {
+			pan.current = {
+				startX: e.clientX,
+				startY: e.clientY,
+				origX: tf.current.x,
+				origY: tf.current.y,
+				target: e.target,
+			};
+		}
+	};
+
+	const onPointerMove = (e) => {
+		if (!pointers.current.has(e.pointerId)) return;
+		pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+		const t = tf.current;
+		if (pinch.current && pointers.current.size >= 2) {
+			const pts = [...pointers.current.values()];
+			const g = pinch.current;
+			const s1 = Math.max(
+				PMSR_ZOOM_MIN,
+				Math.min(PMSR_ZOOM_MAX, g.startScale * (dist2(pts) / g.startDist)),
+			);
+			const m = mid2(pts);
+			const c = wrapCenter();
+			const px = g.startMid.x - c.x;
+			const py = g.startMid.y - c.y;
+			// 開始時のピンチ中心を固定しつつ、指の移動ぶんパンも反映。
+			t.x = px - (px - g.startX) * (s1 / g.startScale) + (m.x - g.startMid.x);
+			t.y = py - (py - g.startY) * (s1 / g.startScale) + (m.y - g.startMid.y);
+			t.scale = s1;
+			moved.current = true;
+			clamp();
+			apply();
+			setScaleLabel(Math.round(t.scale * 10) / 10);
+		} else if (pan.current && pointers.current.size === 1) {
+			const p = pan.current;
+			const dx = e.clientX - p.startX;
+			const dy = e.clientY - p.startY;
+			if (Math.hypot(dx, dy) > 6) moved.current = true;
+			if (t.scale > 1) {
+				t.x = p.origX + dx;
+				t.y = p.origY + dy;
+				clamp();
+				apply();
+			}
+		}
+	};
+
+	const endPointer = (e) => {
+		pointers.current.delete(e.pointerId);
+		if (pointers.current.size < 2) pinch.current = null;
+		if (pointers.current.size === 0) {
+			const wasPan = pan.current;
+			pan.current = null;
+			if (!moved.current) {
+				const now = e.timeStamp || performance.now();
+				const isDouble =
+					now - lastTap.current.t < 300 &&
+					Math.hypot(
+						e.clientX - lastTap.current.x,
+						e.clientY - lastTap.current.y,
+					) < 30;
+				if (isDouble) {
+					lastTap.current.t = 0;
+					if (tf.current.scale > 1) zoomAround(1, e.clientX, e.clientY);
+					else zoomAround(2.8, e.clientX, e.clientY);
+				} else {
+					lastTap.current = { t: now, x: e.clientX, y: e.clientY };
+					// 等倍で画像の外(背景)を単タップ → 閉じる。
+					if (
+						tf.current.scale === 1 &&
+						wasPan &&
+						wasPan.target === wrapRef.current
+					) {
+						onClose();
+					}
+				}
+			}
+			clamp();
+			apply();
+		}
+	};
+
+	const onWheel = (e) => {
+		e.preventDefault();
+		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+		zoomAround(tf.current.scale * factor, e.clientX, e.clientY);
+	};
+
 	React.useEffect(() => {
 		const onKey = (e) => {
 			if (e.key === "Escape") onClose();
@@ -3665,33 +3840,36 @@ function FigureLightbox({ fig, label, onClose }) {
 		document.addEventListener("keydown", onKey);
 		const prevOverflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
+		// touch-action は React の style では効きづらいブラウザがあるため明示。
+		if (wrapRef.current) wrapRef.current.style.touchAction = "none";
 		return () => {
 			document.removeEventListener("keydown", onKey);
 			document.body.style.overflow = prevOverflow;
 		};
 	}, [onClose]);
+
 	if (!fig) return null;
 	return (
 		<div
-			onClick={onClose}
 			style={{
 				position: "fixed",
 				inset: 0,
 				zIndex: 9999,
-				background: "rgba(8,12,10,0.95)",
+				background: "rgba(8,12,10,0.96)",
 				display: "flex",
 				flexDirection: "column",
 				animation: "wcFadeIn 0.15s ease",
+				touchAction: "none",
+				userSelect: "none",
 			}}
 		>
 			{/* ヘッダ（ラベル＋閉じる） */}
 			<div
-				onClick={(e) => e.stopPropagation()}
 				style={{
 					display: "flex",
 					alignItems: "center",
 					gap: 10,
-					padding: "14px 16px",
+					padding: "max(12px, env(safe-area-inset-top)) 16px 12px",
 					color: "#fff",
 				}}
 			>
@@ -3703,13 +3881,13 @@ function FigureLightbox({ fig, label, onClose }) {
 					onClick={onClose}
 					aria-label="閉じる"
 					style={{
-						width: 34,
-						height: 34,
+						width: 36,
+						height: 36,
 						borderRadius: "50%",
 						border: "none",
-						background: "rgba(255,255,255,0.14)",
+						background: "rgba(255,255,255,0.16)",
 						color: "#fff",
-						fontSize: 17,
+						fontSize: 18,
 						fontWeight: 700,
 						cursor: "pointer",
 						flex: "0 0 auto",
@@ -3719,29 +3897,37 @@ function FigureLightbox({ fig, label, onClose }) {
 				</button>
 			</div>
 
-			{/* 画像領域（タップで fit↔拡大、拡大時はスクロールでパン） */}
+			{/* 画像領域（ピンチ/ドラッグ/ダブルタップ/ホイール） */}
 			<div
-				onClick={(e) => e.stopPropagation()}
+				ref={wrapRef}
+				onPointerDown={onPointerDown}
+				onPointerMove={onPointerMove}
+				onPointerUp={endPointer}
+				onPointerCancel={endPointer}
+				onWheel={onWheel}
 				style={{
 					flex: 1,
-					overflow: "auto",
-					WebkitOverflowScrolling: "touch",
+					overflow: "hidden",
 					display: "flex",
-					alignItems: zoomed ? "flex-start" : "center",
-					justifyContent: zoomed ? "flex-start" : "center",
+					alignItems: "center",
+					justifyContent: "center",
+					touchAction: "none",
 				}}
 			>
 				<img
+					ref={imgRef}
 					src={fig.url}
 					alt={label}
-					onClick={() => setZoomed((z) => !z)}
+					draggable={false}
 					style={{
-						width: zoomed ? "230%" : "100%",
-						maxWidth: zoomed ? "none" : "100%",
+						width: "100%",
+						maxWidth: "100%",
 						height: "auto",
 						display: "block",
 						background: "#f4f6f5",
-						cursor: zoomed ? "zoom-out" : "zoom-in",
+						transformOrigin: "center center",
+						willChange: "transform",
+						pointerEvents: "none",
 					}}
 				/>
 			</div>
@@ -3754,9 +3940,9 @@ function FigureLightbox({ fig, label, onClose }) {
 					fontSize: 11,
 				}}
 			>
-				{zoomed
-					? "タップで全体表示／スワイプで移動"
-					: "タップでさらに拡大・背景タップで閉じる"}
+				{scaleLabel > 1
+					? `${scaleLabel}×・ドラッグで移動／ダブルタップで戻す`
+					: "ピンチ／ダブルタップで拡大・背景タップで閉じる"}
 			</div>
 		</div>
 	);
