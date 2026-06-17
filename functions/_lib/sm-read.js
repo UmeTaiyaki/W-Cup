@@ -65,10 +65,66 @@ export function mapFixtureRow(row) {
 	};
 }
 
-export async function listFixtures(db, { limit = 120 } = {}) {
+export async function listFixtures(
+	db,
+	{ limit = 120, withEvents = false } = {},
+) {
 	const res = await db.prepare(FIXTURES_SQL).bind(limit).all();
 	const rows = Array.isArray(res?.results) ? res.results : [];
-	return rows.map(mapFixtureRow);
+	const fixtures = rows.map(mapFixtureRow);
+	if (withEvents) {
+		const byFixture = await listKeyEventsByFixture(db);
+		for (const fx of fixtures) fx.events = byFixture.get(fx.id) || [];
+	}
+	return fixtures;
+}
+
+// カルーセル/一覧の試合カードに重ねる軽量イベント（得点・退場）を fixture 単位で索引化する。
+// 表示スコア(CURRENT)に対応する実ゴール(goal/penalty/own_goal)と退場(redcard/yellowredcard)のみ。
+// PK戦ゴール/警告/交代/VAR等は除外。VAR取消ゴールは reconcile 後に落とす。
+// 取り込みデータは大会規模で数百行に収まるため fixture 横断で一括取得し JS でグループ化する。
+// テーブル未作成/クエリ失敗は空 Map（障害隔離）。
+const KEY_EVENTS_SQL = `
+  SELECT sm_event_id, sm_fixture_id, minute, extra_minute, type, type_id,
+         team_id, player_name, player_id, sort_order
+  FROM sm_events
+  WHERE type IN ('goal', 'own_goal', 'penalty', 'redcard', 'yellowredcard', 'var_goal_disallowed')
+  ORDER BY minute ASC, COALESCE(extra_minute, 0) ASC, sort_order ASC`;
+const KEY_EVENT_KEEP = new Set([
+	"goal",
+	"own_goal",
+	"penalty",
+	"redcard",
+	"yellowredcard",
+]);
+export async function listKeyEventsByFixture(db) {
+	try {
+		const res = await db.prepare(KEY_EVENTS_SQL).all();
+		const rows = Array.isArray(res?.results) ? res.results : [];
+		const grouped = new Map();
+		for (const r of rows) {
+			const list = grouped.get(r.sm_fixture_id);
+			if (list) list.push(r);
+			else grouped.set(r.sm_fixture_id, [r]);
+		}
+		const out = new Map();
+		for (const [fid, list] of grouped) {
+			const kept = reconcileVarDisallowedGoals(list)
+				.filter((e) => KEY_EVENT_KEEP.has(e.type))
+				.map((e) => ({
+					minute: e.minute ?? null,
+					extra_minute: e.extra_minute ?? null,
+					type: e.type,
+					team_id: e.team_id ?? null,
+					player_name: e.player_name ?? null,
+				}));
+			out.set(fid, kept);
+		}
+		return out;
+	} catch (e) {
+		console.error("listKeyEventsByFixture failed", e?.message);
+		return new Map();
+	}
 }
 
 // カードイベント（type_id 19=イエロー/20=直接レッド/21=2枚目イエロー）を返す。

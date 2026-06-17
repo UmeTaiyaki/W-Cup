@@ -3,12 +3,25 @@ import { test } from "node:test";
 import {
 	getFixtureDetail,
 	listFixtures,
+	listKeyEventsByFixture,
 	listTopscorers,
 	mapFixtureRow,
 	reconcileVarDisallowedGoals,
 	resolveHighlight,
 	statusFromState,
 } from "./sm-read.js";
+
+// bind なしの .all() を1回返す fake-db（listKeyEventsByFixture 用）。
+function makeKeyEventsDb(rows, { throws = false } = {}) {
+	return {
+		prepare: () => ({
+			all: async () => {
+				if (throws) throw new Error("no table");
+				return { results: rows };
+			},
+		}),
+	};
+}
 
 // fake-db for getFixtureDetail tests
 // dispatches .bind(id).all() by matching table name in the SQL string
@@ -295,6 +308,115 @@ test("reconcileVarDisallowedGoals: VARが無ければそのまま返す", () => 
 	const events = [{ sm_event_id: 1, minute: 10, type: "goal", player_id: 1 }];
 	assert.equal(reconcileVarDisallowedGoals(events), events);
 	assert.deepEqual(reconcileVarDisallowedGoals(null), []);
+});
+
+test("listKeyEventsByFixture: 得点/退場のみ fixture 単位に索引化", async () => {
+	const rows = [
+		{
+			sm_fixture_id: 1,
+			minute: 12,
+			type: "goal",
+			team_id: 10,
+			player_name: "A",
+		},
+		{
+			sm_fixture_id: 1,
+			minute: 30,
+			extra_minute: 2,
+			type: "redcard",
+			team_id: 20,
+			player_name: "B",
+		},
+		// 警告/交代/PK戦ゴールは除外される
+		{ sm_fixture_id: 1, minute: 40, type: "yellowcard", team_id: 10 },
+		{ sm_fixture_id: 1, minute: 41, type: "substitution", team_id: 10 },
+		{ sm_fixture_id: 1, minute: 90, type: "pen_shootout_goal", team_id: 10 },
+		{
+			sm_fixture_id: 2,
+			minute: 5,
+			type: "own_goal",
+			team_id: 30,
+			player_name: "C",
+		},
+	];
+	const out = await listKeyEventsByFixture(makeKeyEventsDb(rows));
+	assert.equal(out.get(1).length, 2);
+	assert.deepEqual(out.get(1)[0], {
+		minute: 12,
+		extra_minute: null,
+		type: "goal",
+		team_id: 10,
+		player_name: "A",
+	});
+	assert.equal(out.get(1)[1].type, "redcard");
+	assert.equal(out.get(1)[1].extra_minute, 2);
+	assert.equal(out.get(2).length, 1);
+	assert.equal(out.get(2)[0].type, "own_goal");
+});
+
+test("listKeyEventsByFixture: VAR取消ゴールは reconcile 後に除外", async () => {
+	const rows = [
+		{
+			sm_event_id: 1,
+			sm_fixture_id: 7,
+			minute: 50,
+			type: "goal",
+			team_id: 10,
+			player_id: 99,
+			player_name: "X",
+		},
+		{
+			sm_event_id: 2,
+			sm_fixture_id: 7,
+			minute: 51,
+			type: "var_goal_disallowed",
+			team_id: 10,
+			player_id: 99,
+			player_name: "X",
+		},
+	];
+	const out = await listKeyEventsByFixture(makeKeyEventsDb(rows));
+	// 取消されたゴールも VAR 行も残らない
+	assert.deepEqual(out.get(7), []);
+});
+
+test("listKeyEventsByFixture: クエリ失敗は空 Map（障害隔離）", async () => {
+	const out = await listKeyEventsByFixture(
+		makeKeyEventsDb([], { throws: true }),
+	);
+	assert.equal(out.size, 0);
+});
+
+test("listFixtures: withEvents で events を同梱", async () => {
+	const fxRows = [
+		{
+			sm_fixture_id: 1,
+			starting_at_ts: 1,
+			state_id: 2,
+			home_team_id: 10,
+			away_team_id: 20,
+		},
+	];
+	const evRows = [
+		{
+			sm_fixture_id: 1,
+			minute: 22,
+			type: "goal",
+			team_id: 10,
+			player_name: "A",
+		},
+	];
+	const db = {
+		prepare: (sql) => ({
+			// FIXTURES_SQL は bind(limit) 経由、KEY_EVENTS_SQL は bind なし .all()
+			bind: () => ({ all: async () => ({ results: fxRows }) }),
+			all: async () => ({ results: evRows }),
+		}),
+	};
+	const out = await listFixtures(db, { limit: 10, withEvents: true });
+	assert.equal(out.length, 1);
+	assert.equal(out[0].events.length, 1);
+	assert.equal(out[0].events[0].player_name, "A");
 });
 
 test("resolveHighlight: manual を最優先で選ぶ", () => {
