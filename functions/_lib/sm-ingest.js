@@ -315,7 +315,9 @@ export function toTopscorerRows(body, seasonId) {
 		.map((d) => ({
 			season_id: seasonId ?? null,
 			player_id: d.player_id,
-			player_name: d?.player?.name ?? null,
+			// 名簿移行(fetch-sm-squads.mjs)が display_name を正本に採用しているため、
+			// 得点王ランキング/自動採点も display_name を優先して表記とエイリアスを一致させる。
+			player_name: d?.player?.display_name ?? d?.player?.name ?? null,
 			team_id: d?.participant_id ?? d?.participant?.id ?? null,
 			app_code: null,
 			goals: typeof d.total === "number" ? d.total : null,
