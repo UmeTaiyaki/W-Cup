@@ -113,7 +113,8 @@
 	}
 
 	function draw(ctx, opts, images) {
-		const { theme, a, b, counts, side } = opts;
+		const { theme, a, b, side } = opts;
+		const h2h = opts.h2h || { aWins: 0, draws: 0, bWins: 0, total: 0 };
 		const cols = theme.colors;
 		const drawShape = window.WC.cheerTheme.drawShape;
 		const shapes = theme.shapes || ["star"];
@@ -192,9 +193,10 @@
 		ctx.fillText(theme.cry, W / 2, 620);
 		ctx.restore();
 
-		// バー
-		const total = Math.max(1, counts.home + counts.away);
-		const homeR = counts.home / total;
+		// バー（通算W-D-L: a勝 / 分 / b勝）
+		const total = Math.max(1, h2h.total);
+		const aR = h2h.aWins / total;
+		const dR = h2h.draws / total;
 		const barX = 130,
 			barY = 720,
 			barW = W - 260,
@@ -205,31 +207,23 @@
 		ctx.fillStyle = "#1b1e24";
 		ctx.fillRect(barX, barY, barW, barH);
 		ctx.fillStyle = "#ff3b6b";
-		ctx.fillRect(barX, barY, barW * homeR, barH);
+		ctx.fillRect(barX, barY, barW * aR, barH);
+		ctx.fillStyle = "#5b606b";
+		ctx.fillRect(barX + barW * aR, barY, barW * dR, barH);
 		ctx.fillStyle = "#5b82e6";
-		ctx.fillRect(barX + barW * homeR, barY, barW * (1 - homeR), barH);
+		ctx.fillRect(barX + barW * (aR + dR), barY, barW * (1 - aR - dR), barH);
 		ctx.restore();
 		// 数値（コードのみ・絵文字なし）
 		ctx.fillStyle = "#ff7a96";
 		ctx.textAlign = "left";
 		ctx.font = "800 36px system-ui, sans-serif";
-		ctx.fillText(
-			Math.round(homeR * 100) + "%  " + (a.code || "") + " " + counts.home,
-			barX,
-			barY + 92,
-		);
+		ctx.fillText((a.code || "") + " " + h2h.aWins + "勝", barX, barY + 92);
+		ctx.fillStyle = "#cfd3da";
+		ctx.textAlign = "center";
+		ctx.fillText(h2h.draws + "分", barX + barW / 2, barY + 92);
 		ctx.fillStyle = "#a9c4ff";
 		ctx.textAlign = "right";
-		ctx.fillText(
-			counts.away +
-				" " +
-				(b.code || "") +
-				"  " +
-				Math.round((1 - homeR) * 100) +
-				"%",
-			barX + barW,
-			barY + 92,
-		);
+		ctx.fillText(h2h.bWins + "勝 " + (b.code || ""), barX + barW, barY + 92);
 
 		// 推しバッジ（星SVG＋テキスト）
 		const my = side === "home" ? a : b;
@@ -280,7 +274,7 @@
 		});
 	}
 
-	// opts: { a, b, side, counts, roundLabel }
+	// opts: { a, b, side, h2h, roundLabel }
 	async function share(opts) {
 		try {
 			const my = opts.side === "home" ? opts.a : opts.b;
