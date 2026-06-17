@@ -17,8 +17,8 @@ export function extractH2HResult(fixture) {
 	let awayId = null;
 	for (const p of parts) {
 		const loc = p && p.meta && p.meta.location;
-		if (loc === "home") homeId = p.id;
-		else if (loc === "away") awayId = p.id;
+		if (loc === "home") homeId = Number(p.id);
+		else if (loc === "away") awayId = Number(p.id);
 	}
 	if (!Number.isFinite(homeId) || !Number.isFinite(awayId)) return null;
 
@@ -27,8 +27,9 @@ export function extractH2HResult(fixture) {
 	let ag = null;
 	for (const s of scores) {
 		if (!s || s.description !== "CURRENT" || !s.score) continue;
-		if (s.score.participant === "home") hg = s.score.goals;
-		else if (s.score.participant === "away") ag = s.score.goals;
+		const g = Number(s.score.goals);
+		if (s.score.participant === "home" && Number.isFinite(g)) hg = g;
+		else if (s.score.participant === "away" && Number.isFinite(g)) ag = g;
 	}
 	if (!Number.isFinite(hg) || !Number.isFinite(ag)) return null;
 	return {

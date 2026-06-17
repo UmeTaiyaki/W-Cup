@@ -491,7 +491,11 @@ function CheerBar({ T, match, a, b }) {
 	let draws = 0;
 	let bWins = 0;
 	let total = 0;
-	if (h2h && h2h.total > 0) {
+	if (
+		h2h &&
+		h2h.total > 0 &&
+		(h2h.home_code === a.code || h2h.home_code === b.code)
+	) {
 		const aIsHome = h2h.home_code === a.code;
 		aWins = aIsHome ? h2h.home_wins : h2h.away_wins;
 		bWins = aIsHome ? h2h.away_wins : h2h.home_wins;

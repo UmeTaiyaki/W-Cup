@@ -102,6 +102,31 @@ test("rowsToH2H: 行を fixtureId キーへ整形", () => {
 	assert.deepEqual(rowsToH2H(null), {});
 });
 
+test("extractH2HResult/aggregateH2H: 文字列型のgoals/idも数値として集計", () => {
+	const strFixture = {
+		participants: [
+			{ id: "18", meta: { location: "home" } },
+			{ id: "83", meta: { location: "away" } },
+		],
+		scores: [
+			{ description: "CURRENT", score: { participant: "home", goals: "2" } },
+			{ description: "CURRENT", score: { participant: "away", goals: "1" } },
+		],
+	};
+	assert.deepEqual(extractH2HResult(strFixture), {
+		home_team_id: 18,
+		away_team_id: 83,
+		home_score: 2,
+		away_score: 1,
+	});
+	assert.deepEqual(aggregateH2H(18, [strFixture]), {
+		home_wins: 1,
+		draws: 0,
+		away_wins: 0,
+		total: 1,
+	});
+});
+
 test("H2H_WINDOW_DAYS は 7", () => {
 	assert.equal(H2H_WINDOW_DAYS, 7);
 });
