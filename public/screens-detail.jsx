@@ -3796,7 +3796,6 @@ function FigureLightbox({ fig, label, onClose }) {
 		pointers.current.delete(e.pointerId);
 		if (pointers.current.size < 2) pinch.current = null;
 		if (pointers.current.size === 0) {
-			const wasPan = pan.current;
 			pan.current = null;
 			if (!moved.current) {
 				const now = e.timeStamp || performance.now();
@@ -3812,14 +3811,8 @@ function FigureLightbox({ fig, label, onClose }) {
 					else zoomAround(2.8, e.clientX, e.clientY);
 				} else {
 					lastTap.current = { t: now, x: e.clientX, y: e.clientY };
-					// 等倍で画像の外(背景)を単タップ → 閉じる。
-					if (
-						tf.current.scale === 1 &&
-						wasPan &&
-						wasPan.target === wrapRef.current
-					) {
-						onClose();
-					}
+					// 単タップでの「背景で閉じる」は click イベント側(handleBackdrop)で行う。
+					// pointerup で閉じると、消滅後の click が下の図表に抜けて再オープンするため。
 				}
 			}
 			clamp();
@@ -3831,6 +3824,24 @@ function FigureLightbox({ fig, label, onClose }) {
 		e.preventDefault();
 		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
 		zoomAround(tf.current.scale * factor, e.clientX, e.clientY);
+	};
+
+	// 背景(=画像の外側)の単タップで閉じる。pointerup ではなく click で行うことで、
+	// 閉じた後の合成 click が下の図表に抜けて再オープンするゴーストクリックを防ぐ。
+	// img は pointer-events:none のため target で判別できず、クリック座標が画像矩形の外かで判定する。
+	const handleBackdrop = (e) => {
+		if (moved.current) return; // パン/ピンチ直後は閉じない
+		const img = imgRef.current;
+		if (img) {
+			const r = img.getBoundingClientRect();
+			const inside =
+				e.clientX >= r.left &&
+				e.clientX <= r.right &&
+				e.clientY >= r.top &&
+				e.clientY <= r.bottom;
+			if (inside) return; // 画像内タップは閉じない（ズーム操作用）
+		}
+		onClose();
 	};
 
 	React.useEffect(() => {
@@ -3849,12 +3860,13 @@ function FigureLightbox({ fig, label, onClose }) {
 	}, [onClose]);
 
 	if (!fig) return null;
-	return (
+	const overlay = (
 		<div
+			onClick={handleBackdrop}
 			style={{
 				position: "fixed",
 				inset: 0,
-				zIndex: 9999,
+				zIndex: 99999,
 				background: "rgba(8,12,10,0.96)",
 				display: "flex",
 				flexDirection: "column",
@@ -3865,6 +3877,7 @@ function FigureLightbox({ fig, label, onClose }) {
 		>
 			{/* ヘッダ（ラベル＋閉じる） */}
 			<div
+				onClick={(e) => e.stopPropagation()}
 				style={{
 					display: "flex",
 					alignItems: "center",
@@ -3946,6 +3959,13 @@ function FigureLightbox({ fig, label, onClose }) {
 			</div>
 		</div>
 	);
+	// 変形を持つ祖先(画面遷移アニメ等)の影響で position:fixed がズレるのを防ぐため、
+	// アプリ最前面アンカー(#wc-app-root)直下へ portal する。
+	const root =
+		(typeof document !== "undefined" &&
+			document.getElementById("wc-app-root")) ||
+		(typeof document !== "undefined" && document.body);
+	return root ? ReactDOM.createPortal(overlay, root) : overlay;
 }
 
 function ReportTab({ T, detail }) {
