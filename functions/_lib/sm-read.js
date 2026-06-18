@@ -313,10 +313,15 @@ const TOPSCORERS_SQL = `
   FROM sm_topscorers t
   LEFT JOIN sm_teams m ON m.sm_team_id = t.team_id
   WHERE t.season_id = ?
-  ORDER BY t.position ASC
-  LIMIT ?`;
+  ORDER BY t.position ASC`;
 
-export async function listTopscorers(db, seasonId, { limit = 30 } = {}) {
-	const res = await db.prepare(TOPSCORERS_SQL).bind(seasonId, limit).all();
+// limit 未指定なら全件（1点の選手まで）。limit 指定時のみ LIMIT 句を付ける。
+export async function listTopscorers(db, seasonId, { limit } = {}) {
+	const sql = limit != null ? `${TOPSCORERS_SQL}\n  LIMIT ?` : TOPSCORERS_SQL;
+	const args = limit != null ? [seasonId, limit] : [seasonId];
+	const res = await db
+		.prepare(sql)
+		.bind(...args)
+		.all();
 	return Array.isArray(res?.results) ? res.results : [];
 }
