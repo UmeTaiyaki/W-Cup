@@ -1266,7 +1266,8 @@ function HomeScreen({ T }) {
 		);
 	}
 
-	const today = window.WC.jstToday();
+	// JST 22時以降は当日分を締めて翌日の試合へ前倒し表示する。
+	const today = window.WC.jstToday(Date.now(), 22);
 	const focusDate = window.WC.pickFocusDate(
 		groups.map((g) => g.date),
 		today,
