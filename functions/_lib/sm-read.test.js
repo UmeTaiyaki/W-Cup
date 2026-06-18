@@ -256,6 +256,39 @@ test("listTopscorers: results 欠落でも空配列（例外なし）", async ()
 	assert.deepEqual(rows, []);
 });
 
+test("listTopscorers は limit 未指定なら全件（LIMIT 句なし）で返す", async () => {
+	let captured;
+	const db = {
+		prepare: (sql) => ({
+			bind: (...args) => {
+				captured = { sql, args };
+				return { all: async () => ({ results: [] }) };
+			},
+		}),
+	};
+	await listTopscorers(db, 26618);
+	assert.ok(
+		!/LIMIT/i.test(captured.sql),
+		"LIMIT 句を含めない（1点の選手まで全員）",
+	);
+	assert.deepEqual(captured.args, [26618]);
+});
+
+test("listTopscorers は limit 指定時のみ LIMIT 句を付ける", async () => {
+	let captured;
+	const db = {
+		prepare: (sql) => ({
+			bind: (...args) => {
+				captured = { sql, args };
+				return { all: async () => ({ results: [] }) };
+			},
+		}),
+	};
+	await listTopscorers(db, 26618, { limit: 10 });
+	assert.ok(/LIMIT/i.test(captured.sql), "LIMIT 句を含める");
+	assert.deepEqual(captured.args, [26618, 10]);
+});
+
 test("reconcileVarDisallowedGoals: 同一選手の直近ゴールを取消へ統合しVAR行を畳む", () => {
 	// 韓国vsチェコ実データ: 77' Souček goal(D1残存) + 78' var_goal_disallowed
 	const events = [
