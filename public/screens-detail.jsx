@@ -2457,6 +2457,28 @@ function PlayerSheet({ T, player, onClose }) {
 						</div>
 					)}
 
+				{/* 試合後マッチレート（試合後のみ・出場選手に表示） */}
+				{player.rating != null && (
+					<div style={{ padding: "2px 18px 10px", flexShrink: 0 }}>
+						<div
+							style={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								background: "rgba(255,255,255,0.05)",
+								border: "1px solid " + T.line,
+								borderRadius: 12,
+								padding: "10px 14px",
+							}}
+						>
+							<span style={{ fontSize: 13, fontWeight: 800, color: T.text }}>
+								マッチレート
+							</span>
+							<RatingBadge value={player.rating} size="lg" />
+						</div>
+					</div>
+				)}
+
 				{/* スタッツ本体 */}
 				<div
 					style={{
@@ -2730,6 +2752,46 @@ function isGoalkeeper(player) {
 const GK_ACCENT = "#f59e0b";
 const GK_INK = "#3a2400";
 
+// ── RatingBadge: 試合後マッチレート（SportMonks Rating, type_id=118）────────
+// 0–10 の選手評価を色分けした数値バッジで表示（参考: SofaScore）。高いほど緑、
+// 低いほど橙〜赤。値が無い（試合前/未出場/未充填）なら null を返し非表示にする
+// （graceful degradation）。size: sm=ドット/控え用 / lg=選手シート用。
+function ratingPalette(v) {
+	if (v >= 8.0) return { bg: "#1f9d57", ink: "#04210f" }; // 傑出（濃い緑）
+	if (v >= 7.0) return { bg: "#4fb06a", ink: "#07240f" }; // 良
+	if (v >= 6.5) return { bg: "#d7b13f", ink: "#2a2000" }; // 平均
+	return { bg: "#dd7a52", ink: "#2a1000" }; // 平均以下（橙〜赤）
+}
+function RatingBadge({ value, size = "sm" }) {
+	const v = Number(value);
+	if (value == null || !Number.isFinite(v)) return null;
+	const pal = ratingPalette(v);
+	const dims =
+		size === "lg"
+			? { fontSize: 17, padding: "4px 12px", minWidth: 46, radius: 9 }
+			: { fontSize: 11, padding: "1.5px 5px", minWidth: 24, radius: 5 };
+	return (
+		<span
+			style={{
+				display: "inline-block",
+				background: pal.bg,
+				color: pal.ink,
+				fontWeight: 900,
+				fontSize: dims.fontSize,
+				lineHeight: 1.25,
+				padding: dims.padding,
+				minWidth: dims.minWidth,
+				textAlign: "center",
+				borderRadius: dims.radius,
+				fontVariantNumeric: "tabular-nums",
+				boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+			}}
+		>
+			{v.toFixed(1)}
+		</span>
+	);
+}
+
 // ── PlayerAvatar: 顔写真の丸（PlayerDot/BenchList 共用） ───────────────────
 // 画像が無い/読み込み失敗時は背番号の色付き丸へフォールバック（graceful degradation）。
 // overflow:hidden で写真を円形にクリップ。バッジ類は呼び出し側が外側に重ねる。
@@ -2820,6 +2882,19 @@ function PlayerDot({ T, player, ev, topPct, leftPct, onTap }) {
 			}}
 		>
 			<PlayerAvatar T={T} player={player} size={SIZE} />
+			{/* マッチレート（左上・試合後のみ。他マーク=右上/右下/左下と非干渉） */}
+			{player.rating != null && (
+				<div
+					style={{
+						position: "absolute",
+						top: -8,
+						left: -8,
+						zIndex: 3,
+					}}
+				>
+					<RatingBadge value={player.rating} size="sm" />
+				</div>
+			)}
 			{/* カード（右上・赤系優先） */}
 			{(hasRed || hasYellow) && (
 				<div
@@ -3178,6 +3253,8 @@ function BenchList({ T, bench, onTapPlayer, events }) {
 									{positionLabel(p.position)}
 								</span>
 							)}
+							{/* 試合後マッチレート（最右端・試合後のみ） */}
+							{p.rating != null && <RatingBadge value={p.rating} size="sm" />}
 						</span>
 					</div>
 				);
@@ -3261,10 +3338,23 @@ function LineupTab({ T, detail }) {
 	const selectedTeamId = side === "home" ? homeTeamId : awayTeamId;
 	const selectedAppCode = side === "home" ? homeAppCode : awayAppCode;
 
-	// 選択チームのlineup行（_appCodeを付加しておく）
+	// 試合後マッチレート(type_id=118)を player_id → 値で索引化。
+	// player_stats(縦持ち)は既にフロントへ渡っており、追加取得は不要。
+	const ratingByPlayer = {};
+	((detail && detail.player_stats) || []).forEach((r) => {
+		if (r.player_id != null && r.type_id === 118 && r.value != null)
+			ratingByPlayer[r.player_id] = r.value;
+	});
+
+	// 選択チームのlineup行（_appCode と rating を付加しておく）
 	const teamLineups = lineups
 		.filter((p) => p.team_id === selectedTeamId)
-		.map((p) => Object.assign({}, p, { _appCode: selectedAppCode }));
+		.map((p) =>
+			Object.assign({}, p, {
+				_appCode: selectedAppCode,
+				rating: ratingByPlayer[p.player_id] ?? null,
+			}),
+		);
 
 	const starters = teamLineups.filter(
 		(p) => p.is_start === 1 || p.is_start === true,
