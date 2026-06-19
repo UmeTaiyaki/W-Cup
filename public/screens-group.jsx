@@ -295,6 +295,10 @@ function LeagueTables({ T }) {
 		const members = (groups[k] || []).filter(Boolean);
 		const rows = standingsByGroup[k];
 		const live = isGroupLive(k);
+		// 数学的に確定したチームの突破/敗退/1位状態（残り試合の全シナリオ判定）。
+		const clinch = window.WC.computeClinchStatus
+			? window.WC.computeClinchStatus(members, matches[k] || [])
+			: {};
 		// フォールバック: 最終順位の並び（数値なし）
 		const order = (gr[k] || []).filter(Boolean);
 		const fallback = order.length
@@ -383,6 +387,14 @@ function LeagueTables({ T }) {
 								const tm = TEAM[r.code];
 								if (!tm) return null;
 								const adv = isAdvancing(k, i);
+								const cs = clinch[r.code] || {};
+								const badge = cs.won
+									? { t: "1位確定", c: T.gold }
+									: cs.qualified
+										? { t: "突破", c: ADV_GREEN }
+										: cs.eliminated
+											? { t: "敗退", c: T.faint }
+											: null;
 								const posColor =
 									i === 0
 										? T.gold
@@ -429,6 +441,23 @@ function LeagueTables({ T }) {
 											{tm.ja}
 											<span style={{ color: T.faint, marginLeft: 3 }}>›</span>
 										</span>
+										{badge && (
+											<span
+												style={{
+													flexShrink: 0,
+													fontFamily: "Archivo",
+													fontWeight: 900,
+													fontSize: 9,
+													lineHeight: 1,
+													padding: "2px 5px",
+													borderRadius: 6,
+													color: badge.c,
+													background: badge.c + "22",
+												}}
+											>
+												{badge.t}
+											</span>
+										)}
 										<span
 											style={{
 												width: 28,
@@ -583,7 +612,15 @@ function LeagueTables({ T }) {
 // ---- ②ノックアウト（ホームと同じ KnockoutView を実結果で）----
 function KnockoutResults({ T }) {
 	const R = window.WC.RESULT || {};
-	const gr = window.WC.GROUP_RESULT || {};
+	const baseGr = window.WC.GROUP_RESULT || {};
+	// 全試合確定前でも、数学的に順位確定した枠（1位/2位確定）は実チームを配置する。
+	const gr = window.WC.clinchGroupRank
+		? window.WC.clinchGroupRank(
+				window.WC.GROUPS || {},
+				window.WC.GROUP_MATCHES || {},
+				baseGr,
+			)
+		: baseGr;
 	const TEAM = window.WC.TEAM || {};
 	const ROUNDS = ["r32", "r16", "qf", "sf"];
 	const LABELS = {

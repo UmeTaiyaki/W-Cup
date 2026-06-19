@@ -184,3 +184,133 @@ export function provisionalGroupResult(
 	}
 	return out;
 }
+
+// FT のみ決着済み。LIVE/未開催は残り（未確定）扱い。
+function isSettled(m) {
+	return m && m.status === "FT" && isNum(m.ga) && isNum(m.gb);
+}
+const _pairKey = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
+
+// members（最大4）と matches から各チームの突破/敗退クリンチ状態を返す。
+// 残り試合（FT以外）の全 W/D/L シナリオ（3^n, n≤6）を列挙する勝点ベースの保守判定。
+// 同点は「上位候補（>=）」として数え、確定と判定したものは必ず正しい。
+// 返り値: { [code]: { qualified, won, eliminated, secondLocked } }
+//   qualified    : 2位以内確定（突破確定）
+//   won          : 単独1位確定
+//   eliminated   : 2位以内不可能（敗退確定）
+//   secondLocked : ちょうど2位で確定（ブラケットA2配置用）
+export function computeClinchStatus(members = [], matches = []) {
+	const teams = (members || []).filter(Boolean);
+	const out = {};
+	for (const c of teams)
+		out[c] = {
+			qualified: false,
+			won: false,
+			eliminated: false,
+			secondLocked: false,
+		};
+	if (teams.length < 2) return out;
+
+	// 決着済み試合の確定勝点
+	const basePts = {};
+	for (const c of teams) basePts[c] = 0;
+	const settled = new Set();
+	for (const m of matches || []) {
+		if (!isSettled(m)) continue;
+		if (!(m.a in basePts) || !(m.b in basePts)) continue;
+		settled.add(_pairKey(m.a, m.b));
+		if (m.ga > m.gb) basePts[m.a] += 3;
+		else if (m.ga < m.gb) basePts[m.b] += 3;
+		else {
+			basePts[m.a] += 1;
+			basePts[m.b] += 1;
+		}
+	}
+
+	// 残り試合 = 全ペアリング − 決着済み
+	const remaining = generateFixtures(teams).filter(
+		(p) => !settled.has(_pairKey(p.a, p.b)),
+	);
+
+	const agg = {};
+	for (const c of teams) agg[c] = { maxGe: 0, minGt: Infinity };
+
+	const n = remaining.length;
+	const total = 3 ** n;
+	for (let s = 0; s < total; s++) {
+		const pts = { ...basePts };
+		let x = s;
+		for (let i = 0; i < n; i++) {
+			const o = x % 3;
+			x = (x / 3) | 0;
+			const { a, b } = remaining[i];
+			if (o === 0)
+				pts[a] += 3; // home勝
+			else if (o === 2)
+				pts[b] += 3; // away勝
+			else {
+				pts[a] += 1; // 引分
+				pts[b] += 1;
+			}
+		}
+		for (const c of teams) {
+			let ge = 0;
+			let gt = 0;
+			for (const d of teams) {
+				if (d === c) continue;
+				if (pts[d] >= pts[c]) ge++;
+				if (pts[d] > pts[c]) gt++;
+			}
+			if (ge > agg[c].maxGe) agg[c].maxGe = ge;
+			if (gt < agg[c].minGt) agg[c].minGt = gt;
+		}
+	}
+
+	for (const c of teams) {
+		const a = agg[c];
+		if (a.minGt === Infinity) a.minGt = 0;
+		out[c].qualified = a.maxGe <= 1; // 全シナリオで自分以上が1以下→top2確定
+		out[c].won = a.maxGe === 0; // 全シナリオで自分以上が0→単独1位確定
+		out[c].eliminated = a.minGt >= 2; // 全シナリオで自分超が2以上→top2不可
+		out[c].secondLocked = out[c].qualified && a.minGt >= 1; // top2確定かつ常時1チーム上→ちょうど2位
+	}
+	return out;
+}
+
+// 全グループのクリンチ状態を一括算出。
+// 返り値: { [g]: { [code]: {qualified, won, eliminated, secondLocked} } }
+export function computeAllClinch(groups = {}, groupMatches = {}) {
+	const out = {};
+	for (const g of Object.keys(groups || {})) {
+		out[g] = computeClinchStatus(
+			(groups[g] || []).filter(Boolean),
+			(groupMatches || {})[g] || [],
+		);
+	}
+	return out;
+}
+
+// ブラケット用：確定スロットのみ埋めた groupRank を返す。
+// base[g]（GROUP_RESULT。全試合確定後の最終順位）に値があればそれを優先、
+// 無ければクリンチ判定で 1位確定→[0]、2位確定→[1] のみ埋める（3位は常に null）。
+// 返り値: { [g]: [first|null, second|null, null] }
+export function clinchGroupRank(groups = {}, groupMatches = {}, base = {}) {
+	const out = {};
+	const clinch = computeAllClinch(groups, groupMatches);
+	for (const g of Object.keys(groups || {})) {
+		const b = (base || {})[g];
+		if (Array.isArray(b) && b.filter(Boolean).length) {
+			out[g] = b.slice();
+			continue;
+		}
+		const st = clinch[g] || {};
+		let first = null;
+		let second = null;
+		for (const c of Object.keys(st)) {
+			if (st[c].won) first = c;
+			else if (st[c].secondLocked) second = c;
+		}
+		out[g] = [first, second, null];
+	}
+	return out;
+}
