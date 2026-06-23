@@ -666,9 +666,14 @@ function KnockoutResults({ T }) {
 	if (thirdProvisional) {
 		for (const c of Object.values(ta)) if (c) provSet.add(c);
 	}
-	const der = window.WC.deriveKnockoutFromSets
-		? window.WC.deriveKnockoutFromSets(gr, ta, R.knockout || {})
-		: null;
+	// R.knockout は「各ラウンド到達チーム集合」。各カードの勝者は「次ラウンド到達側」
+	// なので deriveKnockoutFromAppeared で 1 ラウンドずらして判定する（試合前の誤勝者表示を防止）。
+	const finalists = [R.champion, R.runnerUp].filter(Boolean);
+	const der = window.WC.deriveKnockoutFromAppeared
+		? window.WC.deriveKnockoutFromAppeared(gr, ta, R.knockout || {}, finalists)
+		: window.WC.deriveKnockoutFromSets
+			? window.WC.deriveKnockoutFromSets(gr, ta, R.knockout || {})
+			: null;
 	const champ = R.champion ? TEAM[R.champion] : null;
 
 	// 進出国が未確定でも、各枠の出自（A組1位など）は決まっているので
