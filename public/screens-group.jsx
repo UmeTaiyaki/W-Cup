@@ -613,14 +613,32 @@ function LeagueTables({ T }) {
 function KnockoutResults({ T }) {
 	const R = window.WC.RESULT || {};
 	const baseGr = window.WC.GROUP_RESULT || {};
-	// 全試合確定前でも、数学的に順位確定した枠（1位/2位確定）は実チームを配置する。
-	const gr = window.WC.clinchGroupRank
-		? window.WC.clinchGroupRank(
-				window.WC.GROUPS || {},
-				window.WC.GROUP_MATCHES || {},
-				baseGr,
-			)
-		: baseGr;
+	const GROUPS = window.WC.GROUPS || {};
+	const GM = window.WC.GROUP_MATCHES || {};
+	// タイブレーカー⑦⑧（順位表タブと同じ条件で暫定順位を一致させる）。
+	const tieOpts = {
+		fairPlay: window.WC.FAIR_PLAY || {},
+		fifaRank: window.WC.FIFA_RANK || {},
+	};
+	// 確定枠（base/クリンチ）はそのまま、未確定枠は現在の暫定順位で補完する。
+	// provFlags[g][i]=true の枠は暫定配置 → 後で「暫定」マーカーを付ける。
+	const pgr = window.WC.provisionalGroupRank
+		? window.WC.provisionalGroupRank(GROUPS, GM, baseGr, tieOpts)
+		: {
+				rank: window.WC.clinchGroupRank
+					? window.WC.clinchGroupRank(GROUPS, GM, baseGr)
+					: baseGr,
+				provisional: {},
+			};
+	const gr = pgr.rank;
+	const provFlags = pgr.provisional || {};
+	// 暫定配置されたチームコードの集合（KnockoutView の「暫定」表示用）。
+	const provSet = new Set();
+	for (const g of Object.keys(provFlags)) {
+		(provFlags[g] || []).forEach((isP, i) => {
+			if (isP && gr[g] && gr[g][i]) provSet.add(gr[g][i]);
+		});
+	}
 	const TEAM = window.WC.TEAM || {};
 	const ROUNDS = ["r32", "r16", "qf", "sf"];
 	const LABELS = {
@@ -630,11 +648,24 @@ function KnockoutResults({ T }) {
 		sf: "準決勝",
 	};
 	// 3位枠は thirdGroups（実際に通過した8組）から FIFA Annex C で自動割当。
-	// 旧データ（手動 thirdAssign）も後方互換で温存。
+	// 確定 thirdGroups が無ければ現在順位の暫定 best8 で割当し、該当枠は暫定扱い。
+	let thirdGroups =
+		R.thirdGroups && R.thirdGroups.length ? R.thirdGroups : null;
+	let thirdProvisional = false;
+	if (!thirdGroups && window.WC.provisionalThirdGroups) {
+		const pt = window.WC.provisionalThirdGroups(GROUPS, GM, tieOpts);
+		if (pt.length === 8) {
+			thirdGroups = pt;
+			thirdProvisional = true;
+		}
+	}
 	const ta =
-		R.thirdGroups && R.thirdGroups.length && window.WC.resolveThirdAssign
-			? window.WC.resolveThirdAssign(gr, R.thirdGroups)
+		thirdGroups && window.WC.resolveThirdAssign
+			? window.WC.resolveThirdAssign(gr, thirdGroups)
 			: R.thirdAssign || {};
+	if (thirdProvisional) {
+		for (const c of Object.values(ta)) if (c) provSet.add(c);
+	}
 	const der = window.WC.deriveKnockoutFromSets
 		? window.WC.deriveKnockoutFromSets(gr, ta, R.knockout || {})
 		: null;
@@ -661,19 +692,54 @@ function KnockoutResults({ T }) {
 		);
 	}
 	return (
-		<window.KnockoutView
-			T={T}
-			der={der}
-			champ={champ}
-			ROUNDS={ROUNDS}
-			LABELS={LABELS}
-			champEmptyLabel="優勝"
-			onMatchTap={(a, b) => {
-				const id =
-					window.WC.fixtureIdForMatch && window.WC.fixtureIdForMatch({ a, b });
-				if (id != null) window.WC.openDetail && window.WC.openDetail(id);
-			}}
-		/>
+		<div>
+			{provSet.size > 0 && (
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 6,
+						margin: "0 0 10px",
+						fontSize: 11.5,
+						fontWeight: 700,
+						color: T.faint,
+						lineHeight: 1.4,
+					}}
+				>
+					<span
+						style={{
+							flexShrink: 0,
+							fontSize: 9,
+							fontWeight: 800,
+							lineHeight: 1,
+							letterSpacing: 0.3,
+							padding: "2px 4px",
+							borderRadius: 4,
+							color: "#92400E",
+							background: "#FCD34D",
+						}}
+					>
+						暫定
+					</span>
+					＝現在の順位による配置（試合の進行でリアルタイムに変わります）
+				</div>
+			)}
+			<window.KnockoutView
+				T={T}
+				der={der}
+				champ={champ}
+				ROUNDS={ROUNDS}
+				LABELS={LABELS}
+				provisional={provSet}
+				champEmptyLabel="優勝"
+				onMatchTap={(a, b) => {
+					const id =
+						window.WC.fixtureIdForMatch &&
+						window.WC.fixtureIdForMatch({ a, b });
+					if (id != null) window.WC.openDetail && window.WC.openDetail(id);
+				}}
+			/>
+		</div>
 	);
 }
 
