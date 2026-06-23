@@ -314,3 +314,67 @@ export function clinchGroupRank(groups = {}, groupMatches = {}, base = {}) {
 	}
 	return out;
 }
+
+// ブラケット用：確定（base/クリンチ）を最優先しつつ、未確定の枠は現在の暫定順位で埋める。
+// 順位表タブ（LeagueTables）と同じ computeStandings 順を使うため、表とトーナメント配置が一致する。
+// 返り値 { rank: {[g]:[c1,c2,c3]}, provisional: {[g]:[b1,b2,b3]} }
+//   rank[g][i]        : i 位のチームコード（確定 or 暫定。スコア未投入の組は null）
+//   provisional[g][i] : その枠が暫定（現在順位由来で未確定）なら true。確定枠は false。
+export function provisionalGroupRank(
+	groups = {},
+	groupMatches = {},
+	base = {},
+	opts = {},
+) {
+	const confirmed = clinchGroupRank(groups, groupMatches, base);
+	const rank = {};
+	const provisional = {};
+	for (const g of Object.keys(groups || {})) {
+		const members = (groups[g] || []).filter(Boolean);
+		const ms = (groupMatches || {})[g] || [];
+		const hasScores = ms.some((m) => isNum(m.ga) && isNum(m.gb));
+		const rows = hasScores ? computeStandings(members, ms, opts) : [];
+		const conf = confirmed[g] || [null, null, null];
+		const out = [null, null, null];
+		const prov = [false, false, false];
+		for (let i = 0; i < 3; i++) {
+			if (conf[i]) {
+				out[i] = conf[i]; // 確定枠を優先
+			} else if (rows[i]) {
+				out[i] = rows[i].code; // 暫定順位で補完
+				prov[i] = true;
+			}
+		}
+		rank[g] = out;
+		provisional[g] = prov;
+	}
+	return { rank, provisional };
+}
+
+// 3位通過（暫定）: 各組の暫定3位を成績順（勝点→得失差→総得点→組記号）に並べ、
+// 上位8組の組記号（昇順）を返す。8組ぶんの3位が揃わなければ満たない配列を返す
+// （呼び出し側は length===8 で割当可否を判断する）。LeagueTables の thirdAdvance と同ロジック。
+export function provisionalThirdGroups(
+	groups = {},
+	groupMatches = {},
+	opts = {},
+) {
+	const thirds = [];
+	for (const g of Object.keys(groups || {})) {
+		const members = (groups[g] || []).filter(Boolean);
+		const ms = (groupMatches || {})[g] || [];
+		const hasScores = ms.some((m) => isNum(m.ga) && isNum(m.gb));
+		if (!hasScores) continue;
+		const rows = computeStandings(members, ms, opts);
+		const r = rows[2];
+		if (r) thirds.push({ g, pts: r.pts, gd: r.gd, gf: r.gf });
+	}
+	thirds.sort(
+		(x, y) =>
+			y.pts - x.pts || y.gd - x.gd || y.gf - x.gf || (x.g < y.g ? -1 : 1),
+	);
+	return thirds
+		.slice(0, 8)
+		.map((t) => t.g)
+		.sort();
+}

@@ -732,50 +732,83 @@ function KnockoutView({
 	LABELS,
 	champEmptyLabel = "優勝予想",
 	onMatchTap,
+	provisional,
 }) {
 	const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
 	const wrapRef = React.useRef(null);
 	const avail = window.useContainerWidth(wrapRef);
 	const [squadCode, setSquadCode] = React.useState(null);
+	// 暫定配置（現在順位由来で未確定）のチームコード集合。結果タブのみ供給される。
+	const provSet = provisional || null;
+	const isProv = (team) => team && provSet && provSet.has(team);
 
-	const TeamRow = ({ team, isWinner, dimmed, half, placeholder }) => (
-		<div
-			onClick={() => team && setSquadCode(team)}
-			style={{
-				display: "flex",
-				alignItems: "center",
-				gap: 8,
-				width: "100%",
-				height: half,
-				background: isWinner ? T.accent : "transparent",
-				padding: "0 10px",
-				borderRadius: isWinner ? 10 : 0,
-				opacity: dimmed ? 0.4 : 1,
-				minWidth: 0,
-				cursor: team ? "pointer" : "default",
-			}}
-		>
-			{team ? (
-				<Flag code={team} size={18} style={{ flexShrink: 0 }} />
-			) : (
-				<span style={{ fontSize: 18, flexShrink: 0 }}>⚪️</span>
-			)}
-			<span
+	const TeamRow = ({ team, isWinner, dimmed, half, placeholder }) => {
+		const prov = isProv(team) && !isWinner;
+		return (
+			<div
+				onClick={() => team && setSquadCode(team)}
 				style={{
-					fontSize: team ? 13.5 : 12,
-					fontWeight: team ? 800 : 700,
-					whiteSpace: "nowrap",
-					overflow: "hidden",
-					textOverflow: "ellipsis",
-					flex: 1,
-					color: isWinner ? T.accentInk : team ? T.text : T.faint,
+					display: "flex",
+					alignItems: "center",
+					gap: 8,
+					width: "100%",
+					height: half,
+					background: isWinner ? T.accent : "transparent",
+					padding: "0 10px",
+					borderRadius: isWinner ? 10 : 0,
+					opacity: dimmed ? 0.4 : 1,
+					minWidth: 0,
+					cursor: team ? "pointer" : "default",
 				}}
 			>
-				{team ? window.WC.TEAM[team]?.ja : placeholder || "未定"}
-			</span>
-			{isWinner && <Icon name="check" size={14} color={T.accentInk} sw={2.6} />}
-		</div>
-	);
+				{team ? (
+					<Flag code={team} size={18} style={{ flexShrink: 0 }} />
+				) : (
+					<span style={{ fontSize: 18, flexShrink: 0 }}>⚪️</span>
+				)}
+				<span
+					style={{
+						fontSize: team ? 13.5 : 12,
+						fontWeight: team ? 800 : 700,
+						fontStyle: prov ? "italic" : "normal",
+						whiteSpace: "nowrap",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						flex: 1,
+						color: isWinner
+							? T.accentInk
+							: prov
+								? T.sub
+								: team
+									? T.text
+									: T.faint,
+					}}
+				>
+					{team ? window.WC.TEAM[team]?.ja : placeholder || "未定"}
+				</span>
+				{prov && (
+					<span
+						style={{
+							flexShrink: 0,
+							fontSize: 9,
+							fontWeight: 800,
+							lineHeight: 1,
+							letterSpacing: 0.3,
+							padding: "2px 4px",
+							borderRadius: 4,
+							color: "#92400E",
+							background: "#FCD34D",
+						}}
+					>
+						暫定
+					</span>
+				)}
+				{isWinner && (
+					<Icon name="check" size={14} color={T.accentInk} sw={2.6} />
+				)}
+			</div>
+		);
+	};
 
 	const rowH = 50,
 		cardH = 46,

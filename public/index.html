@@ -88,7 +88,7 @@
     import { THIRD_ALLOCATION, thirdAllocation } from './lib/third-allocation.js';
     import { SCORING, scoreMember, normalize, canonicalKey, resolve } from './lib/scoring.js';
     import { buildAliasMap, upsertAlias, rosterCanonicalSet, autoMatchScorer } from './lib/scorer-alias.js';
-    import { generateFixtures, computeStandings, provisionalGroupResult, computeClinchStatus, computeAllClinch, clinchGroupRank } from './lib/standings.js';
+    import { generateFixtures, computeStandings, provisionalGroupResult, computeClinchStatus, computeAllClinch, clinchGroupRank, provisionalGroupRank, provisionalThirdGroups } from './lib/standings.js';
     import { availableCards, groupTop2, parseScorer, shareFilename, shareText } from './lib/share-model.js';
     import { drawShareCard } from './lib/share-draw.js';
     import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
@@ -98,7 +98,7 @@
     window.WC = window.WC || {};
     window.WC.teamsLib = { parseFavs, toggleFav, teamFixtures, groupOf };
     window.WC.aiLib = { validateDoc, validateTeam, unknownPicks, getTeamAnalysis, hasAnalysis };
-    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings, provisionalGroupResult, computeClinchStatus, computeAllClinch, clinchGroupRank });
+    Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings, provisionalGroupResult, computeClinchStatus, computeAllClinch, clinchGroupRank, provisionalGroupRank, provisionalThirdGroups });
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
     Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday });
     Object.assign(window.WC, { normalize, canonicalKey, resolve, buildAliasMap, upsertAlias, rosterCanonicalSet, autoMatchScorer });
@@ -131,11 +131,11 @@
   <script type="text/babel" src="screens-core.jsx?v=17"></script>
   <script type="text/babel" src="screens-knockout.jsx?v=8"></script>
   <script type="text/babel" src="screens-rank.jsx?v=10"></script>
-  <script type="text/babel" src="screens-group.jsx?v=16"></script>
+  <script type="text/babel" src="screens-group.jsx?v=17"></script>
   <script type="text/babel" src="screens-grouprank.jsx?v=8"></script>
   <script type="text/babel" src="screens-thirdwild.jsx?v=9"></script>
   <script type="text/babel" src="screens-share.jsx?v=5"></script>
-  <script type="text/babel" src="screens-optview.jsx?v=12"></script>
+  <script type="text/babel" src="screens-optview.jsx?v=13"></script>
   <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=11"></script>
   <script type="text/babel" src="screens-home.jsx?v=24"></script>
