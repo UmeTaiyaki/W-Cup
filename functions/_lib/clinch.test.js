@@ -32,7 +32,9 @@ test("全試合FT: 1位確定・2位確定・敗退確定が正しく出る", ()
 		eliminated: false,
 		secondLocked: true,
 	});
-	assert.equal(s.Y.eliminated, true);
+	// Y は3位確定。2026は各組3位上位8組も通過するため敗退とはしない。
+	assert.equal(s.Y.eliminated, false);
+	// Z は4位確定（3位以内不可）＝真の敗退。
 	assert.equal(s.Z.eliminated, true);
 });
 

@@ -271,7 +271,7 @@ export function computeClinchStatus(members = [], matches = []) {
 		if (a.minGt === Infinity) a.minGt = 0;
 		out[c].qualified = a.maxGe <= 1; // 全シナリオで自分以上が1以下→top2確定
 		out[c].won = a.maxGe === 0; // 全シナリオで自分以上が0→単独1位確定
-		out[c].eliminated = a.minGt >= 2; // 全シナリオで自分超が2以上→top2不可
+		out[c].eliminated = a.minGt >= 3; // 全シナリオで自分超が2以上→top2不可
 		out[c].secondLocked = out[c].qualified && a.minGt >= 1; // top2確定かつ常時1チーム上→ちょうど2位
 	}
 	return out;
