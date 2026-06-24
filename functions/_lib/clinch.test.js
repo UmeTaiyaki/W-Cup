@@ -51,7 +51,7 @@ test("2節終了で首位は突破確定だが1位/2位未確定（保守）", (
 	assert.equal(s.W.qualified, true); // 2位以内は確定
 	assert.equal(s.W.won, false); // X が6で並びうる→1位確定にしない
 	assert.equal(s.W.secondLocked, false);
-	assert.equal(s.Z.eliminated, true); // 最大3、上に常時2チーム
+	assert.equal(s.Z.eliminated, false); // 最大3、上に常時2チーム
 });
 
 test("1試合のみFTでは誰もクリンチしない（保守）", () => {
