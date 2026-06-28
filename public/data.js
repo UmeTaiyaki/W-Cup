@@ -343,7 +343,11 @@
 	// 手動(config.result)が非空なら手動優先。空フィールドだけ自動導出で埋める。
 	function _isEmptyVal(v) {
 		if (v == null || v === "") return true;
-		if (Array.isArray(v)) return v.length === 0;
+		// 空文字/null だけの配列（["","","",""] 等のプレースホルダ）も「空」とみなし、
+		// 自動導出(auto)で埋める。これが length===0 だけ判定だと、空文字4つの placeholder が
+		// 「非空」扱いになり groupResult 等が自動値で上書きされず確定表示されない（グループA不具合）。
+		if (Array.isArray(v))
+			return v.filter((x) => x != null && x !== "").length === 0;
 		return false;
 	}
 	// フィールド単位の「手動 ?? 自動」。object 値（groupResult/knockout/bracket）は
