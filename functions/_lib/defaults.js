@@ -1,7 +1,8 @@
 // 大会設定のデフォルト（KVが空のときのGETフォールバック＆管理画面の初期シード）
 // teams/groups の値は public/data.js と一致させること（Task 3 で転記）。
-import { SQUADS } from "./squads.js";
+
 import { SCORER_ALIASES } from "./scorer-aliases.js";
+import { SQUADS } from "./squads.js";
 
 export const DEFAULT_CONFIG = {
 	version: 1,
@@ -112,8 +113,8 @@ export const DEFAULT_CONFIG = {
 	//   現地時刻＋UTCオフセットを JST へ変換済み（UTC−4→+13h, −5→+14h, −6→+15h, −7→+16h）。
 	//   米国の夜開催が大半のため、JSTでは大半が「現地翌日の早朝〜昼」になる。
 	// グループステージ(72)は最終ドロー確定の対戦カード（a/b は teams の3文字コード、round はグループ記号）。
-	// ノックアウト(73-104)はチーム未確定のため a/b に確定済みスロット表記を入れる:
-	//   1X=グループX 1位 / 2X=グループX 2位 / 3(...)=該当グループ群の3位 / W##=第##試合の勝者 / L##=敗者。
+	// ノックアウト: グループ確定後の R32(73-88) は実際の対戦カード（a/b は3文字コード）。
+	//   R16 以降(89-104)は勝者未確定のためスロット表記: W##=第##試合の勝者 / L##=敗者。
 	// note は「#試合番号 開催地」。出典: Wikipedia 2026 FIFA World Cup 各グループ/ノックアウト公式マッチ表。
 	schedule: [
 		// ── グループステージ Matchday 1 ──
@@ -700,128 +701,128 @@ export const DEFAULT_CONFIG = {
 			date: "2026-06-29",
 			time: "04:00",
 			round: "R32",
-			a: "2A",
-			b: "2B",
+			a: "RSA",
+			b: "CAN",
 			note: "#73 Inglewood",
 		},
 		{
 			date: "2026-06-30",
 			time: "05:30",
 			round: "R32",
-			a: "1E",
-			b: "3(A/B/C/D/F)",
+			a: "GER",
+			b: "PAR",
 			note: "#74 Foxborough",
 		},
 		{
 			date: "2026-06-30",
 			time: "10:00",
 			round: "R32",
-			a: "1F",
-			b: "2C",
+			a: "NED",
+			b: "MAR",
 			note: "#75 Guadalupe",
 		},
 		{
 			date: "2026-06-30",
 			time: "02:00",
 			round: "R32",
-			a: "1C",
-			b: "2F",
+			a: "BRA",
+			b: "JPN",
 			note: "#76 Houston",
 		},
 		{
 			date: "2026-07-01",
 			time: "06:00",
 			round: "R32",
-			a: "1I",
-			b: "3(C/D/F/G/H)",
+			a: "FRA",
+			b: "SWE",
 			note: "#77 East Rutherford",
 		},
 		{
 			date: "2026-07-01",
 			time: "02:00",
 			round: "R32",
-			a: "2E",
-			b: "2I",
+			a: "CIV",
+			b: "NOR",
 			note: "#78 Arlington",
 		},
 		{
 			date: "2026-07-01",
 			time: "10:00",
 			round: "R32",
-			a: "1A",
-			b: "3(C/E/F/H/I)",
+			a: "MEX",
+			b: "ECU",
 			note: "#79 Mexico City",
 		},
 		{
 			date: "2026-07-02",
 			time: "01:00",
 			round: "R32",
-			a: "1L",
-			b: "3(E/H/I/J/K)",
+			a: "ENG",
+			b: "COD",
 			note: "#80 Atlanta",
 		},
 		{
 			date: "2026-07-02",
 			time: "09:00",
 			round: "R32",
-			a: "1D",
-			b: "3(B/E/F/I/J)",
+			a: "USA",
+			b: "BIH",
 			note: "#81 Santa Clara",
 		},
 		{
 			date: "2026-07-02",
 			time: "05:00",
 			round: "R32",
-			a: "1G",
-			b: "3(A/E/H/I/J)",
+			a: "BEL",
+			b: "SEN",
 			note: "#82 Seattle",
 		},
 		{
 			date: "2026-07-03",
 			time: "08:00",
 			round: "R32",
-			a: "2K",
-			b: "2L",
+			a: "POR",
+			b: "CRO",
 			note: "#83 Toronto",
 		},
 		{
 			date: "2026-07-03",
 			time: "04:00",
 			round: "R32",
-			a: "1H",
-			b: "2J",
+			a: "ESP",
+			b: "AUT",
 			note: "#84 Inglewood",
 		},
 		{
 			date: "2026-07-03",
 			time: "12:00",
 			round: "R32",
-			a: "1B",
-			b: "3(E/F/G/I/J)",
+			a: "SUI",
+			b: "ALG",
 			note: "#85 Vancouver",
 		},
 		{
 			date: "2026-07-04",
 			time: "07:00",
 			round: "R32",
-			a: "1J",
-			b: "2H",
+			a: "ARG",
+			b: "CPV",
 			note: "#86 Miami Gardens",
 		},
 		{
 			date: "2026-07-04",
 			time: "10:30",
 			round: "R32",
-			a: "1K",
-			b: "3(D/E/I/J/L)",
+			a: "COL",
+			b: "GHA",
 			note: "#87 Kansas City",
 		},
 		{
 			date: "2026-07-04",
 			time: "03:00",
 			round: "R32",
-			a: "2D",
-			b: "2G",
+			a: "AUS",
+			b: "EGY",
 			note: "#88 Arlington",
 		},
 		// ── ベスト16（Round of 16）──
