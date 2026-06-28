@@ -776,6 +776,35 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
 	);
 }
 
+// 部屋用スコア: 得点王は大会終了（決勝確定=RESULT.champion）まで計上しない。
+// 終了まで「結果待ち」とする方針に合わせ、コア/総合の合計からも得点王分を除く。
+function roomScoreMember(pred) {
+	const s = window.WC.scoreMember(pred);
+	const over = !!(window.WC.RESULT && window.WC.RESULT.champion);
+	const ts = s.core.topScorer;
+	if (over || !ts) return s;
+	return {
+		...s,
+		core: { ...s.core, topScorer: 0, total: s.core.total - ts },
+		coreTotal: s.coreTotal - ts,
+		grandTotal: s.grandTotal - ts,
+	};
+}
+
+// ISO日時 → "6月5日 21:34"（JST）
+function roomFmtDateTime(iso) {
+	if (!iso) return null;
+	const d = new Date(iso);
+	if (isNaN(d.getTime())) return null;
+	return d.toLocaleString("ja-JP", {
+		timeZone: "Asia/Tokyo",
+		month: "long",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+}
+
 // 部屋のポイント順位リーダーボード（シンプルなランキングリスト）。
 // 行タップで onSelectMember に {id,member,rank,score,resultsLive,division} を渡す。
 function RoomLeaderboard({ T, state, wide = false, onSelectMember }) {
@@ -786,7 +815,7 @@ function RoomLeaderboard({ T, state, wide = false, onSelectMember }) {
 	const keyOf = (s) => (division === "core" ? s.coreTotal : s.grandTotal);
 	const scored = M.map((m) => ({
 		m,
-		s: window.WC.scoreMember(state.preds[m.id]),
+		s: roomScoreMember(state.preds[m.id]),
 	})).sort((a, b) => keyOf(b.s) - keyOf(a.s));
 
 	// 採点が意味を持つか（確定 or 暫定結果が1つでもあるか）。RankingScreen と同一ロジック。
@@ -1103,8 +1132,49 @@ function RoomCorePick({
 }
 
 // グループ順位の予想を全表示（位置ごとに的中✓/はずれ✗）
-function RoomGroupRankDetail({ T, pred, grRes }) {
+// 予想チップ（国旗＋国名＋的中✓/はずれ✗/結果待ち＋獲得ポイント）
+function RoomResultChip({ T, code, lead, status, pts }) {
 	const TEAM = window.WC.TEAM || {};
+	const tm = TEAM[code];
+	return (
+		<span
+			style={{
+				display: "inline-flex",
+				alignItems: "center",
+				gap: 4,
+				background: T.panel2,
+				borderRadius: 8,
+				padding: "3px 7px",
+				opacity: status === "miss" ? 0.55 : 1,
+			}}
+		>
+			{lead != null && (
+				<span style={{ fontSize: 10, fontWeight: 800, color: T.faint }}>
+					{lead}
+				</span>
+			)}
+			<Flag code={code} size={14} />
+			<span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
+				{tm ? tm.ja : code}
+			</span>
+			{status === "hit" && (
+				<Icon name="check" size={11} color={T.accent} sw={2.6} />
+			)}
+			{status === "miss" && (
+				<Icon name="close" size={11} color={T.faint} sw={2.6} />
+			)}
+			{status === "hit" && pts ? (
+				<span style={{ fontSize: 10, fontWeight: 800, color: T.accent }}>
+					+{pts}
+				</span>
+			) : null}
+		</span>
+	);
+}
+
+// グループ順位の予想を全表示（1〜4位・位置ごとに✓/✗/結果待ち・的中1〜3位は+1）
+function RoomGroupRankDetail({ T, pred, grRes }) {
+	const GROUPS = window.WC.GROUPS || {};
 	const gr = (pred && pred.groupRank) || {};
 	const letters = Object.keys(gr)
 		.filter((k) => (gr[k] || []).some(Boolean))
@@ -1115,11 +1185,23 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 				グループ順位の予想はありません。
 			</div>
 		);
+	const POS = ["1位", "2位", "3位", "4位"];
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
 			{letters.map((k) => {
-				const mine = gr[k] || [];
-				const act = grRes[k] || [];
+				const mine = (gr[k] || []).slice(0, 3);
+				const members = GROUPS[k] || [];
+				// 予想4位 = グループ4チームのうち予想top3に含まれない1チーム
+				const myFull =
+					mine.length === 3 && members.length === 4
+						? [...mine, members.find((c) => !mine.includes(c))]
+						: mine.slice();
+				const actTop3 = (grRes[k] || []).slice(0, 3);
+				const act4 =
+					actTop3.filter(Boolean).length === 3 && members.length === 4
+						? members.find((c) => !actTop3.includes(c))
+						: null;
+				const actAt = (i) => (i < 3 ? actTop3[i] : act4);
 				return (
 					<div
 						key={k}
@@ -1139,45 +1221,24 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 							{k}
 						</span>
 						<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-							{mine.map((code, i) => {
+							{myFull.map((code, i) => {
 								if (!code) return null;
-								const a = act[i];
+								const a = actAt(i);
 								const decided = !!a;
-								const hit = decided && code === a;
-								const tm = TEAM[code];
+								const status = !decided
+									? "pending"
+									: code === a
+										? "hit"
+										: "miss";
 								return (
-									<span
+									<RoomResultChip
 										key={i}
-										style={{
-											display: "inline-flex",
-											alignItems: "center",
-											gap: 4,
-											background: T.panel2,
-											borderRadius: 8,
-											padding: "3px 7px",
-											opacity: decided && !hit ? 0.5 : 1,
-										}}
-									>
-										<span
-											style={{ fontSize: 10, fontWeight: 800, color: T.faint }}
-										>
-											{i + 1}
-										</span>
-										<Flag code={code} size={14} />
-										<span
-											style={{ fontSize: 12, fontWeight: 700, color: T.text }}
-										>
-											{tm ? tm.ja : code}
-										</span>
-										{decided && (
-											<Icon
-												name={hit ? "check" : "close"}
-												size={11}
-												color={hit ? T.accent : T.faint}
-												sw={2.6}
-											/>
-										)}
-									</span>
+										T={T}
+										code={code}
+										lead={POS[i]}
+										status={status}
+										pts={i < 3 ? 1 : 0}
+									/>
 								);
 							})}
 						</div>
@@ -1188,30 +1249,39 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 	);
 }
 
-// ノックアウト到達予想を全表示（ラウンドごとに的中✓/はずれ✗）
+// ノックアウト勝ち上がり予想を全表示。
+// 終了したラウンド（満枠＝全試合終了）のみ✗を確定し、未終了の試合は「結果待ち」にする。
 function RoomKnockoutDetail({ T, pred, koRes }) {
-	const TEAM = window.WC.TEAM || {};
 	const ko = (pred && pred.knockout) || {};
-	const rounds = [
-		["r32", "16強"],
-		["r16", "8強"],
-		["qf", "4強"],
-		["sf", "決勝"],
-	];
-	const has = rounds.some(([r]) => (ko[r] || []).some(Boolean));
+	const order = ["r32", "r16", "qf", "sf"];
+	const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
+	const LABEL = { r32: "16強", r16: "8強", qf: "4強", sf: "決勝" };
+	const has = order.some((r) => (ko[r] || []).some(Boolean));
 	if (!has)
 		return (
 			<div style={{ fontSize: 12, color: T.faint }}>
 				ノックアウトの予想はありません。
 			</div>
 		);
+	// チーム t が round[ri] へ勝ち上がったか。hit / miss(終了済で外れ) / pending(未終了)。
+	const statusOf = (t, ri) => {
+		for (let j = 0; j <= ri; j++) {
+			const s = order[j];
+			const arr = koRes[s] || [];
+			if (arr.includes(t)) {
+				if (j === ri) return "hit";
+				continue;
+			}
+			// 当該ラウンドが満枠なら全試合終了→脱落確定、未満なら未終了→結果待ち
+			return arr.length >= LENS[s] ? "miss" : "pending";
+		}
+		return "pending";
+	};
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-			{rounds.map(([r, label]) => {
+			{order.map((r, ri) => {
 				const mine = (ko[r] || []).filter(Boolean);
 				if (!mine.length) return null;
-				const actSet = new Set(koRes[r] || []);
-				const decided = (koRes[r] || []).length > 0;
 				return (
 					<div
 						key={r}
@@ -1227,42 +1297,18 @@ function RoomKnockoutDetail({ T, pred, koRes }) {
 								lineHeight: "24px",
 							}}
 						>
-							{label}
+							{LABEL[r]}
 						</span>
 						<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-							{mine.map((code, i) => {
-								const hit = actSet.has(code);
-								const tm = TEAM[code];
-								return (
-									<span
-										key={i}
-										style={{
-											display: "inline-flex",
-											alignItems: "center",
-											gap: 4,
-											background: T.panel2,
-											borderRadius: 8,
-											padding: "3px 7px",
-											opacity: decided && !hit ? 0.5 : 1,
-										}}
-									>
-										<Flag code={code} size={14} />
-										<span
-											style={{ fontSize: 12, fontWeight: 700, color: T.text }}
-										>
-											{tm ? tm.ja : code}
-										</span>
-										{decided && (
-											<Icon
-												name={hit ? "check" : "close"}
-												size={11}
-												color={hit ? T.accent : T.faint}
-												sw={2.6}
-											/>
-										)}
-									</span>
-								);
-							})}
+							{mine.map((code, i) => (
+								<RoomResultChip
+									key={i}
+									T={T}
+									code={code}
+									status={statusOf(code, ri)}
+									pts={1}
+								/>
+							))}
 						</div>
 					</div>
 				);
@@ -1286,8 +1332,9 @@ function RoomMemberDetail({
 	const { useState } = React;
 	const R = window.WC.RESULT || {};
 	const p = pred || {};
-	const score = detail.score || window.WC.scoreMember(pred);
+	const score = detail.score || roomScoreMember(pred);
 	const resultsLive = !!detail.resultsLive;
+	const tournamentOver = !!R.champion; // 決勝確定＝得点王が確定するタイミング
 	const rank = detail.rank; // number | null（未確定時は null）
 	const grRes = window.WC.scoringGroupResult
 		? window.WC.scoringGroupResult()
@@ -1323,7 +1370,8 @@ function RoomMemberDetail({
 				? "hit"
 				: "miss";
 	const scorerSet = !!(p.topScorer && p.topScorer.trim());
-	const scorerDecided = !!(R.topScorer && R.topScorer.trim());
+	// 得点王は大会終了（決勝確定）まで「結果待ち」にする
+	const scorerDecided = tournamentOver && !!(R.topScorer && R.topScorer.trim());
 	const scorerKind = !scorerSet
 		? "none"
 		: !scorerDecided
@@ -1402,6 +1450,24 @@ function RoomMemberDetail({
 			>
 				← 順位へ
 			</button>
+
+			{/* 予想の最終更新日時 */}
+			{roomFmtDateTime(member && member.updatedAt) && (
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 5,
+						margin: "0 2px 10px",
+						fontSize: 12,
+						color: T.faint,
+						fontWeight: 700,
+					}}
+				>
+					<Icon name="refresh" size={12} color={T.faint} sw={2} />
+					予想の最終更新 {roomFmtDateTime(member.updatedAt)}
+				</div>
+			)}
 
 			{/* ヘッダーカード */}
 			<div
