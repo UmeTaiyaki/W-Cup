@@ -2,7 +2,10 @@
 // 不変条件: 副作用なし。壊れた/欠損入力でも例外を投げず空・null で返す（障害隔離）。
 // FT確定ルール: 採点に効く確定値は status==="FT" の試合からのみ。順位表表示はライブ込み。
 
-import { computeStandings } from "../../public/lib/standings.js";
+import {
+	computeStandings,
+	provisionalThirdGroups,
+} from "../../public/lib/standings.js";
 
 // 突合用に round 名を正規化（小文字化・英数のみ）
 function normRound(s) {
@@ -149,6 +152,26 @@ export function deriveGroupResult(
 	return out;
 }
 
+// グループステージが「全試合FT＝数学的に確定」したときのみ、3位通過する8組（組記号・昇順）を返す。
+// best-8 サードの比較は全12組の最終成績を要するため、1組でも未完なら [] を返す（確定前は暫定扱い）。
+// 並び順・比較器はフロント provisionalThirdGroups と同一にするため同関数へ委譲する。これにより
+// グループステージ確定後に「暫定」バッジが外れるだけで、ブラケットに並ぶ3位8チームの顔ぶれは不変。
+// opts.fairPlay/opts.fifaRank は computeStandings 用タイブレーカー（組内順位＝誰が3位か、に効く）。
+export function deriveThirdGroups(fixtures, groups, opts = {}) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const gm = {};
+	for (const g of Object.keys(groups || {})) {
+		const members = (groups[g] || []).filter(Boolean);
+		const expected = (members.length * (members.length - 1)) / 2;
+		if (expected <= 0) return []; // 不正な組定義 → 確定不能
+		const ft = ftGroupMatches(members, list);
+		if (ft.length < expected) return []; // 当該組が未完 → 3位順位は未確定
+		gm[g] = ft;
+	}
+	const picked = provisionalThirdGroups(groups, gm, opts);
+	return picked.length === 8 ? picked : [];
+}
+
 // KO戦の勝者側を返す: "home" | "away" | null。
 // 本スコア差で決まらなければ(=延長まで同点) PK戦スコア(home_pen/away_pen)で決める。
 // KO戦は引き分けで終わらないので、PK決着の試合は本スコア同点でも必ず勝者がいる。
@@ -269,6 +292,11 @@ export function deriveResult(fixtures, topscorers, groups, opts = {}) {
 			opts?.fairPlay || {},
 			opts?.fifaRank || {},
 		),
+		// 3位通過8組（グループステージ確定時のみ非空）。フロントはこれで3位枠の暫定扱いを解除する。
+		thirdGroups: deriveThirdGroups(fixtures, groups, {
+			fairPlay: opts?.fairPlay || {},
+			fifaRank: opts?.fifaRank || {},
+		}),
 		knockout: deriveKnockout(fixtures),
 		bracket: deriveBracket(fixtures),
 	};
