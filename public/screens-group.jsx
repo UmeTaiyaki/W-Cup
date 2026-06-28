@@ -401,8 +401,8 @@ function LeagueTables({ T }) {
 								const adv = isAdvancing(k, i);
 								const cs = clinch[r.code] || {};
 								// 確定後は最終順位で明記:
-								//   1位=「1位突破」(金) / 2位=「突破」(緑) / 3位=確定8組のみ「突破」
-								//   それ以外(3位の非通過・4位)=「敗退」(赤)。
+								//   1・2位＝「突破」(緑) / 3位＝確定8組のみ「突破」(緑) /
+								//   それ以外(3位の非通過・4位)＝「敗退」(赤)。
 								// 3位の通過可否は全12組確定(thirdsConfirmed)後にのみ断定し、
 								// それ以前はライブのクリンチ判定にフォールバックする。
 								let badge = null;
@@ -413,9 +413,7 @@ function LeagueTables({ T }) {
 									const advanced =
 										i < 2 || (i === 2 && confirmedThirds.includes(k));
 									badge = advanced
-										? i === 0
-											? { t: "1位突破", c: T.gold }
-											: { t: "突破", c: ADV_GREEN }
+										? { t: "突破", c: ADV_GREEN }
 										: { t: "敗退", c: T.danger };
 								} else {
 									badge = cs.won
