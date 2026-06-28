@@ -1249,22 +1249,45 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 	);
 }
 
-// ノックアウト勝ち上がり予想を全表示。
-// 終了したラウンド（満枠＝全試合終了）のみ✗を確定し、未終了の試合は「結果待ち」にする。
-function RoomKnockoutDetail({ T, pred, koRes }) {
-	const ko = (pred && pred.knockout) || {};
+// ノックアウト予想を 32強→16強→8強→4強→2強 で全表示。
+// 各 pred.knockout[r] は「そのラウンドの勝者」＝次段到達チーム（r32=16強,r16=8強,qf=4強,sf=2強）。
+// 先頭の32強は出場（=R32対戦カード）で、予想/実際を groupRank+thirdGroups から導出（不採点）。
+// 勝ち上がり段は満枠（全試合終了）になって初めて✗を確定し、未終了は「結果待ち」にする。
+function RoomKnockoutDetail({ T, pred, R }) {
+	const p = pred || {};
+	const koRes = (R && R.knockout) || {};
+	const ko = p.knockout || {};
 	const order = ["r32", "r16", "qf", "sf"];
 	const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
-	// ラウンド名（ノックアウトは32強から）。各ラウンドの勝ち上がり予想を表示する。
-	const LABEL = { r32: "32強", r16: "16強", qf: "8強", sf: "4強" };
-	const has = order.some((r) => (ko[r] || []).some(Boolean));
-	if (!has)
+	// 勝者ラウンド → 表示ラベル（到達する強さ）
+	const WIN_LABEL = { r32: "16強", r16: "8強", qf: "4強", sf: "2強" };
+
+	// 32強（出場32チーム）の予想/実際を対戦カードから導出
+	const r32Teams = (groupRank, thirdGroups) => {
+		try {
+			const ta = window.WC.resolveThirdAssign(
+				groupRank || {},
+				thirdGroups || [],
+			);
+			const der = window.WC.deriveKnockout(groupRank || {}, ta, {});
+			return (der.matches.r32 || []).flat().filter(Boolean);
+		} catch (e) {
+			return [];
+		}
+	};
+	const predR32 = r32Teams(p.groupRank, p.thirdGroups);
+	const actR32 = new Set(r32Teams(R && R.groupResult, R && R.thirdGroups));
+	const r32Decided = actR32.size >= 32; // 全グループ確定で出場32が確定
+
+	const hasWinners = order.some((r) => (ko[r] || []).some(Boolean));
+	if (!predR32.length && !hasWinners)
 		return (
 			<div style={{ fontSize: 12, color: T.faint }}>
 				ノックアウトの予想はありません。
 			</div>
 		);
-	// チーム t が round[ri] へ勝ち上がったか。hit / miss(終了済で外れ) / pending(未終了)。
+
+	// チーム t が round[ri] の勝者になったか。hit / miss(満枠=全試合終了で外れ) / pending(未終了)。
 	const statusOf = (t, ri) => {
 		for (let j = 0; j <= ri; j++) {
 			const s = order[j];
@@ -1273,45 +1296,64 @@ function RoomKnockoutDetail({ T, pred, koRes }) {
 				if (j === ri) return "hit";
 				continue;
 			}
-			// 当該ラウンドが満枠なら全試合終了→脱落確定、未満なら未終了→結果待ち
 			return arr.length >= LENS[s] ? "miss" : "pending";
 		}
 		return "pending";
 	};
+
+	const Row = (key, label, chips) => (
+		<div
+			key={key}
+			style={{ display: "flex", alignItems: "flex-start", gap: 8 }}
+		>
+			<span
+				style={{
+					width: 30,
+					flexShrink: 0,
+					fontSize: 11,
+					fontWeight: 800,
+					color: T.sub,
+					lineHeight: "24px",
+				}}
+			>
+				{label}
+			</span>
+			<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{chips}</div>
+		</div>
+	);
+
 	return (
 		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+			{predR32.length > 0 &&
+				Row(
+					"r32in",
+					"32強",
+					predR32.map((code, i) => (
+						<RoomResultChip
+							key={i}
+							T={T}
+							code={code}
+							status={
+								!r32Decided ? "pending" : actR32.has(code) ? "hit" : "miss"
+							}
+						/>
+					)),
+				)}
 			{order.map((r, ri) => {
 				const mine = (ko[r] || []).filter(Boolean);
 				if (!mine.length) return null;
-				return (
-					<div
-						key={r}
-						style={{ display: "flex", alignItems: "flex-start", gap: 8 }}
-					>
-						<span
-							style={{
-								width: 30,
-								flexShrink: 0,
-								fontSize: 11,
-								fontWeight: 800,
-								color: T.sub,
-								lineHeight: "24px",
-							}}
-						>
-							{LABEL[r]}
-						</span>
-						<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-							{mine.map((code, i) => (
-								<RoomResultChip
-									key={i}
-									T={T}
-									code={code}
-									status={statusOf(code, ri)}
-									pts={1}
-								/>
-							))}
-						</div>
-					</div>
+				return Row(
+					r,
+					WIN_LABEL[r],
+					mine.map((code, i) => (
+						<RoomResultChip
+							key={i}
+							T={T}
+							code={code}
+							status={statusOf(code, ri)}
+							pts={1}
+						/>
+					)),
 				);
 			})}
 		</div>
@@ -1616,7 +1658,7 @@ function RoomMemberDetail({
 				`${koTotal}的中 +${score.option.knockout}`,
 				openKo,
 				setOpenKo,
-				<RoomKnockoutDetail T={T} pred={p} koRes={koRes} />,
+				<RoomKnockoutDetail T={T} pred={p} R={R} />,
 			)}
 		</div>
 	);
