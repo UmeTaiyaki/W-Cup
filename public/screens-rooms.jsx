@@ -1255,7 +1255,8 @@ function RoomKnockoutDetail({ T, pred, koRes }) {
 	const ko = (pred && pred.knockout) || {};
 	const order = ["r32", "r16", "qf", "sf"];
 	const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
-	const LABEL = { r32: "16強", r16: "8強", qf: "4強", sf: "決勝" };
+	// ラウンド名（ノックアウトは32強から）。各ラウンドの勝ち上がり予想を表示する。
+	const LABEL = { r32: "32強", r16: "16強", qf: "8強", sf: "4強" };
 	const has = order.some((r) => (ko[r] || []).some(Boolean));
 	if (!has)
 		return (
