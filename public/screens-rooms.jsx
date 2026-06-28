@@ -1,8 +1,8 @@
 /* ============================================================
-   部屋（ルーム）: 一覧 / 作成 / 参加 ＋ 見比べビュー
-   入室直後はポイント順位リーダーボード（RankingScreen 流用）。
+   部屋（ルーム）: 一覧 / 作成 / 参加 ＋ 部屋ビュー
+   入室直後はシンプルなポイント順位リーダーボード（RoomLeaderboard）。
    カードタップで RoomMemberDetail（得点の内訳＋予想内容）へ遷移。
-   window に RoomsScreen / RoomCompareScreen / RoomMemberDetail を export。
+   window に RoomsScreen / RoomCompareScreen / RoomMemberDetail / RoomLeaderboard を export。
    ============================================================ */
 
 const roomFmtCode = (c) => (c || "").replace(/(.{4})(?=.)/g, "$1-");
@@ -776,8 +776,198 @@ function RoomsScreen({ T, me, setMe, onOpenRoom, wide = false, siteKey }) {
 	);
 }
 
+// 部屋のポイント順位リーダーボード（シンプルなランキングリスト）。
+// 行タップで onSelectMember に {id,member,rank,score,resultsLive,division} を渡す。
+function RoomLeaderboard({ T, state, wide = false, onSelectMember }) {
+	const { useState } = React;
+	const M = state.members;
+	const R = window.WC.RESULT || {};
+	const [division, setDivision] = useState("grand"); // 'grand'=総合 / 'core'=コア
+	const keyOf = (s) => (division === "core" ? s.coreTotal : s.grandTotal);
+	const scored = M.map((m) => ({
+		m,
+		s: window.WC.scoreMember(state.preds[m.id]),
+	})).sort((a, b) => keyOf(b.s) - keyOf(a.s));
+
+	// 採点が意味を持つか（確定 or 暫定結果が1つでもあるか）。RankingScreen と同一ロジック。
+	const KO_ROUNDS = ["r32", "r16", "qf", "sf"];
+	const grRes = window.WC.scoringGroupResult
+		? window.WC.scoringGroupResult()
+		: R.groupResult || {};
+	const koRes = R.knockout || {};
+	const resultsLive =
+		!!(R.champion || R.runnerUp || (R.topScorer && R.topScorer.trim())) ||
+		Object.keys(grRes).some(
+			(k) => (grRes[k] || []).filter(Boolean).length > 0,
+		) ||
+		KO_ROUNDS.some((r) => (koRes[r] || []).length > 0);
+
+	const medalColor = (i) =>
+		!resultsLive
+			? T.faint
+			: i === 0
+				? T.gold
+				: i === 1
+					? T.silver
+					: i === 2
+						? T.boot
+						: T.sub;
+	const rankText = (i) => (resultsLive ? i + 1 : "–");
+
+	const seg = (id, label) => {
+		const active = division === id;
+		return (
+			<button
+				key={id}
+				onClick={() => setDivision(id)}
+				style={{
+					border: "none",
+					cursor: "pointer",
+					fontFamily: "inherit",
+					fontWeight: 800,
+					fontSize: 12,
+					padding: "5px 12px",
+					borderRadius: 999,
+					background: active ? T.card : "transparent",
+					boxShadow: active ? `inset 0 0 0 1px ${T.line}` : "none",
+					color: active ? T.text : T.faint,
+				}}
+			>
+				{label}
+			</button>
+		);
+	};
+
+	return (
+		<div>
+			{/* ヘッダー: 見出し＋小さなコア/総合トグル */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					margin: "2px 2px 12px",
+				}}
+			>
+				<span style={{ fontWeight: 800, fontSize: 15, color: T.text }}>
+					ポイント順位
+				</span>
+				<div
+					style={{
+						display: "flex",
+						gap: 2,
+						background: T.panel2,
+						borderRadius: 999,
+						padding: 3,
+					}}
+				>
+					{seg("core", "コア")}
+					{seg("grand", "総合")}
+				</div>
+			</div>
+
+			{!resultsLive && (
+				<div
+					style={{
+						fontSize: 12,
+						color: T.faint,
+						margin: "0 2px 12px",
+						lineHeight: 1.5,
+					}}
+				>
+					試合結果が出ると順位がつきます。
+				</div>
+			)}
+
+			{/* 順位リスト */}
+			<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+				{scored.map((item, i) => {
+					const isMe = item.m.id === state.current;
+					return (
+						<button
+							key={item.m.id}
+							onClick={() =>
+								onSelectMember({
+									id: item.m.id,
+									member: item.m,
+									rank: resultsLive ? i + 1 : null,
+									score: item.s,
+									resultsLive,
+									division,
+								})
+							}
+							style={{
+								display: "flex",
+								alignItems: "center",
+								gap: 12,
+								width: "100%",
+								textAlign: "left",
+								border: "none",
+								cursor: "pointer",
+								fontFamily: "inherit",
+								background: isMe ? `${T.accent}0F` : T.card,
+								borderRadius: 14,
+								padding: "12px 14px",
+								boxShadow: isMe
+									? `inset 0 0 0 1.5px ${T.accent}66`
+									: `inset 0 0 0 1px ${T.line}`,
+							}}
+						>
+							<span
+								style={{
+									fontFamily: "Archivo",
+									fontWeight: 900,
+									fontSize: 17,
+									color: medalColor(i),
+									width: 20,
+									textAlign: "center",
+									flexShrink: 0,
+								}}
+							>
+								{rankText(i)}
+							</span>
+							<Avatar m={item.m} size={32} T={T} />
+							<span
+								style={{
+									flex: 1,
+									minWidth: 0,
+									fontWeight: 800,
+									fontSize: 15,
+									color: T.text,
+									whiteSpace: "nowrap",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+								}}
+							>
+								{item.m.name}
+								{isMe ? "（あなた）" : ""}
+							</span>
+							<span
+								style={{
+									fontFamily: "Archivo",
+									fontWeight: 900,
+									fontSize: 18,
+									color: T.text,
+									flexShrink: 0,
+								}}
+							>
+								{keyOf(item.s)}
+								<span style={{ fontSize: 11, color: T.faint, fontWeight: 700 }}>
+									{" "}
+									pt
+								</span>
+							</span>
+							<Icon name="chevron" size={16} color={T.faint} />
+						</button>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
 // メンバー詳細: 順位メダル＋合計pt → 得点の内訳（共有 MemberBreakdown）→ 予想内容（SummaryScreen）
-// detail は RankingScreen.onSelectMember が渡す {id,member,rank,score,resultsLive,division}
+// detail は RoomLeaderboard.onSelectMember が渡す {id,member,rank,score,resultsLive,division}
 function RoomMemberDetail({
 	T,
 	state,
@@ -1130,7 +1320,7 @@ function RoomCompareScreen({
 
 			{/* 既定: ポイント順位リーダーボード（カードタップで詳細へ） */}
 			{state && !detail && (
-				<RankingScreen
+				<RoomLeaderboard
 					T={T}
 					state={state}
 					wide={wide}
@@ -1155,4 +1345,9 @@ function RoomCompareScreen({
 	);
 }
 
-Object.assign(window, { RoomsScreen, RoomCompareScreen, RoomMemberDetail });
+Object.assign(window, {
+	RoomsScreen,
+	RoomCompareScreen,
+	RoomMemberDetail,
+	RoomLeaderboard,
+});
