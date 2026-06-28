@@ -258,6 +258,12 @@ function LeagueTables({ T }) {
 	);
 	thirds.slice(0, 8).forEach((c) => thirdAdvance.add(c.k));
 
+	// グループ全試合確定後は /api/results の確定3位8組（thirdGroups）を真実とする。
+	// これが揃っている＝全12組が数学的に確定 → 突破/敗退を断定できる（暫定→確定）。
+	const confirmedThirds =
+		(window.WC.RESULT && window.WC.RESULT.thirdGroups) || [];
+	const thirdsConfirmed = confirmedThirds.length === 8;
+
 	// 試合中（LIVE）のグループ判定: ライブ index か GROUP_MATCHES の status を見る。
 	const isGroupLive = (k) => {
 		const ms = matches[k] || [];
@@ -273,9 +279,13 @@ function LeagueTables({ T }) {
 		});
 	};
 
-	// 突破圏か（i: 暫定順位インデックス0始まり, k: グループ）
+	// 突破圏か（i: 暫定順位インデックス0始まり, k: グループ）。
+	// 3位は全組確定後は確定3位8組、未確定なら暫定best8で緑線を出す（バッジと一致）。
 	const isAdvancing = (k, i) =>
-		i === 0 || i === 1 || (i === 2 && thirdAdvance.has(k));
+		i === 0 ||
+		i === 1 ||
+		(i === 2 &&
+			(thirdsConfirmed ? confirmedThirds.includes(k) : thirdAdvance.has(k)));
 
 	// 突破圏を示す左の緑縦線（非突破でも幅を確保して桁を揃える）。
 	const AdvBar = ({ on }) => (
@@ -299,6 +309,8 @@ function LeagueTables({ T }) {
 		const clinch = window.WC.computeClinchStatus
 			? window.WC.computeClinchStatus(members, matches[k] || [])
 			: {};
+		// 当該組が全試合確定（GROUP_RESULT に最終順位3つ）なら最終結果で突破/敗退を明記する。
+		const groupDone = (gr[k] || []).filter(Boolean).length >= 3;
 		// フォールバック: 最終順位の並び（数値なし）
 		const order = (gr[k] || []).filter(Boolean);
 		const fallback = order.length
@@ -388,13 +400,32 @@ function LeagueTables({ T }) {
 								if (!tm) return null;
 								const adv = isAdvancing(k, i);
 								const cs = clinch[r.code] || {};
-								const badge = cs.won
-									? { t: "1位確定", c: T.gold }
-									: cs.qualified
-										? { t: "突破", c: ADV_GREEN }
-										: cs.eliminated
-											? { t: "敗退", c: T.faint }
-											: null;
+								// 確定後は最終順位で明記:
+								//   1位=「1位突破」(金) / 2位=「突破」(緑) / 3位=確定8組のみ「突破」
+								//   それ以外(3位の非通過・4位)=「敗退」(赤)。
+								// 3位の通過可否は全12組確定(thirdsConfirmed)後にのみ断定し、
+								// それ以前はライブのクリンチ判定にフォールバックする。
+								let badge = null;
+								if (
+									groupDone &&
+									(i < 2 || i === 3 || (i === 2 && thirdsConfirmed))
+								) {
+									const advanced =
+										i < 2 || (i === 2 && confirmedThirds.includes(k));
+									badge = advanced
+										? i === 0
+											? { t: "1位突破", c: T.gold }
+											: { t: "突破", c: ADV_GREEN }
+										: { t: "敗退", c: T.danger };
+								} else {
+									badge = cs.won
+										? { t: "1位確定", c: T.gold }
+										: cs.qualified
+											? { t: "突破", c: ADV_GREEN }
+											: cs.eliminated
+												? { t: "敗退", c: T.faint }
+												: null;
+								}
 								const posColor =
 									i === 0
 										? T.gold
@@ -583,7 +614,9 @@ function LeagueTables({ T }) {
 							display: "inline-block",
 						}}
 					/>
-					暫定で決勝トーナメント進出圏（各組1・2位＋各組3位の上位8組）
+					{thirdsConfirmed
+						? "決勝トーナメント進出（各組1・2位＋3位上位8組）。圏外は敗退。"
+						: "暫定で決勝トーナメント進出圏（各組1・2位＋各組3位の上位8組）"}
 				</div>
 			)}
 			<div
