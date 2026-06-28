@@ -1,7 +1,7 @@
 /* ============================================================
    部屋（ルーム）: 一覧 / 作成 / 参加 ＋ 部屋ビュー
    入室直後はシンプルなポイント順位リーダーボード（RoomLeaderboard）。
-   カードタップで RoomMemberDetail（得点の内訳＋予想内容）へ遷移。
+   カードタップで RoomMemberDetail（予想と結果のスコアカード＝国旗+的中表示）へ遷移。
    window に RoomsScreen / RoomCompareScreen / RoomMemberDetail / RoomLeaderboard を export。
    ============================================================ */
 
@@ -966,7 +966,312 @@ function RoomLeaderboard({ T, state, wide = false, onSelectMember }) {
 	);
 }
 
-// メンバー詳細: 順位メダル＋合計pt → 得点の内訳（共有 MemberBreakdown）→ 予想内容（SummaryScreen）
+// 国旗＋国名（スコアカード用の1行表示）。code が無く name があれば得点王名として表示。
+function RoomFlagName({ T, code, name, size = 18, muted = false }) {
+	const TEAM = window.WC.TEAM || {};
+	const tm = code ? TEAM[code] : null;
+	const hasPick = !!(code || (name && name !== ""));
+	const text = name != null && name !== "" ? name : tm ? tm.ja : code;
+	return (
+		<span
+			style={{
+				display: "inline-flex",
+				alignItems: "center",
+				gap: 6,
+				minWidth: 0,
+			}}
+		>
+			{code ? (
+				<Flag code={code} size={size} />
+			) : name && name !== "" ? (
+				<Icon name="boot" size={Math.round(size * 0.85)} color={T.boot} />
+			) : null}
+			<span
+				style={{
+					fontWeight: 800,
+					fontSize: 14,
+					color: hasPick ? (muted ? T.sub : T.text) : T.faint,
+					whiteSpace: "nowrap",
+					overflow: "hidden",
+					textOverflow: "ellipsis",
+				}}
+			>
+				{hasPick ? text : "未予想"}
+			</span>
+		</span>
+	);
+}
+
+// 的中 / はずれ / 結果待ち / 未予想 のステータスチップ
+function RoomStatusTag({ T, kind, pts }) {
+	if (kind === "hit") {
+		return (
+			<span
+				style={{
+					display: "inline-flex",
+					alignItems: "center",
+					gap: 4,
+					flexShrink: 0,
+					background: `${T.accent}1A`,
+					color: T.accent,
+					fontWeight: 800,
+					fontSize: 12,
+					padding: "4px 9px",
+					borderRadius: 999,
+				}}
+			>
+				<Icon name="check" size={12} color={T.accent} sw={2.6} />
+				的中 +{pts}
+			</span>
+		);
+	}
+	const label =
+		kind === "miss" ? "はずれ" : kind === "pending" ? "結果待ち" : "未予想";
+	return (
+		<span
+			style={{
+				display: "inline-flex",
+				alignItems: "center",
+				gap: 4,
+				flexShrink: 0,
+				color: T.faint,
+				fontWeight: 700,
+				fontSize: 12,
+				padding: "4px 2px",
+			}}
+		>
+			{kind === "miss" && (
+				<Icon name="close" size={12} color={T.faint} sw={2.6} />
+			)}
+			{label}
+		</span>
+	);
+}
+
+// コア予想1行（ラベル＋予想国/選手＋ステータス＋はずれ時の正解）
+function RoomCorePick({
+	T,
+	label,
+	code,
+	name,
+	kind,
+	pts,
+	correctCode,
+	correctName,
+}) {
+	return (
+		<div>
+			<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+				<span
+					style={{
+						width: 52,
+						flexShrink: 0,
+						fontSize: 12,
+						fontWeight: 700,
+						color: T.sub,
+					}}
+				>
+					{label}
+				</span>
+				<div style={{ flex: 1, minWidth: 0 }}>
+					<RoomFlagName T={T} code={code} name={name} />
+				</div>
+				<RoomStatusTag T={T} kind={kind} pts={pts} />
+			</div>
+			{kind === "miss" && (correctCode || correctName) && (
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						gap: 6,
+						margin: "6px 0 0 62px",
+						fontSize: 12,
+					}}
+				>
+					<span style={{ color: T.faint, fontWeight: 700 }}>正解</span>
+					<RoomFlagName
+						T={T}
+						code={correctCode}
+						name={correctName}
+						size={15}
+						muted
+					/>
+				</div>
+			)}
+		</div>
+	);
+}
+
+// グループ順位の予想を全表示（位置ごとに的中✓/はずれ✗）
+function RoomGroupRankDetail({ T, pred, grRes }) {
+	const TEAM = window.WC.TEAM || {};
+	const gr = (pred && pred.groupRank) || {};
+	const letters = Object.keys(gr)
+		.filter((k) => (gr[k] || []).some(Boolean))
+		.sort();
+	if (!letters.length)
+		return (
+			<div style={{ fontSize: 12, color: T.faint }}>
+				グループ順位の予想はありません。
+			</div>
+		);
+	return (
+		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+			{letters.map((k) => {
+				const mine = gr[k] || [];
+				const act = grRes[k] || [];
+				return (
+					<div
+						key={k}
+						style={{ display: "flex", alignItems: "flex-start", gap: 8 }}
+					>
+						<span
+							style={{
+								width: 16,
+								flexShrink: 0,
+								fontFamily: "Archivo",
+								fontWeight: 900,
+								fontSize: 13,
+								color: T.sub,
+								lineHeight: "24px",
+							}}
+						>
+							{k}
+						</span>
+						<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+							{mine.map((code, i) => {
+								if (!code) return null;
+								const a = act[i];
+								const decided = !!a;
+								const hit = decided && code === a;
+								const tm = TEAM[code];
+								return (
+									<span
+										key={i}
+										style={{
+											display: "inline-flex",
+											alignItems: "center",
+											gap: 4,
+											background: T.panel2,
+											borderRadius: 8,
+											padding: "3px 7px",
+											opacity: decided && !hit ? 0.5 : 1,
+										}}
+									>
+										<span
+											style={{ fontSize: 10, fontWeight: 800, color: T.faint }}
+										>
+											{i + 1}
+										</span>
+										<Flag code={code} size={14} />
+										<span
+											style={{ fontSize: 12, fontWeight: 700, color: T.text }}
+										>
+											{tm ? tm.ja : code}
+										</span>
+										{decided && (
+											<Icon
+												name={hit ? "check" : "close"}
+												size={11}
+												color={hit ? T.accent : T.faint}
+												sw={2.6}
+											/>
+										)}
+									</span>
+								);
+							})}
+						</div>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+// ノックアウト到達予想を全表示（ラウンドごとに的中✓/はずれ✗）
+function RoomKnockoutDetail({ T, pred, koRes }) {
+	const TEAM = window.WC.TEAM || {};
+	const ko = (pred && pred.knockout) || {};
+	const rounds = [
+		["r32", "16強"],
+		["r16", "8強"],
+		["qf", "4強"],
+		["sf", "決勝"],
+	];
+	const has = rounds.some(([r]) => (ko[r] || []).some(Boolean));
+	if (!has)
+		return (
+			<div style={{ fontSize: 12, color: T.faint }}>
+				ノックアウトの予想はありません。
+			</div>
+		);
+	return (
+		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+			{rounds.map(([r, label]) => {
+				const mine = (ko[r] || []).filter(Boolean);
+				if (!mine.length) return null;
+				const actSet = new Set(koRes[r] || []);
+				const decided = (koRes[r] || []).length > 0;
+				return (
+					<div
+						key={r}
+						style={{ display: "flex", alignItems: "flex-start", gap: 8 }}
+					>
+						<span
+							style={{
+								width: 30,
+								flexShrink: 0,
+								fontSize: 11,
+								fontWeight: 800,
+								color: T.sub,
+								lineHeight: "24px",
+							}}
+						>
+							{label}
+						</span>
+						<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+							{mine.map((code, i) => {
+								const hit = actSet.has(code);
+								const tm = TEAM[code];
+								return (
+									<span
+										key={i}
+										style={{
+											display: "inline-flex",
+											alignItems: "center",
+											gap: 4,
+											background: T.panel2,
+											borderRadius: 8,
+											padding: "3px 7px",
+											opacity: decided && !hit ? 0.5 : 1,
+										}}
+									>
+										<Flag code={code} size={14} />
+										<span
+											style={{ fontSize: 12, fontWeight: 700, color: T.text }}
+										>
+											{tm ? tm.ja : code}
+										</span>
+										{decided && (
+											<Icon
+												name={hit ? "check" : "close"}
+												size={11}
+												color={hit ? T.accent : T.faint}
+												sw={2.6}
+											/>
+										)}
+									</span>
+								);
+							})}
+						</div>
+					</div>
+				);
+			})}
+		</div>
+	);
+}
+
+// メンバー詳細: 順位ヘッダー → 予想と結果(コア・国旗+的中) → グループ/ノックアウト(開閉)
 // detail は RoomLeaderboard.onSelectMember が渡す {id,member,rank,score,resultsLive,division}
 function RoomMemberDetail({
 	T,
@@ -978,10 +1283,19 @@ function RoomMemberDetail({
 	wide,
 	onBack,
 }) {
+	const { useState } = React;
 	const R = window.WC.RESULT || {};
+	const p = pred || {};
 	const score = detail.score || window.WC.scoreMember(pred);
 	const resultsLive = !!detail.resultsLive;
 	const rank = detail.rank; // number | null（未確定時は null）
+	const grRes = window.WC.scoringGroupResult
+		? window.WC.scoringGroupResult()
+		: R.groupResult || {};
+	const koRes = R.knockout || {};
+	const [openGroup, setOpenGroup] = useState(false);
+	const [openKo, setOpenKo] = useState(false);
+
 	const medal =
 		!resultsLive || !rank
 			? T.faint
@@ -992,6 +1306,80 @@ function RoomMemberDetail({
 					: rank === 3
 						? T.boot
 						: T.faint;
+
+	// コア予想のステータス（none=未予想 / pending=結果待ち / hit / miss）
+	const champKind = !p.champion
+		? "none"
+		: !R.champion
+			? "pending"
+			: score.core.champion > 0
+				? "hit"
+				: "miss";
+	const runnerKind = !p.runnerUp
+		? "none"
+		: !R.runnerUp
+			? "pending"
+			: score.core.runnerUp > 0
+				? "hit"
+				: "miss";
+	const scorerSet = !!(p.topScorer && p.topScorer.trim());
+	const scorerDecided = !!(R.topScorer && R.topScorer.trim());
+	const scorerKind = !scorerSet
+		? "none"
+		: !scorerDecided
+			? "pending"
+			: score.core.topScorer > 0
+				? "hit"
+				: "miss";
+
+	const koTotal =
+		score.option.koHits.r32 +
+		score.option.koHits.r16 +
+		score.option.koHits.qf +
+		score.option.koHits.sf;
+
+	const sectionWrap = {
+		background: T.card,
+		borderRadius: 18,
+		boxShadow: `inset 0 0 0 1px ${T.line}`,
+		marginTop: 10,
+		overflow: "hidden",
+	};
+	const collapsible = (title, summary, open, setOpen, body) => (
+		<div style={sectionWrap}>
+			<button
+				onClick={() => setOpen(!open)}
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: 10,
+					width: "100%",
+					border: "none",
+					background: "transparent",
+					cursor: "pointer",
+					fontFamily: "inherit",
+					padding: "14px 16px",
+					textAlign: "left",
+				}}
+			>
+				<span style={{ fontWeight: 800, fontSize: 14, color: T.text, flex: 1 }}>
+					{title}
+				</span>
+				<span style={{ fontSize: 12, fontWeight: 700, color: T.sub }}>
+					{summary}
+				</span>
+				<div
+					style={{
+						transform: open ? "rotate(90deg)" : "none",
+						transition: ".2s ease",
+					}}
+				>
+					<Icon name="chevron" size={16} color={T.faint} />
+				</div>
+			</button>
+			{open && <div style={{ padding: "0 16px 16px" }}>{body}</div>}
+		</div>
+	);
 
 	return (
 		<div>
@@ -1086,7 +1474,7 @@ function RoomMemberDetail({
 				</div>
 			</div>
 
-			{/* 得点の内訳 */}
+			{/* 予想と結果（コア: 優勝/準優勝/得点王） */}
 			<div
 				style={{
 					background: T.card,
@@ -1101,44 +1489,68 @@ function RoomMemberDetail({
 						fontWeight: 800,
 						fontSize: 14,
 						color: T.text,
-						marginBottom: 12,
+						marginBottom: 14,
 					}}
 				>
-					得点の内訳
+					予想と結果
 				</div>
-				<MemberBreakdown
-					T={T}
-					pred={pred}
-					score={score}
-					R={R}
-					showOption={true}
-				/>
+				<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+					<RoomCorePick
+						T={T}
+						label="優勝"
+						code={p.champion}
+						kind={champKind}
+						pts={25}
+						correctCode={R.champion}
+					/>
+					<RoomCorePick
+						T={T}
+						label="準優勝"
+						code={p.runnerUp}
+						kind={runnerKind}
+						pts={15}
+						correctCode={R.runnerUp}
+					/>
+					<RoomCorePick
+						T={T}
+						label="得点王"
+						name={p.topScorer}
+						kind={scorerKind}
+						pts={20}
+						correctName={R.topScorer}
+					/>
+				</div>
 				{!resultsLive && (
 					<div
 						style={{
 							fontSize: 12,
 							color: T.faint,
-							marginTop: 12,
+							marginTop: 14,
 							lineHeight: 1.5,
 						}}
 					>
-						試合結果が出ると得点が反映されます。
+						試合結果が出ると的中・得点が反映されます。
 					</div>
 				)}
 			</div>
 
-			{/* 予想内容 */}
-			<div style={{ marginTop: 6 }}>
-				<SummaryScreen
-					solo
-					hideShare
-					T={T}
-					state={state}
-					member={member}
-					pred={pred}
-					wide={wide}
-				/>
-			</div>
+			{/* グループ順位（開閉式・全予想に的中マーク） */}
+			{collapsible(
+				"グループ順位",
+				`${score.option.rankHits}/36的中 +${score.option.groupRank}`,
+				openGroup,
+				setOpenGroup,
+				<RoomGroupRankDetail T={T} pred={p} grRes={grRes} />,
+			)}
+
+			{/* ノックアウト到達（開閉式・全予想に的中マーク） */}
+			{collapsible(
+				"ノックアウト到達",
+				`${koTotal}的中 +${score.option.knockout}`,
+				openKo,
+				setOpenKo,
+				<RoomKnockoutDetail T={T} pred={p} koRes={koRes} />,
+			)}
 		</div>
 	);
 }
