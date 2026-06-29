@@ -59,7 +59,7 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-  <script src="data.js?v=25"></script>
+  <script src="data.js?v=26"></script>
   <script src="identity.js?v=8"></script>
   <script src="cheer-theme.js?v=4"></script>
   <script src="cheer-core.js?v=1"></script>
@@ -92,7 +92,7 @@
     import { availableCards, groupTop2, parseScorer, shareFilename, shareText } from './lib/share-model.js';
     import { drawShareCard } from './lib/share-draw.js';
     import { canvasToBlob, shareOrDownload, downloadBlob, ensureFonts } from './lib/share-image.js';
-    import { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday } from './lib/schedule-view.js';
+    import { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday, matchNumber, indexByNumber, concreteSlotCode, resolveScheduleSlot } from './lib/schedule-view.js?v=2';
     import { parseFavs, toggleFav, teamFixtures, groupOf } from './lib/teams.js';
     import { validateDoc, validateTeam, unknownPicks, getTeamAnalysis, hasAnalysis } from './lib/ai-analysis.js';
     window.WC = window.WC || {};
@@ -100,7 +100,7 @@
     window.WC.aiLib = { validateDoc, validateTeam, unknownPicks, getTeamAnalysis, hasAnalysis };
     Object.assign(window.WC, { BRACKET_STRUCTURE, WILDCARD_SLOTS, PERMITTED, deriveKnockout, deriveKnockoutFromSets, deriveKnockoutFromAppeared, deriveKnockoutAuto, resolveThirdAssign, THIRD_ALLOCATION, thirdAllocation, SCORING, generateFixtures, computeStandings, provisionalGroupResult, computeClinchStatus, computeAllClinch, clinchGroupRank, provisionalGroupRank, provisionalThirdGroups });
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
-    Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday });
+    Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday, matchNumber, indexByNumber, concreteSlotCode, resolveScheduleSlot });
     Object.assign(window.WC, { normalize, canonicalKey, resolve, buildAliasMap, upsertAlias, rosterCanonicalSet, autoMatchScorer });
     // 採点が参照する groupResult を「確定 → 暫定」の順で解決する。確定（全試合FT由来）が
     // あるグループは確定を、無いグループは暫定順位（全チーム1試合以上消化後の top3）を使う。
@@ -137,7 +137,7 @@
   <script type="text/babel" src="screens-optview.jsx?v=13"></script>
   <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=17"></script>
-  <script type="text/babel" src="screens-home.jsx?v=24"></script>
+  <script type="text/babel" src="screens-home.jsx?v=25"></script>
   <script type="text/babel" src="screens-detail.jsx?v=43"></script>
   <script type="text/babel" src="screens-teams.jsx?v=5"></script>
 

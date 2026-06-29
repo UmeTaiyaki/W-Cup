@@ -324,6 +324,11 @@
 					minute: fx.minute ?? null, // 進行中ピリオドの経過分（無→null）
 					added_time: fx.added_time ?? null, // アディショナル分（無→null）
 					scores: { [ha]: fx.home.score, [aa]: fx.away.score },
+					// PK戦スコア（非PK/未到達は null）。KO戦の本スコア同点時の勝者判定に使う。
+					pens: {
+						[ha]: fx.home.pen_score ?? null,
+						[aa]: fx.away.pen_score ?? null,
+					},
 					events, // 得点/退場（code=app_code, type, player_name, minute）
 				};
 				// ロゴ URL 索引（app_code → image_url）
@@ -534,6 +539,45 @@
 			}
 		}
 		return null;
+	};
+
+	// ノックアウト2チーム(実コード)の勝敗を返す: 'a'(ca勝) | 'b'(cb勝) | null(未決着/未到達)。
+	// FT のみ。本スコア差→PK戦スコアの順で判定（server の koWinnerSide と同等）。
+	window.WC.knockoutOutcome = function knockoutOutcome(ca, cb) {
+		if (!ca || !cb || !window.WC.LIVE) return null;
+		const key = window.WC.liveKey(ca, cb);
+		const live = key ? window.WC.LIVE[key] : null;
+		if (!live || live.status !== "FT") return null;
+		const sa = live.scores ? live.scores[ca] : null;
+		const sb = live.scores ? live.scores[cb] : null;
+		if (sa == null || sb == null) return null;
+		if (sa > sb) return "a";
+		if (sb > sa) return "b";
+		const pa = live.pens ? live.pens[ca] : null;
+		const pb = live.pens ? live.pens[cb] : null;
+		if (pa != null && pb != null && pa !== pb) return pa > pb ? "a" : "b";
+		return null;
+	};
+
+	// 試合番号→試合 の索引（SCHEDULE 変化時のみ再構築してメモ化）。
+	let _byNumCache = null;
+	let _byNumSrc = null;
+	function scheduleByNumber() {
+		const sched = window.WC.SCHEDULE || [];
+		if (_byNumSrc !== sched || !_byNumCache) {
+			_byNumCache = window.WC.indexByNumber(sched);
+			_byNumSrc = sched;
+		}
+		return _byNumCache;
+	}
+	// ホーム日程の a/b（実コード or W##/L## スロット）を表示用に解決する。
+	// 勝者確定→実チーム、未決着だが候補2チーム確定→or表示、候補未確定→スロットラベル。
+	window.WC.resolveScheduleTeam = function resolveScheduleTeam(code, round) {
+		return window.WC.resolveScheduleSlot(code, round, {
+			teamMap: window.WC.TEAM || {},
+			byNumber: scheduleByNumber(),
+			outcomeOf: window.WC.knockoutOutcome,
+		});
 	};
 
 	// ---- 放送メディア（日本国内・各局の放送予定より）--------------------------------
