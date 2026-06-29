@@ -52,6 +52,103 @@ export function formatMatchTeam(code, teamMap = {}, round) {
 	return { resolved: false, code: c, label, flag: null };
 }
 
+// note 文字列の先頭の試合番号（"#73 Inglewood" → 73）。無ければ null。
+export function matchNumber(note) {
+	const m = /^#(\d+)/.exec(String(note || "").trim());
+	return m ? Number(m[1]) : null;
+}
+
+// schedule を「試合番号 → 試合」Map に（note の #NN を解析）。重複番号は先勝ち。
+export function indexByNumber(schedule) {
+	const map = new Map();
+	for (const m of Array.isArray(schedule) ? schedule : []) {
+		const n = m && matchNumber(m.note);
+		if (n != null && !map.has(n)) map.set(n, m);
+	}
+	return map;
+}
+
+// W##/L##（=第##試合の勝者/敗者）を実チームコードへ再帰解決。確定できなければ null。
+// ctx = { teamMap, byNumber:Map, outcomeOf(ca,cb)->'a'|'b'|null }。
+//   - 既に実チームコード（teamMap に存在）ならそのまま返す
+//   - feeder 試合の両サイドが実チームに解決でき、かつ勝敗が確定していれば勝者/敗者コードを返す
+//   - 未決着・候補未確定なら null（呼び出し側で「or表示」や「未定」にフォールバック）
+export function concreteSlotCode(code, ctx, depth = 0) {
+	const c = String(code || "");
+	if (ctx.teamMap && ctx.teamMap[c]) return c;
+	if (depth > 8) return null; // ブラケット深さの安全弁（循環/異常データ対策）
+	const m = /^([WL])(\d+)$/.exec(c);
+	if (!m) return null; // 1A/2B/3(...) 等の seed スロットは実チーム未確定として扱う
+	const feeder = ctx.byNumber && ctx.byNumber.get(Number(m[2]));
+	if (!feeder) return null;
+	const ca = concreteSlotCode(feeder.a, ctx, depth + 1);
+	const cb = concreteSlotCode(feeder.b, ctx, depth + 1);
+	if (!ca || !cb) return null;
+	const out = ctx.outcomeOf(ca, cb); // 'a'(ca勝) | 'b'(cb勝) | null
+	if (!out) return null;
+	const winner = out === "a" ? ca : cb;
+	const loser = out === "a" ? cb : ca;
+	return m[1] === "W" ? winner : loser;
+}
+
+// ホーム日程の a/b を表示用に解決する（formatMatchTeam の上位互換）。
+// 戻り値は formatMatchTeam 互換の { resolved, code, label, flag } に加えて pair を持つ:
+//   - 実チーム確定: { resolved:true, code, label(ja), flag, pair:null }
+//   - 勝者未決だが候補2チーム確定: { resolved:false, label:"GER or PAR", pair:{a,b}, flag:null }
+//   - 候補も未確定: 既存のスロットラベル（"ベスト32 勝者" 等）にフォールバック
+export function resolveScheduleSlot(code, round, ctx) {
+	const teamMap = (ctx && ctx.teamMap) || {};
+	const c = String(code || "");
+	if (teamMap[c]) {
+		const t = teamMap[c];
+		return { resolved: true, code: c, label: t.ja, flag: t.flag, pair: null };
+	}
+	const m = /^([WL])(\d+)$/.exec(c);
+	if (m && ctx && ctx.byNumber) {
+		const feeder = ctx.byNumber.get(Number(m[2]));
+		if (feeder) {
+			const ca = concreteSlotCode(feeder.a, ctx, 0);
+			const cb = concreteSlotCode(feeder.b, ctx, 0);
+			if (ca && cb && teamMap[ca] && teamMap[cb]) {
+				const out = ctx.outcomeOf(ca, cb);
+				if (out) {
+					const win = out === "a" ? ca : cb;
+					const lose = out === "a" ? cb : ca;
+					const pick = m[1] === "W" ? win : lose;
+					const t = teamMap[pick];
+					return {
+						resolved: true,
+						code: pick,
+						label: t.ja,
+						flag: t.flag,
+						pair: null,
+					};
+				}
+				const ta = teamMap[ca];
+				const tb = teamMap[cb];
+				return {
+					resolved: false,
+					code: null,
+					flag: null,
+					label: `${ca} or ${cb}`,
+					pair: {
+						a: { code: ca, flag: ta.flag, ja: ta.ja },
+						b: { code: cb, flag: tb.flag, ja: tb.ja },
+					},
+				};
+			}
+		}
+	}
+	const base = formatMatchTeam(c, teamMap, round);
+	return {
+		resolved: false,
+		code: base.code,
+		label: base.label,
+		flag: null,
+		pair: null,
+	};
+}
+
 // schedule を日付ごとにまとめ、日付昇順・各日内は時刻昇順で返す。
 // date 欠落要素は末尾の { date: null } グループへ集約。
 export function groupByDate(schedule) {

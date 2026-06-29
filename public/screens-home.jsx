@@ -95,9 +95,8 @@ function MediaTags({ T, match, justify = "flex-start" }) {
 
 // タイムライン1行：時刻(or スコア) / A vs B / 章ラベル + 放送メディア
 function MatchRow({ T, match, last }) {
-	const teamMap = window.WC.TEAM || {};
-	const a = window.WC.formatMatchTeam(match.a, teamMap, match.round);
-	const b = window.WC.formatMatchTeam(match.b, teamMap, match.round);
+	const a = window.WC.resolveScheduleTeam(match.a, match.round);
+	const b = window.WC.resolveScheduleTeam(match.b, match.round);
 	const label = window.WC.roundLabel(match.round);
 	const live = window.WC.liveForMatch ? window.WC.liveForMatch(match) : null;
 	// スコア表示の元: ライブ優先、無ければ確定結果（GROUP_MATCHES 由来の終了試合）。
@@ -888,9 +887,8 @@ function MatchEvents({ events, aCode, bCode }) {
 // カルーセル1枚分のカード。表示中(active)かどうかでスケール/不透明度を変え、
 // スライド遷移中に隣カードが奥から手前へ立ち上がる奥行き感を出す。
 function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
-	const teamMap = window.WC.TEAM || {};
-	const a = window.WC.formatMatchTeam(match.a, teamMap, match.round);
-	const b = window.WC.formatMatchTeam(match.b, teamMap, match.round);
+	const a = window.WC.resolveScheduleTeam(match.a, match.round);
+	const b = window.WC.resolveScheduleTeam(match.b, match.round);
 	const live = window.WC.liveForMatch ? window.WC.liveForMatch(match) : null;
 
 	// 右上表記: 残り24h未満→"H:MM:SS"、それ以外→"あとN日"/"本日"。
@@ -906,25 +904,59 @@ function MatchSlide({ T, dateStr, match, today, nowMs, active }) {
 	// キックオフ時刻を過ぎたか。ライブ反映のラグに関係なく、応援UIは確実に消す。
 	const kickedOff = koMs != null && nowMs >= koMs;
 
-	const side = (team) => (
-		<div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
-			<div
-				style={{
-					height: 48,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-				}}
-			>
-				{team.resolved && <Flag code={team.code} size={42} />}
+	const side = (team) => {
+		// 勝者未決だが候補2チーム確定 → 2旗＋「A or B」表示
+		if (team.pair) {
+			return (
+				<div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+					<div
+						style={{
+							height: 48,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							gap: 6,
+						}}
+					>
+						<Flag code={team.pair.a.code} size={30} />
+						<span style={{ fontSize: 11, fontWeight: 800, color: T.faint }}>
+							or
+						</span>
+						<Flag code={team.pair.b.code} size={30} />
+					</div>
+					<div
+						style={{
+							fontWeight: 800,
+							fontSize: 12,
+							color: T.sub,
+							marginTop: 6,
+						}}
+					>
+						{team.pair.a.code} or {team.pair.b.code}
+					</div>
+				</div>
+			);
+		}
+		return (
+			<div style={{ textAlign: "center", flex: 1, minWidth: 0 }}>
+				<div
+					style={{
+						height: 48,
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+					}}
+				>
+					{team.resolved && <Flag code={team.code} size={42} />}
+				</div>
+				<div
+					style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}
+				>
+					{team.resolved ? team.code : team.label}
+				</div>
 			</div>
-			<div
-				style={{ fontWeight: 800, fontSize: 13, color: T.text, marginTop: 6 }}
-			>
-				{team.resolved ? team.code : team.label}
-			</div>
-		</div>
-	);
+		);
+	};
 
 	return (
 		<div
