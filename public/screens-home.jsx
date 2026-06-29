@@ -93,6 +93,61 @@ function MediaTags({ T, match, justify = "flex-start" }) {
 	);
 }
 
+// タイムライン1行の片側。確定チーム→旗+コード／候補2チーム→旗+コード"or"旗+コード。
+// reverse=true は b 側（コード→旗の並びにして vs を中心に左右対称にする）。
+function TimelineSide({ T, team, sideStyle, reverse }) {
+	if (team.pair) {
+		const cell = (c) => (
+			<>
+				<Flag code={c.code} size={15} style={{ flexShrink: 0 }} />
+				<span style={{ ...sideStyle, fontSize: 12 }}>{c.code}</span>
+			</>
+		);
+		return (
+			<span
+				style={{
+					display: "inline-flex",
+					alignItems: "center",
+					gap: 3,
+					minWidth: 0,
+				}}
+			>
+				{cell(team.pair.a)}
+				<span style={{ fontSize: 10, fontWeight: 700, color: T.faint }}>
+					or
+				</span>
+				{cell(team.pair.b)}
+			</span>
+		);
+	}
+	const flag = <MiniFlag T={T} team={team} />;
+	const text = (
+		<span style={sideStyle}>{team.resolved ? team.code : team.label}</span>
+	);
+	return (
+		<span
+			style={{
+				display: "inline-flex",
+				alignItems: "center",
+				gap: 6,
+				minWidth: 0,
+			}}
+		>
+			{reverse ? (
+				<>
+					{text}
+					{flag}
+				</>
+			) : (
+				<>
+					{flag}
+					{text}
+				</>
+			)}
+		</span>
+	);
+}
+
 // タイムライン1行：時刻(or スコア) / A vs B / 章ラベル + 放送メディア
 function MatchRow({ T, match, last }) {
 	const a = window.WC.resolveScheduleTeam(match.a, match.round);
@@ -155,8 +210,7 @@ function MatchRow({ T, match, last }) {
 						minWidth: 0,
 					}}
 				>
-					<MiniFlag T={T} team={a} />
-					<span style={sideStyle}>{a.resolved ? a.code : a.label}</span>
+					<TimelineSide T={T} team={a} sideStyle={sideStyle} />
 					<span
 						style={{
 							fontSize: 11,
@@ -167,8 +221,7 @@ function MatchRow({ T, match, last }) {
 					>
 						vs
 					</span>
-					<span style={sideStyle}>{b.resolved ? b.code : b.label}</span>
-					<MiniFlag T={T} team={b} />
+					<TimelineSide T={T} team={b} sideStyle={sideStyle} reverse />
 				</div>
 				<span
 					style={{
