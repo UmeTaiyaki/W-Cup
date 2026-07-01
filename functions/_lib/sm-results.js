@@ -268,6 +268,38 @@ export function deriveEliminated(fixtures) {
 	return [...out];
 }
 
+// グループ敗退国（表示のグレーダウン用）。各組が全試合FTなら 4位以下は即敗退確定。
+// 全12組がFTで3位の best-8 が確定したら、通過しない3位も敗退に加える（3位は全組完了まで暫定）。
+// 順位は computeStandings（FIFA 2026 タイブレーカー）。fairPlay/fifaRank は {code:number}。
+export function deriveGroupEliminated(fixtures, groups, opts = {}) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const fairPlay = opts.fairPlay || {};
+	const fifaRank = opts.fifaRank || {};
+	const out = new Set();
+	const thirdByGroup = {}; // 完了した組の3位コード（best-8 判定用）
+	for (const g of Object.keys(groups || {})) {
+		const members = (groups[g] || []).filter(Boolean);
+		const expected = (members.length * (members.length - 1)) / 2;
+		if (expected <= 0) continue;
+		const ft = ftGroupMatches(members, list);
+		if (ft.length < expected) continue; // 未完 → この組は確定しない
+		const standings = computeStandings(members, ft, { fairPlay, fifaRank });
+		// 4位以降は自組完了で敗退確定（best-8 の対象は3位まで）。
+		for (let i = 3; i < standings.length; i++)
+			if (standings[i]?.code) out.add(standings[i].code);
+		if (standings[2]?.code) thirdByGroup[g] = standings[2].code;
+	}
+	// 全組完了で3位の best-8 が確定したときのみ、非通過の3位を敗退に加える。
+	const qualifying = new Set(
+		deriveThirdGroups(list, groups, { fairPlay, fifaRank }),
+	);
+	if (qualifying.size === 8) {
+		for (const g of Object.keys(thirdByGroup))
+			if (!qualifying.has(g)) out.add(thirdByGroup[g]);
+	}
+	return [...out];
+}
+
 // sm_topscorers 行（配信側で app_code 解決済み）→ 採点 result.topScorer 文字列。
 // 採点 resolve() は "NAME (CODE)" を CODE::正規化名 へ畳むため、この形式に合わせる。
 export function deriveTopScorer(rows) {
@@ -324,6 +356,15 @@ export function deriveResult(fixtures, topscorers, groups, opts = {}) {
 		knockout: deriveKnockout(fixtures),
 		bracket: deriveBracket(fixtures),
 		// 敗退国（表示のグレーダウン用）。採点には使わない。
-		eliminated: deriveEliminated(fixtures),
+		// KO敗者 ∪ グループ敗退（自組完了で4位以下＋全組完了で非通過の3位）。
+		eliminated: [
+			...new Set([
+				...deriveEliminated(fixtures),
+				...deriveGroupEliminated(fixtures, groups, {
+					fairPlay: opts?.fairPlay || {},
+					fifaRank: opts?.fifaRank || {},
+				}),
+			]),
+		],
 	};
 }

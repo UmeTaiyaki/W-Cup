@@ -1337,7 +1337,11 @@ function RoomKnockoutDetail({ T, pred, R }) {
 							T={T}
 							code={code}
 							status={
-								!r32Decided ? "pending" : actR32.has(code) ? "hit" : "miss"
+								actR32.has(code)
+									? "hit"
+									: eliminated.has(code) || r32Decided
+										? "miss"
+										: "pending"
 							}
 						/>
 					)),

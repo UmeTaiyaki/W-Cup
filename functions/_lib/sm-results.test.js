@@ -5,6 +5,7 @@ import {
 	deriveChampion,
 	deriveEliminated,
 	deriveFairPlay,
+	deriveGroupEliminated,
 	deriveGroupMatches,
 	deriveGroupResult,
 	deriveKnockout,
@@ -95,6 +96,39 @@ test("deriveGroupResult は未完（FT<6）のグループは空配列", () => {
 	];
 	const gr = deriveGroupResult(partial, { A: ["MEX", "KOR", "RSA", "CZE"] });
 	assert.deepEqual(gr.A, []);
+});
+
+test("deriveGroupEliminated は完了した組の4位を敗退にする（3位は全組完了まで暫定）", () => {
+	const m = (a, b, ga, gb) => ({
+		status: "FT",
+		home: { app_code: a, score: ga },
+		away: { app_code: b, score: gb },
+	});
+	const full = [
+		m("MEX", "KOR", 2, 0),
+		m("MEX", "RSA", 2, 0),
+		m("MEX", "CZE", 2, 0),
+		m("KOR", "RSA", 1, 0),
+		m("KOR", "CZE", 1, 0),
+		m("RSA", "CZE", 1, 0),
+	];
+	// 順位 MEX>KOR>RSA>CZE。4位CZEのみ敗退（1組だけなので3位RSAは best-8 未確定＝暫定）。
+	const el = deriveGroupEliminated(full, { A: ["MEX", "KOR", "RSA", "CZE"] });
+	assert.deepEqual(el, ["CZE"]);
+});
+
+test("deriveGroupEliminated は未完の組では敗退を出さない", () => {
+	const partial = [
+		{
+			status: "FT",
+			home: { app_code: "MEX", score: 1 },
+			away: { app_code: "KOR", score: 0 },
+		},
+	];
+	assert.deepEqual(
+		deriveGroupEliminated(partial, { A: ["MEX", "KOR", "RSA", "CZE"] }),
+		[],
+	);
 });
 
 // ---- deriveFairPlay（タイブレーカー⑦）----
