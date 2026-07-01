@@ -210,6 +210,10 @@
 		GROUPS,
 		GROUP_RESULT: {},
 		RESULT,
+		// 自動(/api/results)マージの pristine な土台となる「手動(config)結果」。
+		// fetchResults は毎回この手動ベースへ最新の自動値を重ねる（前回取得した自動値を
+		// 手動と誤認して凍結しないため）。config 取得時に上書きされる。
+		RESULT_MANUAL: JSON.parse(JSON.stringify(RESULT)),
 		THEMES,
 		GROUP_MATCHES: {},
 		SCORERS: [],
@@ -252,6 +256,9 @@
 			if (cfg.groupMatches && typeof cfg.groupMatches === "object") {
 				window.WC.GROUP_MATCHES = cfg.groupMatches;
 			}
+			// 手動(config)結果を pristine 土台として確定。以降の fetchResults は毎回
+			// これに自動値を重ねるので、進行中のノックアウト到達が↻で正しく更新される。
+			window.WC.RESULT_MANUAL = JSON.parse(JSON.stringify(window.WC.RESULT));
 			if (Array.isArray(cfg.scorers)) window.WC.SCORERS = cfg.scorers;
 			if (cfg.squads && typeof cfg.squads === "object")
 				window.WC.SQUADS = cfg.squads;
@@ -419,8 +426,11 @@
 			if (!res.ok) return false;
 			const data = await res.json();
 			if (!data || data.enabled === false || !data.result) return false;
+			// 蓄積された window.WC.RESULT ではなく pristine な手動ベースに毎回重ねる。
+			// 前者だと初回取得した自動ノックアウトが「手動」と誤認され、以降↻しても
+			// 更新されず凍結する（先行スロットの誤加点が残り続ける）。
 			window.WC.RESULT = _mergePreferManual(
-				window.WC.RESULT || {},
+				window.WC.RESULT_MANUAL || window.WC.RESULT || {},
 				data.result,
 			);
 			if (data.result.groupResult) {
