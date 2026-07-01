@@ -1136,35 +1136,49 @@ function RoomCorePick({
 function RoomResultChip({ T, code, lead, status, pts }) {
 	const TEAM = window.WC.TEAM || {};
 	const tm = TEAM[code];
+	const hit = status === "hit";
+	const miss = status === "miss";
 	return (
 		<span
 			style={{
 				display: "inline-flex",
 				alignItems: "center",
-				gap: 4,
-				background: T.panel2,
-				borderRadius: 8,
-				padding: "3px 7px",
-				opacity: status === "miss" ? 0.55 : 1,
+				gap: 5,
+				background: hit ? `${T.accent}1A` : T.panel2,
+				border: `1px solid ${hit ? `${T.accent}59` : T.line}`,
+				borderRadius: 999,
+				padding: "3px 9px 3px 7px",
+				opacity: miss ? 0.5 : 1,
 			}}
 		>
 			{lead != null && (
-				<span style={{ fontSize: 10, fontWeight: 800, color: T.faint }}>
+				<span
+					style={{
+						fontSize: 10,
+						fontWeight: 800,
+						color: hit ? T.accent : T.faint,
+						letterSpacing: 0.2,
+					}}
+				>
 					{lead}
 				</span>
 			)}
 			<Flag code={code} size={14} />
-			<span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>
+			<span
+				style={{
+					fontSize: 12,
+					fontWeight: 700,
+					color: T.text,
+					textDecoration: miss ? "line-through" : "none",
+					textDecorationColor: miss ? T.faint : undefined,
+				}}
+			>
 				{tm ? tm.ja : code}
 			</span>
-			{status === "hit" && (
-				<Icon name="check" size={11} color={T.accent} sw={2.6} />
-			)}
-			{status === "miss" && (
-				<Icon name="close" size={11} color={T.faint} sw={2.6} />
-			)}
-			{status === "hit" && pts ? (
-				<span style={{ fontSize: 10, fontWeight: 800, color: T.accent }}>
+			{hit && <Icon name="check" size={11} color={T.accent} sw={2.8} />}
+			{miss && <Icon name="close" size={11} color={T.faint} sw={2.8} />}
+			{hit && pts ? (
+				<span style={{ fontSize: 10, fontWeight: 900, color: T.accent }}>
 					+{pts}
 				</span>
 			) : null}
@@ -1187,7 +1201,7 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 		);
 	const POS = ["1位", "2位", "3位", "4位"];
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 			{letters.map((k) => {
 				const mine = (gr[k] || []).slice(0, 3);
 				const members = GROUPS[k] || [];
@@ -1209,13 +1223,19 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 					>
 						<span
 							style={{
-								width: 16,
 								flexShrink: 0,
+								width: 24,
+								height: 24,
+								display: "inline-flex",
+								alignItems: "center",
+								justifyContent: "center",
+								borderRadius: 8,
+								background: T.panel2,
+								border: `1px solid ${T.line}`,
 								fontFamily: "Archivo",
 								fontWeight: 900,
 								fontSize: 13,
 								color: T.sub,
-								lineHeight: "24px",
 							}}
 						>
 							{k}
@@ -1311,12 +1331,20 @@ function RoomKnockoutDetail({ T, pred, R }) {
 		>
 			<span
 				style={{
-					width: 30,
 					flexShrink: 0,
+					minWidth: 36,
+					height: 24,
+					display: "inline-flex",
+					alignItems: "center",
+					justifyContent: "center",
+					padding: "0 7px",
+					borderRadius: 8,
+					background: T.panel2,
+					border: `1px solid ${T.line}`,
 					fontSize: 11,
 					fontWeight: 800,
 					color: T.sub,
-					lineHeight: "24px",
+					whiteSpace: "nowrap",
 				}}
 			>
 				{label}
@@ -1326,7 +1354,7 @@ function RoomKnockoutDetail({ T, pred, R }) {
 	);
 
 	return (
-		<div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+		<div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 			{predR32.length > 0 &&
 				Row(
 					"r32in",
