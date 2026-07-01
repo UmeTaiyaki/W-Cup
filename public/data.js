@@ -111,6 +111,7 @@
 		topScorer: "",
 		groupResult: {},
 		knockout: { r32: [], r16: [], qf: [], sf: [] },
+		eliminated: [], // 敗退国（FTのKO敗者）。表示のグレーダウン用。
 		thirdAssign: {},
 	};
 

@@ -248,6 +248,26 @@ export function deriveBracket(fixtures) {
 	return out;
 }
 
+// 敗退した app_code 群（表示のグレーダウン用）。FTのノックアウト戦（含む決勝・3位決定戦）の
+// 敗者側を集める。勝者は次段へ進むので敗退ではない。未FT/勝敗未確定は含めない。
+// 決勝の敗者（準優勝）も「以降の試合が無い」意味で敗退集合に含める（各表示側は自分の判定より
+// 優先度低く使う想定）。KO敗退のみを対象とし、グループ敗退はここでは扱わない。
+export function deriveEliminated(fixtures) {
+	const list = Array.isArray(fixtures) ? fixtures : [];
+	const out = new Set();
+	for (const fx of list) {
+		if (fx?.status !== "FT") continue;
+		const isKo = roundKey(fx?.round_name) || isFinalRound(fx?.round_name);
+		if (!isKo) continue;
+		const side = koWinnerSide(fx);
+		if (!side) continue;
+		// 敗者 = 勝者の反対側。
+		const loser = side === "home" ? fx?.away?.app_code : fx?.home?.app_code;
+		if (loser) out.add(loser);
+	}
+	return [...out];
+}
+
 // sm_topscorers 行（配信側で app_code 解決済み）→ 採点 result.topScorer 文字列。
 // 採点 resolve() は "NAME (CODE)" を CODE::正規化名 へ畳むため、この形式に合わせる。
 export function deriveTopScorer(rows) {
@@ -303,5 +323,7 @@ export function deriveResult(fixtures, topscorers, groups, opts = {}) {
 		}),
 		knockout: deriveKnockout(fixtures),
 		bracket: deriveBracket(fixtures),
+		// 敗退国（表示のグレーダウン用）。採点には使わない。
+		eliminated: deriveEliminated(fixtures),
 	};
 }
