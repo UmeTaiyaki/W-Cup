@@ -201,6 +201,32 @@ test("deriveChampion は決勝が未FTなら null/null", () => {
 });
 
 const koFixtures = [
+	// Round of 32（FT）→ 勝者が R16 到達を確定させる
+	{
+		status: "FT",
+		round_name: "Round of 32",
+		home: { app_code: "ARG", score: 3 },
+		away: { app_code: "AUS", score: 0 },
+	},
+	{
+		status: "FT",
+		round_name: "Round of 32",
+		home: { app_code: "MEX", score: 1 },
+		away: { app_code: "POL", score: 0 },
+	},
+	{
+		status: "FT",
+		round_name: "Round of 32",
+		home: { app_code: "FRA", score: 2 },
+		away: { app_code: "SEN", score: 1 },
+	},
+	{
+		status: "FT",
+		round_name: "Round of 32",
+		home: { app_code: "ESP", score: 2 },
+		away: { app_code: "JPN", score: 0 },
+	},
+	// Round of 16（FT）→ 勝者が QF 到達を確定
 	{
 		status: "FT",
 		round_name: "Round of 16",
@@ -213,6 +239,7 @@ const koFixtures = [
 		home: { app_code: "FRA", score: 1 },
 		away: { app_code: "ESP", score: 0 },
 	},
+	// Quarter-finals（FT）→ 勝者が SF 到達を確定
 	{
 		status: "FT",
 		round_name: "Quarter-finals",
@@ -223,9 +250,50 @@ const koFixtures = [
 
 test("deriveKnockout は各ラウンドに到達した app_code 群（重複なし）", () => {
 	const ko = deriveKnockout(koFixtures);
-	assert.deepEqual(ko.r16.sort(), ["ARG", "ESP", "FRA", "MEX"].sort());
+	// r32 到達 = KO入口（グループ突破）。r32 fixture の参加者。
+	assert.deepEqual(
+		ko.r32.sort(),
+		["ARG", "AUS", "MEX", "POL", "FRA", "SEN", "ESP", "JPN"].sort(),
+	);
+	// r16/qf/sf 到達 = 前ラウンドの FT 勝者。
+	assert.deepEqual(ko.r16.sort(), ["ARG", "MEX", "FRA", "ESP"].sort());
 	assert.deepEqual(ko.qf.sort(), ["ARG", "FRA"].sort());
-	assert.deepEqual(ko.r32, []);
+	assert.deepEqual(ko.sf, ["ARG"]);
+});
+
+test("deriveKnockout は未FTの先行スロット参加者を到達に含めない（前ラウンド勝利で確定）", () => {
+	const fx = [
+		// R32 全FT → BRA/CRO が R16 到達を確定
+		{
+			status: "FT",
+			round_name: "Round of 32",
+			home: { app_code: "BRA", score: 4 },
+			away: { app_code: "KOR", score: 1 },
+		},
+		{
+			status: "FT",
+			round_name: "Round of 32",
+			home: { app_code: "CRO", score: 1 },
+			away: { app_code: "JPN", score: 0 },
+		},
+		// R16 は組まれているが未消化（NS）
+		{
+			status: "NS",
+			round_name: "Round of 16",
+			home: { app_code: "BRA", score: null },
+			away: { app_code: "CRO", score: null },
+		},
+		// SportMonks が QF スロットに BRA を先行表示（NS）→ QF 到達は未確定
+		{
+			status: "NS",
+			round_name: "Quarter-finals",
+			home: { app_code: "BRA", score: null },
+			away: { app_code: null, score: null },
+		},
+	];
+	const ko = deriveKnockout(fx);
+	assert.deepEqual(ko.r16.sort(), ["BRA", "CRO"].sort()); // R32勝利で確定
+	assert.deepEqual(ko.qf, []); // R16未消化 → 先行スロットでは加点しない
 	assert.deepEqual(ko.sf, []);
 });
 
