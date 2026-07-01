@@ -207,35 +207,23 @@ export function deriveChampion(fixtures) {
 
 const KO_ROUNDS = ["r32", "r16", "qf", "sf"];
 
-// 各ノックアウト round に「到達した」app_code 群（採点 knockout 用）。
-// 到達は前ラウンドの勝利で確定する（モジュール不変条件: 採点はFT試合のみ）:
-//   r16 = r32のFT勝者 / qf = r16のFT勝者 / sf = qfのFT勝者。
-// SportMonks は未消化の後段ラウンド fixture に勝ち上がり予定チームを先行スロットする
-// ことがあるため、fixture の参加者存在では加点しない（旧実装はここで確定前に加点していた）。
-// r32 到達だけは KO 入口＝グループ突破で確定するので r32 fixture の参加者をそのまま採用する。
+// 各ノックアウト round の「FT勝者」app_code 群（採点 knockout 用）。
+// koRes[r] = ラウンド r に勝利し次段の強さへ勝ち上がったチーム（r32勝者=ベスト16入り,
+// r16勝者=ベスト8入り, qf勝者=ベスト4入り, sf勝者=決勝進出）。
+// 採点の pred.knockout[r]（各ラウンドの勝者予想＝UIで勝者をタップ）と同一意味論で突合する。
+// モジュール不変条件どおり status==="FT" のFT勝者のみ数える。SportMonks が未消化の後段
+// ラウンド fixture に勝ち上がり予定チームを先行スロットしても、勝敗未確定なので除外される。
 export function deriveKnockout(fixtures) {
 	const list = Array.isArray(fixtures) ? fixtures : [];
 	const out = { r32: new Set(), r16: new Set(), qf: new Set(), sf: new Set() };
-	// 当該ラウンドの勝者が到達する次ラウンド。
-	const advance = { r32: "r16", r16: "qf", qf: "sf" };
 	for (const fx of list) {
+		if (fx?.status !== "FT") continue;
 		const k = roundKey(fx?.round_name);
-		if (!k) continue;
-		if (k === "r32") {
-			// KO入口: グループ突破で確定済み。r32 fixture の参加者を到達扱い。
-			const a = fx?.home?.app_code,
-				b = fx?.away?.app_code;
-			if (a) out.r32.add(a);
-			if (b) out.r32.add(b);
-		}
-		// FT勝者は次ラウンド到達が確定する（PK決着含む）。
-		if (fx?.status === "FT" && advance[k]) {
-			const side = koWinnerSide(fx);
-			if (side) {
-				const w = side === "home" ? fx?.home?.app_code : fx?.away?.app_code;
-				if (w) out[advance[k]].add(w);
-			}
-		}
+		if (!k || !out[k]) continue;
+		const side = koWinnerSide(fx); // PK決着も含めFT勝者側を確定
+		if (!side) continue;
+		const w = side === "home" ? fx?.home?.app_code : fx?.away?.app_code;
+		if (w) out[k].add(w);
 	}
 	return Object.fromEntries(KO_ROUNDS.map((k) => [k, [...out[k]]]));
 }
