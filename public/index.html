@@ -95,6 +95,7 @@
     import { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday, matchNumber, indexByNumber, concreteSlotCode, resolveScheduleSlot } from './lib/schedule-view.js?v=2';
     import { parseFavs, toggleFav, teamFixtures, groupOf } from './lib/teams.js';
     import { validateDoc, validateTeam, unknownPicks, getTeamAnalysis, hasAnalysis } from './lib/ai-analysis.js';
+    import { buildShootoutTimeline, isShootoutEvent } from './lib/shootout.js';
     window.WC = window.WC || {};
     window.WC.teamsLib = { parseFavs, toggleFav, teamFixtures, groupOf };
     window.WC.aiLib = { validateDoc, validateTeam, unknownPicks, getTeamAnalysis, hasAnalysis };
@@ -102,6 +103,7 @@
     Object.assign(window.WC, { availableCards, groupTop2, parseScorer, shareFilename, shareText, drawShareCard, canvasToBlob, shareOrDownload, downloadBlob, ensureFonts });
     Object.assign(window.WC, { groupByDate, pickFocusDate, roundLabel, formatMatchTeam, jstToday, matchNumber, indexByNumber, concreteSlotCode, resolveScheduleSlot });
     Object.assign(window.WC, { normalize, canonicalKey, resolve, buildAliasMap, upsertAlias, rosterCanonicalSet, autoMatchScorer });
+    Object.assign(window.WC, { buildShootoutTimeline, isShootoutEvent });
     // 採点が参照する groupResult を「確定 → 暫定」の順で解決する。確定（全試合FT由来）が
     // あるグループは確定を、無いグループは暫定順位（全チーム1試合以上消化後の top3）を使う。
     // 採点ラッパと screens-rank の resultsLive 判定で共用する。
@@ -138,7 +140,7 @@
   <script type="text/babel" src="onboarding.jsx?v=15"></script>
   <script type="text/babel" src="screens-rooms.jsx?v=20"></script>
   <script type="text/babel" src="screens-home.jsx?v=26"></script>
-  <script type="text/babel" src="screens-detail.jsx?v=43"></script>
+  <script type="text/babel" src="screens-detail.jsx?v=44"></script>
   <script type="text/babel" src="screens-teams.jsx?v=5"></script>
 
   <script type="text/babel">
