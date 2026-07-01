@@ -809,6 +809,26 @@ function TimelineTab({ T, detail }) {
 	const fx = detail && detail.fixture;
 	const homeTeamId = fx && fx.home && fx.home.team_id;
 
+	// PK戦（ペナルティシュートアウト）は本編タイムラインから分離して専用セクションで描画する。
+	const wc = (typeof window !== "undefined" && window.WC) || {};
+	const isShootout = wc.isShootoutEvent || (() => false);
+	const shootoutRows = wc.buildShootoutTimeline
+		? wc.buildShootoutTimeline(events, homeTeamId)
+		: [];
+	// 見出しスコア: pen_score があればそれを、無ければ明細の最終累積スコアでフォールバック。
+	const penHome = fx && fx.home ? fx.home.pen_score : null;
+	const penAway = fx && fx.away ? fx.away.pen_score : null;
+	const lastRun = shootoutRows.length
+		? shootoutRows[shootoutRows.length - 1].running
+		: null;
+	const penLabel =
+		penHome != null && penAway != null
+			? `${penHome}-${penAway}`
+			: lastRun
+				? `${lastRun.home}-${lastRun.away}`
+				: "";
+	const showShootout = shootoutRows.length > 0 || penLabel !== "";
+
 	// 新着イベントだけアニメ（初回ロードは静か＝既存全件を seen に積む）
 	const seenRef = React.useRef(new Set());
 	const firstRef = React.useRef(true);
@@ -874,14 +894,16 @@ function TimelineTab({ T, detail }) {
 
 	// 時系列順: minute → extra_minute → sort_order(同分内の安定化)。
 	// sort_order 単独は SportMonks の型別連番でグローバル時系列にならないため主キーにしない。
-	const sorted = [...events].sort(
-		(a, b) =>
-			(a.minute ?? 0) - (b.minute ?? 0) ||
-			(a.extra_minute ?? 0) - (b.extra_minute ?? 0) ||
-			(a.sort_order ?? 0) - (b.sort_order ?? 0),
-	);
+	const sorted = [...events]
+		.filter((e) => !isShootout(e.type))
+		.sort(
+			(a, b) =>
+				(a.minute ?? 0) - (b.minute ?? 0) ||
+				(a.extra_minute ?? 0) - (b.extra_minute ?? 0) ||
+				(a.sort_order ?? 0) - (b.sort_order ?? 0),
+		);
 
-	if (sorted.length === 0) {
+	if (sorted.length === 0 && !showShootout) {
 		const emptyMsg =
 			fx && fx.status === "NS"
 				? "キックオフ後にイベントが表示されます"
@@ -903,139 +925,270 @@ function TimelineTab({ T, detail }) {
 
 	return (
 		<div style={{ padding: "14px" }}>
-			{/* 中心ライン付き タイムライン */}
-			<div style={{ position: "relative" }}>
-				{/* 縦中心線 */}
-				<div
-					style={{
-						position: "absolute",
-						left: "50%",
-						top: 4,
-						bottom: 4,
-						width: 2,
-						transform: "translateX(-50%)",
-						background: T.line,
-					}}
-				/>
+			{/* 中心ライン付き タイムライン（本編。PK戦は除外済み） */}
+			{sorted.length > 0 && (
+				<div style={{ position: "relative" }}>
+					{/* 縦中心線 */}
+					<div
+						style={{
+							position: "absolute",
+							left: "50%",
+							top: 4,
+							bottom: 4,
+							width: 2,
+							transform: "translateX(-50%)",
+							background: T.line,
+						}}
+					/>
 
-				{sorted.map((ev, i) => {
-					const isHome = ev.team_id === homeTeamId;
-					const icon = eventIcon(ev.type);
-					const isOwnGoal = ev.type === "own_goal";
-					const isSub = ev.type === "substitution";
-					const isCancelled =
-						ev.type === "goal_disallowed" || ev.type === "var_goal_disallowed";
-					const note = eventNote(ev.type);
-					const playerStyle = {
-						fontWeight: 700,
-						color: isOwnGoal || isCancelled ? T.sub : T.text,
-						textDecoration: isCancelled ? "line-through" : undefined,
-					};
-					const isNew = ev.sm_event_id != null && newIdSet.has(ev.sm_event_id);
+					{sorted.map((ev, i) => {
+						const isHome = ev.team_id === homeTeamId;
+						const icon = eventIcon(ev.type);
+						const isOwnGoal = ev.type === "own_goal";
+						const isSub = ev.type === "substitution";
+						const isCancelled =
+							ev.type === "goal_disallowed" ||
+							ev.type === "var_goal_disallowed";
+						const note = eventNote(ev.type);
+						const playerStyle = {
+							fontWeight: 700,
+							color: isOwnGoal || isCancelled ? T.sub : T.text,
+							textDecoration: isCancelled ? "line-through" : undefined,
+						};
+						const isNew =
+							ev.sm_event_id != null && newIdSet.has(ev.sm_event_id);
 
-					const iconNode = icon ? (
-						<span style={{ display: "inline-flex", alignItems: "center" }}>
-							{icon}
-						</span>
-					) : null;
+						const iconNode = icon ? (
+							<span style={{ display: "inline-flex", alignItems: "center" }}>
+								{icon}
+							</span>
+						) : null;
 
-					// ホーム→左側、アウェイ→右側
-					return (
-						<div
-							key={ev.sm_event_id || `ev-${i}`}
+						// ホーム→左側、アウェイ→右側
+						return (
+							<div
+								key={ev.sm_event_id || `ev-${i}`}
+								style={{
+									display: "flex",
+									alignItems: "center",
+									margin: "13px 0",
+									fontSize: 12,
+									position: "relative",
+									borderRadius: 8,
+									animation: isNew
+										? "wcEventIn .45s ease both, wcEventFlash 1.4s ease both"
+										: undefined,
+								}}
+							>
+								{/* ホーム側 (左) */}
+								<div
+									style={{
+										flex: 1,
+										display: "flex",
+										alignItems: "center",
+										gap: 6,
+										justifyContent: "flex-end",
+										paddingRight: 38,
+										textAlign: "right",
+									}}
+								>
+									{isHome && (
+										<>
+											{isSub && ev.related_player_name && (
+												<span style={{ color: T.sub, fontSize: 10.5 }}>
+													→{ev.related_player_name}
+												</span>
+											)}
+											{note && (
+												<span style={{ color: T.sub, fontSize: 10.5 }}>
+													{note}
+												</span>
+											)}
+											<span style={playerStyle}>{ev.player_name}</span>
+											{iconNode}
+										</>
+									)}
+								</div>
+
+								{/* 中心: 分表示 */}
+								<span
+									style={{
+										position: "absolute",
+										left: "50%",
+										transform: "translateX(-50%)",
+										fontSize: 9.5,
+										fontWeight: 800,
+										color: T.sub,
+										background: T.bg,
+										padding: "2px 0",
+										width: 32,
+										textAlign: "center",
+										zIndex: 1,
+									}}
+								>
+									{fmtMin(ev)}
+								</span>
+
+								{/* アウェイ側 (右) */}
+								<div
+									style={{
+										flex: 1,
+										display: "flex",
+										alignItems: "center",
+										gap: 6,
+										justifyContent: "flex-start",
+										paddingLeft: 38,
+									}}
+								>
+									{!isHome && (
+										<>
+											{iconNode}
+											<span style={playerStyle}>{ev.player_name}</span>
+											{isSub && ev.related_player_name && (
+												<span style={{ color: T.sub, fontSize: 10.5 }}>
+													→{ev.related_player_name}
+												</span>
+											)}
+											{note && (
+												<span style={{ color: T.sub, fontSize: 10.5 }}>
+													{note}
+												</span>
+											)}
+										</>
+									)}
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			)}
+
+			{/* PK戦（ペナルティシュートアウト）専用セクション */}
+			{showShootout && (
+				<div style={{ marginTop: sorted.length > 0 ? 18 : 0 }}>
+					{/* 見出し: ── PK戦 3-2 ── */}
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 8,
+							margin: "6px 0 12px",
+						}}
+					>
+						<div style={{ flex: 1, height: 1, background: T.line }} />
+						<span
 							style={{
-								display: "flex",
-								alignItems: "center",
-								margin: "13px 0",
-								fontSize: 12,
-								position: "relative",
-								borderRadius: 8,
-								animation: isNew
-									? "wcEventIn .45s ease both, wcEventFlash 1.4s ease both"
-									: undefined,
+								fontSize: 11,
+								fontWeight: 800,
+								color: T.sub,
+								whiteSpace: "nowrap",
 							}}
 						>
-							{/* ホーム側 (左) */}
-							<div
-								style={{
-									flex: 1,
-									display: "flex",
-									alignItems: "center",
-									gap: 6,
-									justifyContent: "flex-end",
-									paddingRight: 38,
-									textAlign: "right",
-								}}
-							>
-								{isHome && (
-									<>
-										{isSub && ev.related_player_name && (
-											<span style={{ color: T.sub, fontSize: 10.5 }}>
-												→{ev.related_player_name}
-											</span>
-										)}
-										{note && (
-											<span style={{ color: T.sub, fontSize: 10.5 }}>
-												{note}
-											</span>
-										)}
-										<span style={playerStyle}>{ev.player_name}</span>
-										{iconNode}
-									</>
-								)}
-							</div>
+							{penLabel ? `PK戦 ${penLabel}` : "PK戦"}
+						</span>
+						<div style={{ flex: 1, height: 1, background: T.line }} />
+					</div>
 
-							{/* 中心: 分表示 */}
-							<span
-								style={{
-									position: "absolute",
-									left: "50%",
-									transform: "translateX(-50%)",
-									fontSize: 9.5,
-									fontWeight: 800,
-									color: T.sub,
-									background: T.bg,
-									padding: "2px 0",
-									width: 32,
-									textAlign: "center",
-									zIndex: 1,
-								}}
-							>
-								{fmtMin(ev)}
-							</span>
+					{/* 明細（中心線つき。本編と同じ左右レイアウト） */}
+					<div style={{ position: "relative" }}>
+						<div
+							style={{
+								position: "absolute",
+								left: "50%",
+								top: 4,
+								bottom: 4,
+								width: 2,
+								transform: "translateX(-50%)",
+								background: T.line,
+							}}
+						/>
+						{shootoutRows.map(({ ev, running }, i) => {
+							const isHome = ev.team_id === homeTeamId;
+							const success = ev.type === "pen_shootout_goal";
+							const icon = success ? <IcoSoccerBall /> : <IcoMissedPen />;
+							const nameStyle = {
+								fontWeight: 700,
+								color: success ? T.text : T.sub,
+							};
+							const iconNode = (
+								<span style={{ display: "inline-flex", alignItems: "center" }}>
+									{icon}
+								</span>
+							);
+							return (
+								<div
+									key={ev.sm_event_id || `pk-${i}`}
+									style={{
+										display: "flex",
+										alignItems: "center",
+										margin: "11px 0",
+										fontSize: 12,
+										position: "relative",
+									}}
+								>
+									{/* ホーム側 (左) */}
+									<div
+										style={{
+											flex: 1,
+											display: "flex",
+											alignItems: "center",
+											gap: 6,
+											justifyContent: "flex-end",
+											paddingRight: 38,
+											textAlign: "right",
+										}}
+									>
+										{isHome && (
+											<>
+												<span style={nameStyle}>{ev.player_name}</span>
+												{iconNode}
+											</>
+										)}
+									</div>
 
-							{/* アウェイ側 (右) */}
-							<div
-								style={{
-									flex: 1,
-									display: "flex",
-									alignItems: "center",
-									gap: 6,
-									justifyContent: "flex-start",
-									paddingLeft: 38,
-								}}
-							>
-								{!isHome && (
-									<>
-										{iconNode}
-										<span style={playerStyle}>{ev.player_name}</span>
-										{isSub && ev.related_player_name && (
-											<span style={{ color: T.sub, fontSize: 10.5 }}>
-												→{ev.related_player_name}
-											</span>
+									{/* 中心: 累積スコア */}
+									<span
+										style={{
+											position: "absolute",
+											left: "50%",
+											transform: "translateX(-50%)",
+											fontSize: 9.5,
+											fontWeight: 800,
+											color: T.sub,
+											background: T.bg,
+											padding: "2px 3px",
+											minWidth: 32,
+											textAlign: "center",
+											zIndex: 1,
+										}}
+									>
+										{running.home}-{running.away}
+									</span>
+
+									{/* アウェイ側 (右) */}
+									<div
+										style={{
+											flex: 1,
+											display: "flex",
+											alignItems: "center",
+											gap: 6,
+											justifyContent: "flex-start",
+											paddingLeft: 38,
+										}}
+									>
+										{!isHome && (
+											<>
+												{iconNode}
+												<span style={nameStyle}>{ev.player_name}</span>
+											</>
 										)}
-										{note && (
-											<span style={{ color: T.sub, fontSize: 10.5 }}>
-												{note}
-											</span>
-										)}
-									</>
-								)}
-							</div>
-						</div>
-					);
-				})}
-			</div>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
