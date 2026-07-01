@@ -1256,6 +1256,8 @@ function RoomGroupRankDetail({ T, pred, grRes }) {
 function RoomKnockoutDetail({ T, pred, R }) {
 	const p = pred || {};
 	const koRes = (R && R.knockout) || {};
+	// 敗退国（FTのKO敗者）。未到達でも敗退が確定していればグレーダウン（miss）にする。
+	const eliminated = new Set((R && R.eliminated) || []);
 	const ko = p.knockout || {};
 	const order = ["r32", "r16", "qf", "sf"];
 	const LENS = { r32: 16, r16: 8, qf: 4, sf: 2 };
@@ -1287,7 +1289,7 @@ function RoomKnockoutDetail({ T, pred, R }) {
 			</div>
 		);
 
-	// チーム t が round[ri] の勝者になったか。hit / miss(満枠=全試合終了で外れ) / pending(未終了)。
+	// チーム t が round[ri] の勝者になったか。hit / miss(満枠=全試合終了 or 敗退確定で外れ) / pending(未終了)。
 	const statusOf = (t, ri) => {
 		for (let j = 0; j <= ri; j++) {
 			const s = order[j];
@@ -1296,7 +1298,8 @@ function RoomKnockoutDetail({ T, pred, R }) {
 				if (j === ri) return "hit";
 				continue;
 			}
-			return arr.length >= LENS[s] ? "miss" : "pending";
+			// 満枠(全試合終了)で未到達、または既に敗退が確定していれば外れ（グレーダウン）。
+			return arr.length >= LENS[s] || eliminated.has(t) ? "miss" : "pending";
 		}
 		return "pending";
 	};
